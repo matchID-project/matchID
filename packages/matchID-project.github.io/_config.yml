@@ -1,0 +1,98 @@
+name: matchID
+title: matchID project
+email: matchid.project@gmail.com
+description: |
+  Traitements d'identités
+  <br/><br/>
+  Entreprises, administrations, développeurs
+  <br/>
+  mettez en qualité et appariez vos bases de quelques milliers à cent millions d'identités
+baseurl: ""
+url: "https://matchid.io"
+google_analytics: "G-49J1J0GERX"
+google_adsense: "ca-pub-6277851622494904"
+google_site_verification: "7mKyk4ToRBf-9PLRfeJwO3N0NPLroTzdstUmkdrU0jE"
+locale: fr_FR
+twitter:
+  username: fabien_antoine
+  card: summary
+
+authors:
+  - name: Fabien ANTOINE
+    image: fabien.jpeg
+    github: rhanka
+    linkedin: fabien-antoine-ia
+    email: fabien.antoine@m4x.org
+    desc: Fabien est ingénieur et travaillait au sein de ministères régaliens sur la data et l'IA.
+          Concepteur de matchID et de deces.matchid.io, il développe toujours avec plaisir
+          les algorithmes aussi bien que les UI, sur son temps libre.
+          Depuis 2022, il travaille en IT et IA à Montréal, et reste passionné par les projets d'intérêt général.
+    twitter: fabien_antoine
+
+  - name: Cristian PEREZ BROKATE
+    github: cristianpb
+    linkedin: cristianperezbrokate
+    image: cristian.jpeg
+    email: cristian.perez-brokate@interieur.gouv.fr
+    twitter: cris_perez_b
+    desc: Cristian est phD passionné de développement et technologie, expert en deeplearning. Il travaille
+          aujourd'hui au ministère de l'Intérieur, où il a créé <a href="https://iaflash.fr">IA Flash</a>, et
+          contribue activement à matchID avec la création de l'API décès.
+
+  - name: Simon CAQUÉ
+    image: simon.jpg
+    linkedin: simoncaque
+    twitter: simoncaque
+    desc: Docteur en droit et diplômé en affaires publiques de l’IEP de Paris, Simon s’est spécialisé
+          dans la transformation des administrations, notamment à travers le numérique. Passionné par
+          ces sujets, il travaille à l’innovation dans les ministères, enseigne à l’université et
+          contribue à MatchID sur les aspects juridiques et financiers.
+
+
+project:
+  general:
+    name: matchID
+    repo: matchID-project
+  matchid_backend:
+    name: automatisation des traitements
+    repo: matchID-project/backend
+    download: "https://github.com/matchID-project/backend/archive/master.zip"
+  matchid_frontend:
+    name: développement des traitements
+    repo: matchID-project/frontend
+    download: "https://github.com/matchID-project/frontend/archive/master.zip"
+  examples:
+    name: exemples de traitements
+    repo: matchID-project/examples
+    download: "https://github.com/matchID-project/examples/archive/master.zip"
+  deces_backend:
+    name: API décès
+    repo: matchID-project/deces-backend
+  deces_ui:
+    name: moteur de recherche des décès
+    repo: matchID-project/deces-ui
+github_url: "https://github.com/"
+linkedin_url: "https://www.linkedin.com/in/"
+twitter_url: "https://x.com/"
+# Build settings
+github: [metadata]
+theme: minima
+markdown: kramdown
+
+# sass:
+#   style: compressed
+#   sass_dir: _sass
+
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+  - jekyll-feed
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/

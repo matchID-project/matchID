@@ -1,0 +1,471 @@
+info:
+  version: '0.1'
+  description: API for data matching developpement
+  title: matchID API
+paths:
+  "/authorize/{provider}":
+    parameters:
+    - required: true
+      type: string
+      name: provider
+      in: path
+    get:
+      operationId: get_o_auth_authorize_api
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: authorize api for OAuth protocol
+  "/callback/{provider}":
+    parameters:
+    - required: true
+      type: string
+      name: provider
+      in: path
+    get:
+      operationId: get_o_auth_callback_api
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: callback api for OAuth protocol
+  "/conf/":
+    get:
+      operationId: get_conf
+      summary: get all configured elements
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      description: |-
+        Lists all configured elements of the backend, as described in the yaml files :
+        - global configuration
+        - projects :
+          - datasets
+          - recipes
+  "/conf/{project}/":
+    put:
+      operationId: put_directory_conf
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: create a project
+    post:
+      responses:
+        '200':
+          description: Success
+      parameters:
+      - description: yaml file
+        items:
+          type: file
+        required: true
+        collectionFormat: multi
+        in: formData
+        type: array
+        name: file
+      tags:
+      - default
+      summary: "(KO) import a zipped project"
+      consumes:
+      - application/x-www-form-urlencoded
+      - multipart/form-data
+      operationId: post_directory_conf
+    delete:
+      operationId: delete_directory_conf
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: delete a project
+    parameters:
+    - required: true
+      type: string
+      name: project
+      in: path
+    get:
+      operationId: get_directory_conf
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get configuration files of a project
+  "/conf/{project}/{file}":
+    post:
+      tags:
+      - default
+      operationId: post_file_conf
+      responses:
+        '200':
+          description: Success
+      parameters:
+      - required: true
+        type: string
+        description: yaml text
+        name: yaml
+        in: query
+      summary: upload a text/yaml configuration file to a project
+    delete:
+      operationId: delete_file_conf
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: delete a text/yaml configuration file from project
+    parameters:
+    - required: true
+      type: string
+      name: project
+      in: path
+    - required: true
+      type: string
+      name: file
+      in: path
+    get:
+      operationId: get_file_conf
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get a text/yaml configuration file from project
+  "/connectors/":
+    get:
+      operationId: get_list_connectors
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get json of all configured connectors
+  "/datasets/":
+    get:
+      operationId: get_list_datasets
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get json of all configured datasets
+  "/datasets/{dataset}/":
+    post:
+      operationId: post_dataset_api
+      summary: get sample of a configured dataset, number of rows being configured
+        in connector
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      description: samples
+    delete:
+      operationId: delete_dataset_api
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: delete the content of a dataset (currently only working on elasticsearch
+        datasets)
+    parameters:
+    - required: true
+      type: string
+      name: dataset
+      in: path
+    get:
+      operationId: get_dataset_api
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get json of a configured dataset
+  "/datasets/{dataset}/{action}":
+    put:
+      operationId: put_push_to_validation
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: 'action = validation : configure the frontend to point to this dataset'
+    post:
+      responses:
+        '200':
+          description: Success
+      parameters:
+      - required: true
+        type: file
+        description: 'data file : csv, ...'
+        name: file
+        in: formData
+      tags:
+      - default
+      summary: direct search into the dataset
+      consumes:
+      - multipart/form-data
+      operationId: post_push_to_validation
+    parameters:
+    - required: true
+      type: string
+      name: dataset
+      in: path
+    - required: true
+      type: string
+      name: action
+      in: path
+    get:
+      operationId: get_push_to_validation
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: alternative way to get text/yaml source code including the dataset
+  "/datasets/{dataset}/{doc_type}/{id}/{action}":
+    post:
+      responses:
+        '200':
+          description: Success
+      parameters:
+      - required: true
+        type: file
+        description: 'data file : csv, ...'
+        name: file
+        in: formData
+      tags:
+      - default
+      summary: elasticsearch update api proxy
+      consumes:
+      - multipart/form-data
+      operationId: post_push_to_validation
+    parameters:
+    - required: true
+      type: string
+      name: dataset
+      in: path
+    - required: true
+      type: string
+      name: doc_type
+      in: path
+    - required: true
+      type: string
+      name: id
+      in: path
+    - required: true
+      type: string
+      name: action
+      in: path
+  "/groups/":
+    get:
+      operationId: get_list_groups
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get all groups
+  "/jobs/":
+    get:
+      operationId: get_jobs_list
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: retrieve jobs list
+  "/login/":
+    post:
+      operationId: post_login
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: login api with user and hash
+    get:
+      operationId: get_login
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: return current user if logged
+  "/logout/":
+    post:
+      operationId: post_logout
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: logout current user
+  "/recipes/":
+    get:
+      operationId: get_list_recipes
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get json of all configured recipes
+  "/recipes/{recipe}/":
+    parameters:
+    - required: true
+      type: string
+      name: recipe
+      in: path
+    get:
+      operationId: get_recipe_api
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get json of a configured recipe
+  "/recipes/{recipe}/{action}":
+    put:
+      operationId: put_recipe_run
+      summary: test, run or stop recipe
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      description: |-
+        ** action ** possible values are :
+        - ** test ** : test recipe on sample data
+        - ** run ** : run the recipe
+        - ** stop ** : stop a running recipe (soft kill : it may take some time to really stop)
+    post:
+      responses:
+        '200':
+          description: Success
+      parameters:
+      - required: true
+        type: file
+        description: 'data file : csv, ...'
+        name: file
+        in: formData
+      tags:
+      - default
+      description: |-
+        ** action ** possible values are :
+        - ** apply ** :
+      summary: apply recipe on posted data
+      consumes:
+      - multipart/form-data
+      operationId: post_recipe_run
+    parameters:
+    - required: true
+      type: string
+      name: recipe
+      in: path
+    - required: true
+      type: string
+      name: action
+      in: path
+    get:
+      operationId: get_recipe_run
+      summary: retrieve information on a recipe
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      description: |-
+        ** action ** possible values are :
+        - ** yaml ** : get text/yaml code including the recipe
+        - ** status ** : get status (running or not) of a recipe
+        - ** log ** : get log of a running recipe
+  "/roles/":
+    get:
+      operationId: get_list_roles
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get all roles
+  "/upload/":
+    post:
+      responses:
+        '200':
+          description: Success
+      parameters:
+      - description: 'data file : csv, ...'
+        items:
+          type: file
+        required: true
+        collectionFormat: multi
+        in: formData
+        type: array
+        name: file
+      tags:
+      - default
+      description: gz or .txt or .csv
+      summary: 'upload multiple tabular data files, '
+      consumes:
+      - application/x-www-form-urlencoded
+      - multipart/form-data
+      operationId: post_upload
+    get:
+      operationId: get_upload
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: list uploaded resources
+  "/upload/{file}":
+    delete:
+      operationId: delete_action_file
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: deleted uploaded file
+    parameters:
+    - required: true
+      type: string
+      name: file
+      in: path
+    get:
+      operationId: get_action_file
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get back uploaded file
+  "/users/":
+    get:
+      operationId: get_list_users
+      responses:
+        '200':
+          description: Success
+      tags:
+      - default
+      summary: get list of all configured users
+responses:
+  MaskError:
+    description: When any error occurs on mask
+  ParseError:
+    description: When a mask can't be parsed
+tags:
+- name: default
+  description: Default namespace
+basePath: "/matchID/api/v0"
+produces:
+- application/json
+swagger: '2.0'
+consumes:
+- application/json

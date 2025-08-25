@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="API décès - le fichier des décès, accessible à tous">
+    <link rel="icon" href="custom/img/matchID-logo-square.svg">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="author" content="Fabien ANTOINE">
+
+    <title>API décès - le fichier des décès, accessible à tous</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="custom/css/all.min.css" id="dsfr">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="custom/css/dsfr-reveal.css" id="theme">
+		<link rel="stylesheet" href="custom/css/custom.css" id="custom">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/zenburn.css" id="highlight-theme">
+	</head>
+	<body>
+    <div class="rf-header" style="z-index: -2000;"></div>
+      <div class="rf-container rf-container__header">
+        <div class="rf-header__body" >
+          <div class="rf-header__brand" style="flex: none">
+            <span class="rf-logo" title="République Française">
+              <span class="rf-logo__title">
+                République<br>Française
+              </span>
+            </span>
+          </div>
+
+          <span class="rf-padding-top-1N">
+            <img width="64" src="custom/img/matchID-logo-square.svg">
+          </span>
+        </div>
+      </div>
+    </div>
+		<div class="reveal" style="position: absolute;top: 0;z-index:0">
+      <div class="slides">
+        <!-- itn5 plan de relance -->
+        <section>
+          <section data-markdown>
+              <textarea data-template>
+                  # API décès
+
+                  ## le fichier des décès, accessible à tous
+
+                  <img width="150" src="custom/img/matchID-logo-square.svg">
+                  <br>
+                  <span class="rf-text--lg">
+                    <a href="https://deces.matchid.io" target="_blank" title="deces.matchid.io">deces.matchid.io</a>
+                    <br>
+                    soumission au guichet <strong>Cycle de vie de la donnée</strong>
+                    <br>
+                    Ministère de l'Intérieur
+                  </span>
+              </textarea>
+          </section>
+        </section>
+        <!-- contexte -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+                ## Contexte et problème identifié
+                <div class="rf-container">
+                  <div class="rf-grid-row rf-grid-row--gutters">
+                    <div class="rf-col-xs-12 rf-col-xl-6">
+                      <div class="rf-tile rf-tile--horizontal">
+                        <div class="rf-tile__img rf-hide--mobile">
+                          <img data-src="custom/img/logo_insee.svg" alt="logo Insee">
+                        </div>
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-padding-top-1N">
+                            Fichier des décès
+                          </h4>
+                          <p class="rf-tile__desc rf-text--left">
+                            Sur demande de la CADA, l'INSEE publie en décembre 2019 le fichier des décès
+                            sur <a href="https://www.data.gouv.fr/fr/datasets/fichier-des-personnes-decedees/">data.gouv.fr</a>.
+                            Le fichier comporte <strong>25 millions d'enregistrements</strong>, incluant nom prénoms, lieu et date de naisance et de décès.
+                          </p>
+                          <h4 class="rf-tile__title rf-padding-top-1N">
+                            Problèmes
+                          </h4>
+                          <p class="rf-tile__desc rf-text--left">
+                            <strong>Chaque recherche prend des heures</strong>
+                            ou bien nécessite une expertise, des services incomplets parfois payants.
+                            <br><br>
+                            <strong>Traiter un fichier client prend 40 jours</strong>
+                            pour 10&nbsp;000 identités. Les algorithmes usuels plafonnent à 60%.
+                            <br><br>
+                            <strong>Les problèmes de qualité de donnée ne sont pas traités</strong> (décès manquants ou erreurs
+                            de transcriptions de l'État civil)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-6">
+                      <div class="rf-tile rf-tile--horizontal">
+                        <div class="rf-tile__img rf-hide--mobile">
+                          <img height="100px" width="100px"  data-src="custom/img/matchID-logo-square.svg" alt="logo matchID">
+                        </div>
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-padding-top-1N">API décès</h4>
+                          <p class="rf-tile__desc rf-text--left">
+                            1<sup>er</sup> janvier 2020, <strong>matchID</strong> ouvre <a href="https://deces.matchid.io/" target="_blank">deces.matchid.io</a> au grand public en capitalisant
+                            sur le défi <strong> EIG1 </strong> du ministère de l'Intérieur.
+                            <br><br>
+                          </p>
+                          <p class="rf-tile__desc">
+                            <strong>Premier moteur de recherche avancée des décès</strong>
+                            <br>
+                            😊 Généalogistes et préfectures 😊
+                            <br>
+                            3000 utilisateurs jours
+                            <br><br>
+                            <strong>Première API d'appariement de gros fichiers clients</strong>
+                            <br>👏 Cliniciens, SIV (immatriculations) 👏
+                            <br>10k identités = 10 minutes ~ 100% match
+                            <br>gratuit et opensource
+                            <br><br>
+                            <strong>Corrections utilisateurs</strong><br>
+                            >500 propositions utilisateurs avec preuve en 2020.
+                            En 2021, une base et une UI seront mises en place.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="rf-hide-mobile-background"></div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Description du projet -->
+        <section>
+          <section title="projet" data-markdown>
+            <textarea data-template>
+                ## Description du projet
+                <div class="rf-container">
+                  <div class="rf-grid-row rf-grid-row--gutters">
+                    <div class="rf-col-xs-12 rf-col-xl-2"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-8">
+                      <div class="">
+                        <h4>deces.api.gouv.fr + matchID</h4>
+                          <p class="rf-text--left">
+                            Devenir le <strong>diffuseur public de référence de la donnée de décès</strong>
+                            <br>
+                            Faire de <strong>matchID le produit de mise en qualité de l'identité numérique</strong> pivot (nom, prénom, lieu, date de naissance).
+                          </p>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-2"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-4">
+                      <div class="rf-callout rf-text--left" style="position:relative">
+                        <img
+                          width="40%"
+                          style="position:absolute;right:-20px;top:40px;transform: scaleX(-1);"
+                          src="custom/img/genealogy-multi.svg"
+                        >
+                        <h4>Mise en qualité <br> des données</h4>
+                          <p>
+                            <strong>Recourir aux corrections paraticipatives</strong> <br>
+                            Usagers, généalogistes <br>
+                            proposent des corrections, l'API décès assure
+                            la transmission à l'INSEE.<br><br>
+                            <strong>Activer l'organisation du dialogue</strong> des fichiers autour du décès (INSEE, CERT Décès, COMEDEC, ...) pour proposer
+                            une <strong>réduction du délai de publication</strong> (e-testamentaires, assurances, ...).
+                          </p>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-4">
+                      <div class="rf-callout rf-text--left">
+                          <img
+                            width="20%"
+                            style="position:absolute;right:5px;top:85px;transform: scaleX(-1);"
+                            src="custom/img/doctor-man-2.svg"
+                          >
+                          <h4>Développer les usages</h4>
+                          <p>
+                            <strong>Étendre les usages de l'API décès</strong>
+                            <br>
+                            Base clients à renforcer : généalogistes, cliniciens et CHU
+                            <br> Usages à approfondir : e-testament, assurances,
+                            fraude, droit à l'oubli <br>
+                            des fichiers d'identité ...).
+                            <br><br>
+                            <strong>Offrir un mécanisme de qualité pour FranceConnect</strong>
+                            <br>
+                            Évaluer les usages d'une API générique de recherche avec un FI/FS (POC)
+                          </p>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-4">
+                      <div class="rf-callout rf-text--left">
+                          <img
+                            width="25%"
+                            style="position:absolute;right:-15px;bottom:15px;"
+                            src="custom/img/persona_22.svg"
+                          >
+                          <h4>Développer les capacités</h4>
+                          <p>
+                            <strong>Améliorations fonctionnelles</strong>
+                            Correction collaborative<br>
+                            Appariement géographique, active learning
+                            <br><br>
+                            <strong>Extension de capacités</strong>
+                            <br>x10 avec scalabilité à chaud x100
+                            <br><br>
+                            <strong>Standardiser l'intégration</strong>
+                            <br>
+                           Intégrer api.gouv, un API gateway (e.g Piste) et Datapass, Intégrer un FI
+                          </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="rf-hide-mobile-background"></div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Critères de succès -->
+        <section>
+          <section title="avant/après" data-markdown>
+            <textarea data-template>
+                ## Critères de succès fin 2021
+
+                <div class="rf-container">
+                  <div class="rf-grid-row rf-grid-row--gutters">
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">100M</h4>
+                          <p class="rf-title__desc">
+                            <strong>Appels API décès</strong>
+                            <br><br>
+                          </p>
+                          <p class="rf-title__desc rf-text--left rf-padding-left-2N">
+                            - Croissance actuelle +6% par mois (x2/an)
+                            <br>
+                            - Gain label officiel api.gouv.fr +10 à +30%
+                            <br>
+                            - Community management généalogistes +10 à +30%
+                            <br>
+                            - Correction collaborative officielle +10 à +30%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">10k</h4>
+                          <p class="rf-title__desc">
+                            <strong>Correction de décès</strong>
+                            <br><br>
+                          </p>
+                          <p class="rf-title__desc rf-text--left rf-padding-left-6N">
+                            - 500k propositions par mail en 2020
+                            <br>
+                            - Augmentation naturelle du traffic: x2
+                            <br>
+                            - Correction collaborative officielle: x10
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">2M</h4>
+                          <p class="rf-title__desc">
+                            <strong>Appariements</strong>
+                            <br> ~40 ETP économisés
+                            <br><br>
+                          </p>
+                          <p class="rf-title__desc rf-text--left rf-padding-left-6N">
+                            - 100k en 2020
+                            <br>
+                            - industrialisation SIV: 100k / mois
+                            <br>
+                            - sponsoring CHU Poitiers: x3 à x10
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">20</h4>
+                          <p class="rf-title__desc">
+                            <strong>Cas d'appariement</strong>
+                            <br><br><br>
+                          </p>
+                          <p class="rf-title__desc rf-text--left rf-padding-left-9N">
+                            - 15 à 30 cas CHU
+                            <br>
+                            - 5 à 10 cas Ministères
+                            <br>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                  </div>
+                </div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Bénéfices administration candidate -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+              ## Bénéfices pour le ministère de l'Intérieur
+              <div class="rf-container">
+                <div class="rf-grid-row rf-grid-row--gutters">
+                  <div class="rf-col-xs-12 rf-col-xl-6 rf-color--w rf-padding-2N">
+                    <div
+                      class="rf-card rf-card--no-arrow rf-background--bf"
+                      style="z-index:0; position: relative;
+                        background-image:url('custom/img/radar_bw.png'); background-position: center; background-size: cover;background-blend-mode:lighten;"
+                    >
+                      <img
+                        width="40%"
+                        style="position:absolute;right:-20px;top:40px;"
+                        src="custom/img/police-man-2.svg"
+                      >
+                      <div class="rf-card__body">
+                        <h4 class="rf-card__lead rf-color--w">
+                          Infractions
+                          <br>4,5M€ / an*
+                        </h4>
+                        <p class="rf-card__desc rf-text--left" style="padding-right: 120px;">
+                          * volume d'infractions** au nom d'une personne décédée
+                          <br><br>
+                          l'API décès assure l'industrialisation du défi EIG1 matchID,
+                          en permettant d'indiquer au sein du SIV les personnes décédées
+                          chaque mois (le SIV assure le lien véhicule / adresse conducteur).
+                          <br><br>
+                          ** 45000 infractions x 135€ x 90% match x 80% fraîcheur données INSEE (M+1)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-6 rf-padding-2N">
+                    <div
+                      class="rf-card rf-card--no-arrow"
+                      style="z-index:0;
+                        background-image:url('custom/img/pref_montpellier_bw.jpg'); background-position: center; background-size: cover;background-blend-mode:overlay;"
+                    >
+                      <img
+                        width="40%"
+                        style="position:absolute;right:-20px;top:40px;transform: scaleX(-1);"
+                        src="custom/img/persona_15.svg"
+                      >
+                      <div class="rf-card__body">
+                        <h4 class="rf-card__lead">
+                          PREFECTURES
+                          <br>4 ETP ~ 200k€ / AN*
+                        </h4>
+                        <p class="rf-card__desc rf-text--left" style="padding-right: 136px;">
+                          * temps économisé** pour la recherche de personnes décédées
+                          <br><br>
+                          l'UI de recherche de l'API décès assures d'ores et déjà
+                          une consultation interne par 200 agents chaque<br> jour pour leurs recherches dans
+                          leurs activités générales (renseignement, fraude à l'identité, ...)
+                          <br><br>
+                          ** 200 agents par jour x 30 minutes économisées
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Bénéfices intérêt général -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+              ## Bénéfices pour l'intérêt général
+              <div class="rf-container">
+                <div class="rf-grid-row rf-grid-row--gutters">
+                  <div class="rf-col-xs-12 rf-col-xl-6 rf-color--w rf-padding-2N">
+                    <div
+                      class="rf-card rf-card--no-arrow rf-background--bf"
+                      style="z-index:0; position: relative;
+                        background-image:url('custom/img/cells.jpg'); background-position: center; background-size: cover;background-blend-mode:lighten;"
+                    >
+                      <img
+                        width="40%"
+                        style="position:absolute;right:-20px;top:40px;"
+                        src="custom/img/doctor-man-2.svg"
+                      >
+                      <div class="rf-card__body">
+                        <h4 class="rf-card__lead rf-color--w">
+                          Études cliniques
+                          <br>10 ETP ~ 500k€ / AN*
+                        </h4>
+                        <p class="rf-card__desc rf-text--left" style="padding-right: 120px;">
+                          * économie de temps pour fiabiliser les cohortes de maladies létales
+                          <br><br>
+                          Les CHU de Lille, Poitier, Besançon et l'Inserm utilisent déjà l'UI (études de cohortes
+                          et cliniques). Les fichiers comportent 10k à 100k patients.
+                          Cas d'applications cités: pronostic vital (
+                          Alzheimer et le COVID-19), optimisation des lits d'opérations.<br>
+                          L'API est en cours d'intégration au sein d'un hôpital.
+                          <br><br>
+                          ** hypothèse: 10 études / an = 100k patients non rappelés x 10 minutes économisées
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-6 rf-padding-2N">
+                    <div
+                      class="rf-card rf-card--no-arrow"
+                      style="z-index:0;
+                        background-image:url('custom/img/pref_montpellier_bw.jpg'); background-position: center; background-size: cover;background-blend-mode:overlay;"
+                    >
+                      <img
+                        width="40%"
+                        style="position:absolute;right:-20px;top:40px;transform: scaleX(-1);"
+                        src="custom/img/genealogy-simple.svg"
+                      >
+                      <div class="rf-card__body">
+                        <h4 class="rf-card__lead">
+                          Généalogie
+                          <br>250k€/an*
+                        </h4>
+                        <p class="rf-card__desc rf-text--left" style="padding-right: 136px;">
+                          * équivalent abonnements offert à l'usager** pour <br>la recherche avancée de personnes décédées
+                          <br><br>
+                          Plus de 3000 généalogistes ou enquêteurs du monde successoral utilisent l'UI en moyenne 10 minutes chaque jour.
+                          Les autres produits (Filae, Geneanet, Décès en France, etc.), proposent une recheche incomplète,
+                          même lorsqu'ils disposent d'un abonnement (5 à 10€/mois).
+                          <br><br>
+                          ** 5€ x 50k usagers réguliers (qui ne paieraient l'abonnement qu'un mois par an)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Bénéfices administration candidate -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+              ## Bénéfices pour l'identité numérique
+
+              <div class="rf-container">
+                <div class="rf-grid-row rf-grid-row--gutters">
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">Données de décès fiables</h4>
+                        <p class="rf-tile__desc">
+                          L'absence de garantie du fichier INSEE ne permet pas de considérer le fichier décès comme
+                          une référence fiable.
+                          <br><br>
+                          La capacité de correction du fichier des décès est un bénéfice pour tous les
+                          utilisateurs est un premier pas vers <strong>une donnée garantie</strong>, avec une gouvernance
+                          renforcée.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">Pérenniser matchID</h4>
+                        <p class="rf-tile__desc">
+                          matchID a déjà été utilisé pour une dizaines d'études pour <strong>plusieurs ministères</strong> (Intérieur, Education nationale, DGFIP).
+                          <br><br>Renforcer son développement favorisera la réutilisation en production avec des <strong>patterns d'architecture</strong> standardisés au profit
+                          des différents systèmes du ministère (<strong>en cours pour les immatriculations</strong>)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">Circulation des données d'identité numérique</h4>
+                        <p class="rf-tile__desc">
+                          le ministère de l'Intérieur est en charge de l'<strong>identité numérique</strong>.
+                          <br><br>
+                          La multiplicité
+                          des sources d'identités nécessite une <strong>mise en qualité de l'écosystème</strong>. La possibilité
+                          d'un produit sur étagère offrirait de nouvelles perspectives dans cette finalité.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </textarea>
+          </section>
+        </section>
+        <!-- Bénéfices intérêt général -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+              ## Bénéfices pour l'intérêt général
+
+              <div class="rf-container">
+                <div class="rf-grid-row rf-grid-row--gutters">
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">API ouverte et de qualité</h4>
+                        <p class="rf-tile__desc">
+                          L'API décès est d'ores et déjà monitorée et dispose de statistiques publiques, s'inscrit
+                          pleinement dans la <strong>stratégie API de l'État</strong>.<br><br>
+                          Son inscription au catalogue api.gouv.fr permettra d'afficher une <strong>garantie</strong> dans la qualité de service
+                          à l'usager.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">RGPD, Droit à l'oubli</h4>
+                        <p class="rf-tile__desc">
+                          La tâche de retrait des personnes décédées aux fichiers est aujourd'hui lourde ou ou peu performante (~50% avec des algorithmes stricts).
+                          <br><br>
+                          <strong>Mettre sur étagère une capacité d'appariement gratuite et performante</strong> favorisera la conformité RGPD et l'application du droit à l'oubli
+                          au sein de l'administration comme dans le privé.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">Code ouvert et libre</h4>
+                        <p class="rf-tile__desc">
+                          les produits du projet matchID sont développé en licence libre et en
+                          <strong><a href="https://github.com/matchid-project/" title="github matchID" target="_blank">code-in-the-open</a></strong>.
+                          <br><br>
+                          Ils sont
+                          donc disponibles sans intermédiaire en permanence dans leur dernière version,
+                          <strong><a href="https://matchid.io" target="_blank" title="documentation matchID">documentés</a></strong>
+                          et réutilisables on-premise, y/c hors ligne. Le code source est auditable et la maintenance
+                          de sécurité assurée avec diligence.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </textarea>
+          </section>
+        </section>
+        <!-- Coût projet -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+              ## Coûts projet 100K€
+              <div class="rf-container">
+                <div class="rf-grid-row rf-grid-row--gutters">
+                  <div class="rf-col-xs-12 rf-col-xl-2"></div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">85k€</h4>
+                        <p class="rf-tile__desc">
+                          ~ 90jh recrutement sur marché d'un pilote/scrum master, également en charge du community management (sera renforcé
+                          par un stagiaire), pour améliorer la qualification des priorités usager, et l'organisation
+                          des échanges entre administration.<br><br>
+                          20k€ coût de compute C3 pour les fonctions d'appariement (dév de la scalabilité & tests au limites)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">15k€</h4>
+                        <p class="rf-tile__desc">
+                          ~ 100jh: Charge évaluée en 2021 pour les fonctions de développement et devops du projet:
+                          fonctions de retour usager sur les fiches décès, évolutions de l'appariement,
+                          premier niveau de faisabilité de standardisation des composants.<br>
+                          Assurée par Fabien ANTOINE et Cristian PEREZ BROKATE.<br><br>
+                          <strong>15k€</strong> de valorisation du personnel interne.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Calendrier d'exécution -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+              ## Calendrier 2021
+              <div class="rf-container">
+                <div class="rf-grid-row rf-grid-row--gutters">
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <h3 class="rf-text--center">T2</h3>
+                    <div class="rf-highlight rf-text--left">
+                      <h4>deces.api.gouv.fr</h4>
+                        <p>
+                          - Bascule domaine deces.api.gouv.fr<br>
+                          - Publication sur api.gouv.fr<br>
+                          - Statistiques comportementales sur stats.data.gouv.fr<br>
+                          - Intégration France Connect<br>
+                        </p>
+                    </div>
+                    <br>
+                    <div class="rf-highlight rf-text--left">
+                      <h4>Priorisation des usages</h4>
+                        <p>
+                          - Hôpitaux<br>
+                          - Communautés généalogistes<br>
+                          - Monde successoral (e-testament)<br>
+                          - Assurances<br>
+                          - FI et fichiers ministères Intérieur / Justice<br>
+                        </p>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <h3 class="rf-text--center">T2</h3>
+                    <div class="rf-highlight rf-text--left">
+                      <h4>Participatif décès</h4>
+                        <p>
+                          - Base fiches correctives (mongodb)<br>
+                          - UIs formulaires de correction (correction, ajout, doublons)<br>
+                          - UI workflow validation des corrections (statut)<br>
+                          - GT INSEE/COMEDEC<br>
+                        </p>
+                    </div>
+                    <br>
+                    <div class="rf-highlight rf-text--left">
+                      <h4 >Améliorations UI/API décès</h4>
+                      <p class="rf-tile__desc">
+                        - Réal fonctions de recherche avancée (regex, activation fuzzy par champ)<br>
+                        - Màj référentiel INSEE COG 2021<br>
+                        - Recherche / code postal<br>
+                        - Appariement / fuzzy géo<br>
+                      </p>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <h3 class="rf-text--center">T3</h3>
+                    <div class="rf-highlight rf-text--left">
+                        <h4 >Scalabilité appariement</h4>
+                        <p class="rf-tile__desc">
+                          - Scripts de déploiement d'instance dédiées par traitements lourd<br>
+                          - Tests aux limites (objectif 1000 à 10000 matchs/seconde, contre 100 aujourd'hui<br>
+                        </p>
+                    </div>
+                    <br>
+                    <div class="rf-highlight rf-text--left">
+                      <h4 >Faisabilité standardisation</h4>
+                      <p class="rf-tile__desc">
+                        - Réalisation modules npm (svelte-search-people-ui, express-search-people)<br>
+                        - POC LDAP/SIRH <br>
+                        - POC 1 fichier MI (SIV, AGRIPPA, ...)<br>
+                      </p>
+                  </div>
+                  </div>
+                </div>
+              </div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Pérennisation du projet -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+              ## Pérennisation du projet
+              <div class="rf-container">
+                <div class="rf-grid-row rf-grid-row--gutters">
+                  <div class="rf-col-xs-12 rf-col-xl-2"></div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">Valorisation interministériel</h4>
+                        <p class="rf-tile__desc">
+                          - Identification des consommateurs et les mécanismes de la contractualisation<br>
+                          - Ouverture de dialogue de gouvernance: INSEE, CERT décès, identité numérique française<br>
+                          - Identification du meilleur porteur transverse du service<br>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rf-col-xs-12 rf-col-xl-4">
+                    <div class="rf-tile rf-text--left">
+                      <div class="rf-tile__body">
+                        <h4 class="rf-tile__title">Couts d'opération du projet</h4>
+                        <p class="rf-tile__desc">
+                          - 25 JH par an de maintenance Dev & DevOps sans évolution<br>
+                          - 10K€ hébergement<br>
+                        <br>
+                          - Pris en charge par la DNUM s'il n'y a pas d'arbitrage <br>
+                          - Convention possible avec les consommateurs du service pour financer des évolutions <br>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </textarea>
+          </section>
+        </section>
+        <!-- Point d'étape 06/2021 -->
+        <section>
+          <section data-markdown>
+            <textarea data-template>
+                ## Point étape début octobre 2021
+
+                <div class="rf-container">
+                  <div class="rf-grid-row rf-grid-row--gutters">
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">31.5M / 40M</h4>
+                          <p class="rf-title__desc">
+                            <progress value="78" max="100"> 78.9% </progress>
+                            <br>
+                            <strong>Appels API décès</strong>
+                            <br>
+                          </p>
+                          <p class="rf-title__desc rf-text--left rf-padding-left-9N">
+                            - Objectif revisé pour 2021 (100M => 40M) <br>
+                            ⚠  Saisi officielle du MI à etalab pour l'aspect juridique  <br>
+                            - Estimation de +30% avec un community management et BizDev <br>
+                            - Estimation de +30% lié au crowd sourcing
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">274/ 1k</h4>
+                          <p class="rf-title__desc">
+                            <progress value="27" max="100"> 27% </progress>
+                            <br>
+                            <strong>Correction de décès</strong>
+                            <br><br>
+                          </p>
+                          <p class="rf-title__desc rf-text--left rf-padding-left-9N">
+                            - Objectif révisé pour 2021 (10k => 1k)<br>
+                            - Suggestion de corrections - réalisé <br>
+                            - Report ajout nouvelles fiches (qualité justificatifs)<br>
+                            ⚠ Hétérogénéité de justificatifs proposés
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">5.6M / 2M</h4>
+                          <p class="rf-title__desc">
+                            <progress value="100" max="100"> 280% </progress>
+                            <br>
+                            <strong>Appariements</strong>
+                            <br><br>
+                          </p>
+                          <p class="rf-title__desc rf-text--left rf-padding-left-9N">
+                            - ~104 ETP économisés <br>
+                            - <a href="#/5" target="_blank">Détail du calcul</a>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-5">
+                      <div class="rf-tile">
+                        <div class="rf-tile__body">
+                          <h4 class="rf-tile__title rf-margin-bottom-1N">10 / 20</h4>
+                          <p class="rf-title__desc">
+                            <progress value="50" max="100"> 50% </progress>
+                            <br>
+                            <strong>Cas d'appariement</strong>
+                            <br>
+                          </p>
+                          <div class="rf-container">
+                            <div class="rf-grid-row">
+                              <div class="rf-col">
+                                <p class="rf-title__desc rf-text--left">
+                              1. Archives du CHU mans <br>
+                              2. CHU Poitier <br>
+                              3. CHU Angers <br>
+                              4. CHU Lille <br>
+                                </p>
+                              </div>
+                              <div class="rf-col">
+                                <p class="rf-title__desc rf-text--left">
+                              5. INSERM <br>
+                              6. SIV <br>
+                              7. SCA (armes)<br>
+                              8. La Banque Postale (Loi Eckert)<br>
+                              9. CHU Reims <br>
+                              10. Funecap 
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="rf-col-xs-12 rf-col-xl-1"></div>
+                  </div>
+                </div>
+            </textarea>
+
+          </section>
+        </section>
+
+      </div>
+		</div>
+
+    <script defer src="custom/js/fa.js"></script>
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/search/search.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+        width: "100%",
+        height: "100%",
+        margin: 0,
+        minScale: 1,
+        maxScale: 1,
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes, RevealSearch ]
+			});
+		</script>
+	</body>
+</html>

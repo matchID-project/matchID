@@ -1,0 +1,151 @@
+---
+# this is an empty front matter
+---
+<!DOCTYPE html>
+<html lang="fr" data-fr-theme="system" data-fr-scheme="system">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% if page.title %}{{ page.title }}{% else %}{{ site.name }}{% endif %}</title>
+          {% seo title=false %}
+          {% feed_meta %}
+        <meta name="description" content="{% if page.excerpt %}{{ page.excerpt | strip_html | strip_newlines | truncate: 160 }}{% else %}{{ site.description}}{% endif %}">
+        <link rel="icon" href="/assets/images/matchID-logo-square.svg">
+        <meta name="theme-color" content="#ffffff">
+        <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}" />
+
+        <meta property="og:image" content="https://matchid.io/assets/images/logo-square.png">
+        <meta property="twitter:image" content="https://matchid.io/assets/images/logo-square.png">
+        <meta property="og:image:alt" content="logo matchID">
+        <!-- <link rel="stylesheet" href="/assets/css/app.css" /> -->
+        <link rel="stylesheet" href="/assets/dsfr/dsfr.min.css" />
+        <link rel="stylesheet" href="/assets/css/global.css" />
+        <!-- <link rel="preload" href="/assets/fonts/Marianne-Bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+        <link rel="preload" href="/assets/fonts/Marianne-Regular.woff2" as="font" type="font/woff2" crossorigin="anonymous"> -->
+      </head>
+
+      <dialog id="fr-theme-modal" class="fr-modal" role="dialog" aria-labelledby="fr-theme-modal-title">
+        <div class="fr-container fr-container--fluid fr-container-md">
+            <div class="fr-grid-row fr-grid-row--center">
+                <div class="fr-col-12 fr-col-md-6 fr-col-lg-4">
+                    <div class="fr-modal__body">
+                        <div class="fr-modal__header">
+                            <button class="fr-link--close fr-link" aria-controls="fr-theme-modal">Fermer</button>
+                        </div>
+                        <div class="fr-modal__content">
+                            <h1 id="fr-theme-modal-title" class="fr-modal__title">
+                                Paramètres d’affichage
+                            </h1>
+                            <div id="fr-display" class="fr-form-group fr-display">
+                                <div class="fr-form-group">
+                                    <fieldset class="fr-fieldset">
+                                        <legend class="fr-fieldset__legend fr-text--regular" id='-legend'>
+                                            Choisissez un thème pour personnaliser l’apparence du site.
+                                        </legend>
+                                        <div class="fr-fieldset__content">
+                                            <div class="fr-radio-group fr-radio-rich">
+                                                <input value="light" type="radio" id="fr-radios-theme-light" name="fr-radios-theme">
+                                                <label class="fr-label" for="fr-radios-theme-light">Thème clair
+                                                </label>
+                                                <div class="fr-radio-rich__img" data-fr-inject-svg>
+                                                    <img src="/assets/dsfr/artwork/light.svg" alt="" />
+                                                    <!-- L’alternative de l’image (attribut alt) doit rester vide car l’image est illustrative et ne doit pas être restituée aux technologies d’assistance -->
+                                                </div>
+                                            </div>
+                                            <div class="fr-radio-group fr-radio-rich">
+                                                <input value="dark" type="radio" id="fr-radios-theme-dark" name="fr-radios-theme">
+                                                <label class="fr-label" for="fr-radios-theme-dark">Thème sombre
+                                                </label>
+                                                <div class="fr-radio-rich__img" data-fr-inject-svg>
+                                                    <img src="/assets/dsfr/artwork/dark.svg" alt="" />
+                                                    <!-- L’alternative de l’image (attribut alt) doit rester vide car l’image est illustrative et ne doit pas être restituée aux technologies d’assistance -->
+                                                </div>
+                                            </div>
+                                            <div class="fr-radio-group fr-radio-rich">
+                                                <input value="system" type="radio" id="fr-radios-theme-system" name="fr-radios-theme">
+                                                <label class="fr-label" for="fr-radios-theme-system">Système
+                                                    <span class="fr-hint-text">Utilise les paramètres système.</span>
+                                                </label>
+                                                <div class="fr-radio-rich__img" data-fr-inject-svg>
+                                                    <img src="/assets/dsfr/artwork/system.svg" alt="" />
+                                                    <!-- L’alternative de l’image (attribut alt) doit rester vide car l’image est illustrative et ne doit pas être restituée aux technologies d’assistance -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
+    <body>
+        {% include navbar.html %}
+
+        <div class="fr-container">
+          <div class="fr-grid-row">
+            <div class="fr-col-12 fr-background--bf fr-hide--mobile" style="min-height:17rem;">
+              <div
+                style="z-index:0;
+                  {% if page.hero.background %} background-image:url({{page.hero.background}}); background-position: center; background-size: cover;background-blend-mode:lighten;{% endif %}"
+                class="fr-card fr-card--horizontal fr-card--horizontal-right fr-background--bf fr-card--no-arrow"
+              >
+                {% if page.hero.image %}
+                  {% if page.hero.imagePosition %}
+                    <div class="position:relative">
+                      <img
+                        width="50%"
+                        style="position:absolute;right:0;bottom:0;max-height:100%;transform: translate({% if page.hero.imageTX %}{{page.hero.imageTX}}{% else %} 0px{% endif %},
+                        {% if page.hero.imageTY %}{{page.hero.imageTY}}){%else%}0px){% endif %}
+                        {% if page.hero.imageScale %}scale({{page.hero.imageScale}}){% endif %}
+                        {% if page.hero.image_flip %}scaleX(-1){% endif %};"
+                        src="{{page.hero.image}}"
+                      >
+                    </div>
+                    <div class="fr-card__img"></div>
+                  {% else %}
+                    <div class="fr-card__img fr-card__img--fit {% if page.hero.image_flip %} fr-img__flip {% endif %}">
+                      <img
+                        src="{{page.hero.image}}"
+                        style="z-index: 1;transform: translate({% if page.hero.imageTX %}{{page.hero.imageTX}}{% else %} 0px{% endif %},
+                                {% if page.hero.imageTY %}{{page.hero.imageTY}}){%else%}0px){% endif %}
+                                {% if page.hero.imageScale %}scale({{page.hero.imageScale}}){% endif %};"
+                        />
+                    </div>
+                  {% endif %}
+                {% endif %}
+                <div style="z-index: 20;" class="fr-card__body fr-mt-3w fr-mb-3w fr-ml-3w">
+                  <h1 class="fr-card__lead fr-color--white">
+                    {{ page.title }}
+                  </h1>
+                  <h4 class="fr-card__desc fr-color--white">
+                    {{ page.description }}
+                  </h4>
+                </div>
+              </div>
+            </div>
+            <div class="fr-col-xl-1 fr-col-lg-12 fr-col-md-12 fr-col-sm-12 fr-col-xs-12"></div>
+            <div class="fr-col-xl-10 fr-col-lg-12 fr-col-md-12 fr-col-sm-12 fr-col-xs-12">
+              <div class="fr-container-fluid fr-mt-2w fr-mb-4w">
+                <div class="fr-grid-row fr-grid-row--gutters" style="{% if page.customLayout %}{% else %}display:unset;{% endif %}">
+                  {{ content }}
+                  {% if page.video %}
+                  <iframe style="transform:translateX(50%)" width="420" height="315" src="{{ page.video }}" frameborder="0" allowfullscreen></iframe>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="fr-col-xl-1 fr-col-lg-12 fr-col-md-12 fr-col-sm-12 fr-col-xs-12"></div>
+          </div>
+        </div>
+
+
+        {% include footer.html %}
+        <script type="module" src="/assets/dsfr/dsfr.module.js"></script>
+        <script type="text/javascript" nomodule src="/assets/dsfr/dsfr.nomodule.min.js"></script>
+        <script src="https://code.iconify.design/2/2.1.0/iconify.min.js"></script>
+    </body>
+</html>
