@@ -1,0 +1,406 @@
+{
+  "available": [
+    "en",
+    "fr"
+  ],
+  "default": "fr",
+  "global": {
+    "shutdown": {
+      "en": "Restart server",
+      "fr": "Arrêter le serveur"
+    },
+    "refresh_list": {
+      "en": "Refresh list",
+      "fr": "Rafraîchir la liste"
+    },
+    "see_more": {
+      "en": "See more",
+      "fr": "Voir plus"
+    }
+  },
+  "navbar": {
+    "jobs": {
+      "running": {
+        "en": "Running",
+        "fr": "En cours"
+      },
+      "done": {
+        "en": "Done",
+        "fr": "Finis"
+      },
+      "empty": {
+        "en": "Empty",
+        "fr": "Aucun"
+      },
+      "filter": {
+        "en": "search",
+        "fr": "filtre"
+      }
+    },
+    "connectors": {
+      "en": "Connectors",
+      "fr": "Connecteurs"
+    },
+    "projects":{
+      "en": "Projects",
+      "fr": "Projets"
+    },
+    "datasets":{
+      "en": "Datasets",
+      "fr": "Données"
+    },
+    "recipes":{
+      "en": "Recipes",
+      "fr": "Recettes"
+    }
+  },
+  "validation": {
+    "filter": {
+      "en": "Filter",
+      "fr": "Filtre"
+    },
+    "mistake": {
+      "en": "An error occured",
+      "fr": "Une erreur s'est produite"
+    },
+    "displayUndoneOnly": {
+      "en": "Also display already done matchs",
+      "fr": "Afficher les matchs déjà traités"
+    },
+    "statistics": {
+      "en": "Statistics",
+      "fr": "Statistiques",
+      "labels": {
+        "threshold": {
+          "en": "Decision threshold",
+          "fr": "Seuil de décision",
+          "true": {
+            "en": "> Threshold",
+            "fr": "> Seuil"
+          }
+        },
+        "distinct": {
+          "en": "Distincts",
+          "fr": "Distincts"
+        },
+        "total": {
+          "en": "Total pairs",
+          "fr": "Paires totales"
+        },
+        "done": {
+          "en": "Annotated",
+          "fr": "Annotés"
+        },
+        "decision": {
+          "true": {
+            "en": "Positives",
+            "fr": "Positifs"
+          },
+          "false": {
+            "en": "Negatives",
+            "fr": "Négatifs"
+          }
+        },
+        "evaluation": {
+          "precision": {
+            "en": "Precision",
+            "fr": "Précision"
+          },
+          "recall": {
+            "en": "Recall",
+            "fr": "Rappel"
+          },
+          "f1": {
+            "en": "F1-score",
+            "fr": "F1-score"
+          },
+          "null": {
+            "en": "N/A",
+            "fr": "N/D"
+          },
+          "true": {
+            "true": {
+              "en": "True postives",
+              "fr": "Vrais positifs"
+            },
+            "false": {
+              "en": "False positives",
+              "fr": "Faux positifs"
+            }
+          },
+          "false": {
+            "true": {
+              "en": "Missed",
+              "fr": "Manqués"
+            },
+            "false": {
+              "en": "True negatives",
+              "fr": "Vrais négatifs"
+            }
+          }
+        }
+      }
+    },
+    "shortcuts": {
+      "title": {
+        "en": "Keyboard shortcuts",
+        "fr": "Raccourcis clavier"
+      },
+      "activate_deactivate": {
+        "en": "Enable or disble keyboard shortcuts <br/><em class='is-size-7'><u>Nota</u> : once the shortcuts are activated, your classical browser shortcuts do not work anymore.</em>",
+        "fr": "Active ou désactive l'usage des raccourcis clavier <br/><em class='is-size-7'><u>Nota</u> : les raccourcis classiques de votre navigateur ne fonctionnent plus lorsque les raccourcis sont activés.</em>"
+      },
+      "only_when_activated": {
+        "en": "Only work when the shortcuts have been activated :",
+        "fr": "Ne fonctionnent que lorsque les raccourcis ont été activés :"
+      },
+      "change_decision": {
+        "en": "Change match's decision",
+        "fr": "Changer la décision du match"
+      },
+      "change_indecision": {
+        "en": "Change match's possible indecision",
+        "fr": "Changer la possible indécision du match"
+      },
+      "validate": {
+        "en": "Validate the row",
+        "fr": "Validation de la ligne"
+      },
+      "previous_next": {
+        "en": "Previous row / Next row",
+        "fr": "Ligne précédente / Ligne suivante"
+      },
+      "reload_random": {
+        "en": "Randomly reload data",
+        "fr": "Recharge les données aléatoirement"
+      },
+      "json_view": {
+        "en": "Show/hide json view of row data",
+        "fr": "Affiche/cache le json source de la ligne"
+      }
+    }
+  },
+  "dataViewer": {
+    "colFilter": {
+      "en": "Filter Columns...",
+      "fr": "Filtrer les colonnes..."
+    },
+    "rowSearch": {
+      "en": "Columns for search scope...",
+      "fr": "Colonnes de recherche..."
+    },
+    "search": {
+      "en": "Search...",
+      "fr": "Recherche..."
+    }
+  },
+  "editor" : {
+    "fullScreen" : {
+      "en" : "Full Screen",
+      "fr": "Plein Écran"
+    },
+    "shortcuts": {
+      "title": {
+        "en": "Shortcuts",
+        "fr": "Raccourcis"
+      },
+      "general": {
+        "en": "Most of standard shortcuts on text editors work when your cursor is inside editor.<br/><br/> Some important ones :",
+        "fr": "La plupart des raccourcis clavier classiques d'un éditeur fonctionnent ici.<br/><br/> Quelques raccourcis importants :"
+      },
+      "save": {
+        "en": "Save",
+        "fr": "Enregistrer"
+      },
+      "find": {
+        "cmd": "Ctrl-F (PC), Cmd-F (Mac)",
+        "en": "Find",
+        "fr": "Rechercher"
+      },
+      "findNext": {
+        "cmd": "Ctrl-G (PC), Cmd-G (Mac)",
+        "en": "Find next",
+        "fr": "Rechercher le suivant"
+      },
+      "findPrevious": {
+        "cmd": "Shift-Ctrl-G (PC), Shift-Cmd-G (Mac)",
+        "en": "Find previous",
+        "fr": "Rechercher le précédent"
+      },
+      "replace": {
+        "cmd": "Shift-Ctrl-F (PC), Shift-Cmd-F (Mac)",
+        "en": "Replace",
+        "fr": "Remplacer"
+      },
+      "replaceAll": {
+        "cmd": "Shift-Ctrl-R (PC), Shift-Cmd-R (Mac)",
+        "en": "Replace all",
+        "fr": "Tout remplacer"
+      }
+    },
+    "save": {
+      "en" : "Save",
+      "fr": "Enregistrer"
+    }
+  },
+  "recipe": {
+    "run": {
+      "en": "run",
+      "fr": "Lancer"
+    },
+    "running": {
+      "en": "Running",
+      "fr": "En cours"
+    },
+    "stop": {
+      "en": "Stop",
+      "fr": "Arrêter"
+    },
+    "stopping": {
+      "en": "Stopping",
+      "fr": "Arrêt"
+    }
+  },
+  "dataset": {
+    "validation": {
+      "en": "Validation",
+      "fr": "Validation"
+    },
+    "configure": {
+      "en": "Configure",
+      "fr": "Configurer"
+    },
+    "export": {
+      "en": "Sample",
+      "fr": "Echantillon"
+    }
+  },
+  "viewLog": {
+    "error": {
+      "en": "Warning - bug(s) in recipe : please check log",
+      "fr": "Attention - bug(s) dans la recette, regardez le journal d'exécution"
+    }
+  },
+  "object": {
+    "new": {
+      "connector": {
+        "en": "New connector",
+        "fr": "Nouveau connecteur"
+      },
+      "project": {
+        "en": "New project",
+        "fr": "Nouveau projet"
+      },
+      "recipe": {
+        "en": "New recipe",
+        "fr": "Nouvelle recette"
+      },
+      "dataset": {
+        "en": "New dataset",
+        "fr": "Nouveau dataset"
+      },
+      "action": {
+        "en": "Create",
+        "fr": "Créer"
+      }
+    },
+    "import": {
+      "dataset": {
+        "en": "Import dataset",
+        "fr": "Importer un dataset"
+      },
+      "action": {
+        "en": "Import",
+        "fr": "Importer"
+      }
+    },
+    "cancel": {
+      "action": {
+        "en": "Cancel",
+        "fr": "Annuler"
+      }
+    },
+    "delete": {
+      "project": {
+        "en": "Delete project",
+        "fr": "Supprimer le projet"
+      },
+      "recipe": {
+        "en": "Delete recipe",
+        "fr": "Supprimer la recette"
+      },
+      "dataset": {
+        "en": "Delete dataset",
+        "fr": "Supprimer le dataset"
+      },
+      "action": {
+        "en": "Delete",
+        "fr": "Supprimer"
+      },
+      "message": {
+        "en": "It will not be possible to roll back after this deletion",
+        "fr": "L'action entraînera une suppresssion définitive"
+      }
+    },
+    "name": {
+      "project": {
+        "en": "Project name",
+        "fr": "Nom du projet"
+      },
+      "recipe": {
+        "en": "Recipe name",
+        "fr": "Nom de la recette"
+      },
+      "dataset": {
+        "en": "Dataset name",
+        "fr": "Nom du dataset"
+      }
+    }
+   },
+   "graph": {
+    "title": {
+      "en": "Project graph",
+      "fr": "Graphe du projet"
+    }
+  },
+  "login": {
+    "title": {
+      "en": "Log in",
+      "fr": "Connexion"
+    },
+    "subtitle": {
+      "en": "Please enter your id and password",
+      "fr": "Saisissez votre identifiant et mot de passe"
+    },
+    "placeholder": {
+      "id": {
+        "en": "enter your id here",
+        "fr": "votre identifiant"
+      },
+      "password": {
+        "en": "your password here",
+        "fr": "votre mot de passe"
+      }
+    },
+    "button": {
+      "en": "Log in",
+      "fr": "Connectez-vous"
+    },
+    "remember": {
+      "en": "Remember me",
+      "fr": "Se souvenir de moi"
+    },
+    "github": {
+      "en": "with GitHub",
+      "fr": "avec GitHub"
+    },
+    "facebook": {
+      "en": "with Facebook",
+      "fr": "avec Facebook"
+    },
+    "twitter": {
+      "en": "with Twitter",
+      "fr": "avec Twitter"
+    }
+  }
+}

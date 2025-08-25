@@ -1,0 +1,13 @@
+.DS_Store
+artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+matchIdConfig/
+esdata
+.lastcommit
+configure
+matchID-frontend*
+nginx/dist
