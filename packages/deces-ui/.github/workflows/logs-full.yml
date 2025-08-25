@@ -1,0 +1,33 @@
+name: Stats (full)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  logs:
+    name: Compute full logs
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+      TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+      LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+      LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+      STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+      MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
+      GIT_BRANCH: dev
+    
+    steps:
+      - uses: actions/checkout@v1
+      - name: compute full logs
+        run: make config stats-full
+      - name: backup stats
+        run: make stats-catalog stats-db-backup stats-backup
+      - name: 📰 slack notification
+        run: |
+          SEMAINE=$(ls stats/public/`date +%Y`S* | tail -n 1  | sed -En "s/stats\/public\/(.*)\.json/\1/p")
+          APPARIEMENTS=$(ls stats/public/`date +%Y`S* | tail -n 1 | xargs cat | jq '[.[keys[] | select(contains("api: search/csv GET"))]] | .[0] | .requests.data | .[0] | .bytes.count' | awk ' {print $1/400}')
+          CORRECTIONS=$(ls stats/public/`date +%Y`S* | tail -n 1 | xargs cat | jq '[.[keys[] | select(.|test("^api: id.* POST"))]] | .[0] | .requests.data | .[0] | .hits.count')
+          NEWLINE=$'\n'
+          make -C tools slack-notification SLACK_MSG="* Appariements 👉 ${APPARIEMENTS} ${NEWLINE}* Corrections 👉 ${CORRECTIONS}" SLACK_TITLE="Stats - deces.matchid.io - ${SEMAINE}" SLACK_WEBHOOK="$SLACK_WEBHOOK"
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

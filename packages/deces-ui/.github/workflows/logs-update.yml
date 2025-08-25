@@ -1,0 +1,26 @@
+name: Stats (update)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  logs:
+    name: Compute full logs
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+      TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+      LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+      LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+      STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+      MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
+      GIT_BRANCH: dev
+    
+    steps:
+      - uses: actions/checkout@v1
+      - name: update stats
+        run: make config stats-update
+      - name: backup stats
+        run: make stats-catalog stats-db-backup stats-backup

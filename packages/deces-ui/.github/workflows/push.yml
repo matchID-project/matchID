@@ -1,0 +1,172 @@
+name: Deploy (push)
+
+on:
+  repository_dispatch:
+    types: [data-update]
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+      - master
+
+jobs:
+  build:
+    name: 🐳 Build docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Extract branch name
+        shell: bash
+        run: |
+          if [ -z "${GIT_BRANCH_REF}" ]; then
+            echo "##[set-output name=branch;]$(echo ${GITHUB_REF} | sed 's|^refs/heads/||;' | sed 's/[^a-zA-Z0-9]/-/g')";
+          else
+            git checkout ${GIT_BRANCH_REF};
+            echo "##[set-output name=branch;]${GIT_BRANCH_REF}";
+          fi
+        id: extract_branch
+        env:
+          GIT_BRANCH_REF: ${{ github.event.client_payload.ref }}
+      - name: config
+        run: echo "GIT_BRANCH=${GIT_BRANCH}" && make version config
+        env:
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+      - name: build
+        if: success()
+        run: make docker-check || make build
+        env:
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+      - name: test
+        if: success()
+        run: make deploy-local backend-test frontend-test
+        env:
+          FILES_TO_PROCESS: deces-2020-m01.txt.gz
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+          API_SEARCH_LIMIT_RATE: 10r/s
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
+          GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
+          MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+      - name: publish
+        if: success()
+        run: make docker-push GIT_BRANCH=$GIT_BRANCH;
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+  deploy:
+    name: 🚀 Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: deploy-key
+        if: success()
+        run: |
+          mkdir -p ~/.ssh/;
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null;
+          echo "$SSHENC" | base64 -d | gpg -d --passphrase $SSHPWD --batch > /tmp/id_rsa_matchID;
+          chmod 600 /tmp/id_rsa_matchID;
+          ssh-add /tmp/id_rsa_matchID;
+          echo "$SSHPUB" > ~/.ssh/id_rsa_matchID.pub;
+          echo "Host * !""$BASTION_HOST" > ~/.ssh/config;
+          echo "   ProxyCommand ssh -o StrictHostKeyChecking=no $BASTION_USER@$BASTION_HOST nc %h %p" >> ~/.ssh/config;
+          cat ~/.ssh/config;
+        env:
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          BASTION_HOST: ${{ secrets.BASTION_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER }}
+          SSHENC: ${{ secrets.SSHENC }}
+          SSHPWD: ${{ secrets.SSHPWD }}
+          SSHPUB: ${{ secrets.SSHPUB }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      - name: deploy
+        if: success()
+        run: |
+          if [[ ( "$GIT_BRANCH" == "dev" ) ]]; then
+            make deploy-remote \
+              GIT_BRANCH=$GIT_BRANCH \
+              FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
+              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD\
+              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
+              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
+              LOG_BAN_IP=$LOG_BAN_IP \
+              MMDB_TOKEN=$MMDB_TOKEN \
+              NEW_RELIC_API_KEY=${NEW_RELIC_API_KEY} NEW_RELIC_ACCOUNT_ID=${NEW_RELIC_ACCOUNT_ID} NEW_RELIC_INGEST_KEY=${NEW_RELIC_INGEST_KEY};
+          fi;
+          if [[ ( "$GIT_BRANCH" == "master" ) ]]; then
+            make deploy-remote \
+              GIT_BACKEND_BRANCH=master GIT_BRANCH=$GIT_BRANCH \
+              BACKEND_JOB_CONCURRENCY=$BACKEND_JOB_CONCURRENCY_MASTER \
+              BACKEND_CHUNK_CONCURRENCY=$BACKEND_CHUNK_CONCURRENCY_MASTER \
+              ES_MEM=$ES_MEM_MASTER \
+              SCW_FLAVOR=$SCW_FLAVOR_MASTER SCW_VOLUME_SIZE=$SCW_VOLUME_SIZE_MASTER SCW_VOLUME_TYPE=$SCW_VOLUME_TYPE_MASTER \
+              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD\
+              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
+              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
+              LOG_BAN_IP=$LOG_BAN_IP \
+              MMDB_TOKEN=$MMDB_TOKEN \
+              NEW_RELIC_API_KEY=${NEW_RELIC_API_KEY} NEW_RELIC_ACCOUNT_ID=${NEW_RELIC_ACCOUNT_ID} NEW_RELIC_INGEST_KEY=${NEW_RELIC_INGEST_KEY};
+          fi;
+        env:
+          FILES_TO_PROCESS_DEV: deces-2020-m[0-1][0-9].txt.gz
+          REPOSITORY_BUCKET_DEV: fichier-des-personnes-decedees-elasticsearch-dev
+          BACKEND_JOB_CONCURRENCY_MASTER: 6
+          BACKEND_CHUNK_CONCURRENCY_MASTER: 3
+          ES_MEM_MASTER: 8192m
+          SCW_FLAVOR_MASTER: GP1-XS
+          SCW_VOLUME_SIZE_MASTER: 60000000000
+          SCW_VOLUME_TYPE_MASTER: l_ssd
+          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
+          GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
+          NGINX_USER: ${{ secrets.NGINX_USER }}
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
+          MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
+          BLOCK_DEPLOY: ${{ secrets.BLOCK_DEPLOY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PWD: ${{ secrets.SMTP_PWD }}
+          LOG_BAN_IP: ${{ secrets.LOG_BAN_IP }}
+          MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
+          CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
+          CDN_TOKEN: ${{ secrets.CDN_TOKEN }}

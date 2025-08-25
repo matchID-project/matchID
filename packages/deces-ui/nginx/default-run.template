@@ -1,0 +1,125 @@
+upstream elasticsearch {
+  server <ES_HOST>:<ES_PORT>;
+}
+
+upstream backend {
+  server <BACKEND_HOST>:<BACKEND_PORT>;
+}
+
+server {
+  listen <PORT> default_server;
+
+  location / {
+    limit_req zone=app burst=30 nodelay;
+    limit_req_status 429;
+    alias /usr/share/nginx/html/;
+    try_files $uri $uri/ @rewrites;
+  }
+
+  location ~ (^/(css|js|stats|fonts|build)/?$) {
+    limit_req zone=app burst=30 nodelay;
+    limit_req_status 429;
+    rewrite ^(.+)$ /;
+  }
+
+  location @rewrites {
+    rewrite ^(.+)$ /index.html last;
+  }
+
+  location /liveConfig.json {
+    default_type application/json;
+    return 200 '{"googleAnalyticsId": "<GOOGLE_ANALYTICS_ID>", "googleAdsenseId": "<GOOGLE_ADSENSE_ID>"}';
+  }
+
+  location ~ "^<DATAGOUV_PROXY_PATH>.*" {
+    if ($request_method != GET) {
+      return 405;
+    }
+    limit_req zone=download;
+    rewrite "^<DATAGOUV_PROXY_PATH>/?(.*)?$" <DATAGOUV_RESOURCES_REWRITE_PATH>/$1 break;
+    proxy_pass <DATAGOUV_RESOURCES_PROXY>;
+    proxy_redirect off;
+    proxy_buffering off;
+    proxy_http_version 1.1;
+  }
+
+  location ~ "^<BACKEND_PROXY_PATH>/search$" {
+    add_header Access-Control-Allow-Origin '$http_origin';
+    limit_req zone=search burst=<API_SEARCH_USER_BURST>;
+    limit_req zone=search_global burst=<API_SEARCH_GLOBAL_BURST>;
+    limit_req_status 429;
+    proxy_pass http://backend;
+    proxy_read_timeout <API_READ_TIMEOUT>;
+    proxy_send_timeout <API_SEND_TIMEOUT>;
+    # Allow protocol upgrade to websocket
+    proxy_http_version 1.1;
+    proxy_next_upstream off;
+    proxy_set_header  X-Forwarded-For $http_x_forwarded_for;
+    proxy_set_header  X-Forwarded-Host $http_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+
+  location ~ "^<BACKEND_PROXY_PATH>/agg$" {
+    add_header Access-Control-Allow-Origin '$http_origin';
+    limit_req zone=agg burst=<API_AGG_USER_BURST>;
+    limit_req zone=agg_global burst=<API_AGG_GLOBAL_BURST>;
+    limit_req_status 429;
+    proxy_pass http://backend;
+    proxy_read_timeout <API_READ_TIMEOUT>;
+    proxy_send_timeout <API_SEND_TIMEOUT>;
+    # Allow protocol upgrade to websocket
+    proxy_http_version 1.1;
+    proxy_next_upstream off;
+    proxy_set_header  X-Forwarded-For $http_x_forwarded_for;
+    proxy_set_header  X-Forwarded-Host $http_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+
+  location ~ "^<BACKEND_PROXY_PATH>/search/(csv|json)$" {
+    add_header Access-Control-Allow-Origin '$http_origin';
+    limit_req zone=bulk_submit burst=<API_BULK_SUBMIT_BURST>;
+    limit_req_status 429;
+    proxy_pass http://backend;
+    proxy_read_timeout <API_READ_TIMEOUT>;
+    proxy_send_timeout <API_SEND_TIMEOUT>;
+    # Allow large uploads
+    client_max_body_size <API_MAX_BODY>;
+    # Allow protocol upgrade to websocket
+    proxy_http_version 1.1;
+    proxy_next_upstream off;
+    proxy_set_header  X-Forwarded-For $http_x_forwarded_for;
+    proxy_set_header  X-Forwarded-Host $http_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+
+  location ~ "^<BACKEND_PROXY_PATH>/(compare|version|search/(csv|json)/.*|updates(/.*)?|updated|id/[a-zA-Z0-9-_]{12}|docs(/.*)?|auth(/confirm)?|register|healthcheck|queue(/.*)?|webhook)$" {
+    add_header Access-Control-Allow-Origin '$http_origin';
+    limit_req zone=api_misc burst=<API_MISC_USER_BURST>;
+    limit_req zone=api_misc_global burst=<API_MISC_GLOBAL_BURST>;
+    limit_req_status 429;
+    proxy_pass http://backend;
+    proxy_read_timeout <API_READ_TIMEOUT>;
+    proxy_send_timeout <API_SEND_TIMEOUT>;
+    # Allow large uploads
+    client_max_body_size <API_MAX_BODY>;
+    # Allow protocol upgrade to websocket
+    proxy_http_version 1.1;
+    proxy_next_upstream off;
+    proxy_set_header  X-Forwarded-For $http_x_forwarded_for;
+    proxy_set_header  X-Forwarded-Host $http_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+
+  location ~ "^<BACKEND_PROXY_PATH>/.*" {
+    return 400;
+  }
+
+}

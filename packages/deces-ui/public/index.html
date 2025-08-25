@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr" class="has-navbar-fixed-top">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="/favicon.svg"/>
+		<link rel="apple-touch-icon" href="/favicon-apple.png">
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#000000" />
+		<link rel="manifest" href="/manifest.json" />
+
+		<title>matchID - Moteur de recherche des décès</title>
+		<meta name="description" content="Moteur de recherche gratuit des décès en France, basé sur la source des fichiers des personnes décédées INSEE (1970 à aujourd'hui). Ce moteur est utilisé pour la généalogie ou l'identification des décès dans les fichiers clients'" />
+		<meta name="author" content="matchID deces" />
+		<meta name="application-name" content="matchID deces" />
+		<link rel="canonical" href="https://deces.matchid.io" />
+		<link rel='stylesheet' href='/css/global.css'>
+		<link rel='stylesheet' href='/css/matchid.min.css'>
+		<link rel='stylesheet' href='/build/module/bundle.css'>
+		<script defer src='/js/matchid.min.js'></script>
+		<script>
+			function supportsDynamicImport() {
+				try {
+					new Function('import("")');
+					return true;
+				} catch (err) {
+					return false;
+				}
+			}
+			const script = document.createElement('script');
+			if (supportsDynamicImport() && ('noModule' in script)) {
+				// for modern browsers
+				script.type = "module"
+				script.src = '/build/module/main.js';
+			} else {
+				// for old browsers
+				script.src = '/build/nomodule/main.js';
+			}
+			document.head.appendChild(script);
+		</script>
+
+		<!--if not working-->
+		<script>
+			setTimeout(function(){
+			  var tmp = document.getElementById("infoNotWorking")
+			  if (tmp) {
+				tmp.style.display = "block";
+			  }
+			}, 5000);
+		</script>
+		<style>
+		#infoNotWorking {
+			text-align: center;
+			font-size: 1em;
+			display: none;
+		}
+		</style>
+		<!-- <script data-ad-client="ca-pub-6277851622494904" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script> -->
+		<!-- <div id="fb-root"></div>
+		<script async defer crossorigin="anonymous" src="https://connect.facebook.net/fr_FR/sdk.js#xfbml=1&version=v6.0&appId=221188131972022&autoLogAppEvents=1"></script> -->
+	</head>
+
+<body>
+	<noscript>
+			<h1>Moteur de recherche des décès</h1>
+			Ce service permet la recherche des décès, gratuitement, rapidement et intuitivement.
+			Il exploite l'intégralité de la base opendata des personnes décédées délivrée par l'INSEE et diffusée par data.gouv.fr.
+			Il comporte nom, prénoms, lieux et dates de naissance et de décès de 25 millions de personnes décédées depuis 1970.
+			Il enregistre les décès en France et à l'étranger pour toute personne ayant été enregistée par l'INSEE (français ou étranger
+			résidant en France).
+			Il offre un service d'appariement (identification des personnes décédées au sein d'un fichier d'identités),
+			utilisé notamment par les CHU et médecins pour fiabiliser le statut au sein de leur fichiers de patients.
+			<h1>A qui s'adresse le service ?</h1>
+			Généalogistes, professionnels ou particuliers, services publics de lutte contre la fraude, médecins
+			<h1>Qui sommes nous ?</h1>
+			Le projet matchID a été initié au ministère de l'Intérieur dans le contexte des challenges d'Entrepreneur d'intérêt général.
+			La réconciliation du fichier des personnes décédées avec le permis de conduire a été le premier cas d'usage réalisé avec matchID.
+			matchID est un logiciel opensource et gratuit qui permet de croiser des fichiers de plusieurs dizaines de millions d'enregistrements.
+	</noscript>
+	<div id="infoNotWorking">
+		Si vous voyez ce message, c'est que que votre navigateur est incompatible, ou bien que la connexion a posé
+		problème.
+		<br/>
+		Les navigateurs supportés sont : Edge >= 79, Chrome >= 65, Firefox >= 68, Safari >=11
+		<br/>
+		Maintenir la compatibilité du service avec les navigateurs anciens est une activité coûteuse, et le maintien
+		d'une version ancienne de navigateur est risquée pour la sécurité de vos données. N'hésitez pas à faire
+		une mise à jour !
+	</div>
+</body>
+</html>

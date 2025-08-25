@@ -1,0 +1,44 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+artifacts
+.lastcommit
+dist
+dist-build
+public/sw*
+public/workbox*
+deces-ui-*
+deces-backend
+deces-dataprep
+docker-compose-elasticsearch-huge.yml
+backup
+esdata
+config
+/tools
+.data.sha1
+.dataprep.sha1
+.data.sha1.list
+.matchid*
+.stats-*
+/data
+/log
+log-db
+# dependencies
+/node_modules
+
+
+# testing
+/coverage
+
+# production
+public/build
+bundle.*
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
