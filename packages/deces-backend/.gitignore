@@ -1,0 +1,29 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+backend/src/routes
+backend/src/api
+artifacts
+aws
+config
+tools
+deces-dataprep
+.data.sha1
+.data.sha1.list
+.dataprep.sha1
+redisdata
+clients_test.csv
+docker-compose-elasticsearch-huge.yml
+
+# backup
+data
+esdata
+backup
+*.tar.gz
+
+# production
+public/build
+bundle.*
+dist
+
+# dependencies
+node_modules
+communes-*
