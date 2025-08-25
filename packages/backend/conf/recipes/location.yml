@@ -1,0 +1,215 @@
+recipes:
+
+  french_city_norm:
+    steps:
+      - replace:
+          select: matchid_location_city_norm
+          regex:
+            - ^\s*(lyon|marseille|paris)(\s.*|\s*\d\d*.*|.*art.*|.*arr.*)$: '\1'
+            - montreuil s.* bois: montreuil
+            - (^|\s)ste(\s|$): '\1sainte\2'
+            - (^|\s)st(\s|$): '\1saint\2'
+            - ^aix pce$: aix provence
+            - (^|\s)(de|en|les|le|la|a|aux|au|du|de la|sous|sur|l|d|des)\s: ' '
+            - (^|\s)(de|en|les|le|la|a|aux|au|du|de la|sous|sur|l|d|des)\s: ' '
+            - \sss\s: '' 
+            - \ss\s: '' 
+            - ^x$:  ''
+            - \s+: ' ' 
+            - œ: oe 
+            - æ: ae
+            - ^.*inconnu.*$: ''
+            - sainte clotilde: saint denis
+            - berck mer: berck
+            - clichy garenne.*: clichy
+            - belleville saone: belleville
+            - '^levallois$': 'levallois perret' 
+            - '\s$': ''
+
+  french_city+dep:
+    steps:
+      - map:
+          matchid_location_city_norm: matchid_location_city_src
+      - normalize: 
+          select: matchid_location_city_norm
+      - french_city_norm:
+      - join:
+          type : in_memory
+          dataset: french_city2dep_fuzzy
+          strict:
+            matchid_location_city_norm: norm_name
+            matchid_location_countrycode: CODEISO3            
+          select: 
+            matchid_location_depcode_ref: dep_code
+      - eval:
+          - matchid_location_depcode: matchid_location_depcode_ref if (matchid_location_depcode_ref != "") else matchid_location_depcode
+      - join:
+          type : in_memory
+          dataset: french_citycodes_fuzzy
+          fuzzy:
+            matchid_location_city_norm: norm_name
+          strict: 
+            # matchid_location_city_norm: norm_name
+            matchid_location_depcode: dep_code
+            matchid_location_countrycode: CODEISO3
+          select: 
+            matchid_location_citycode: insee_code
+            matchid_location_citycode_history: insee_code_history
+            matchid_location_city: name
+            matchid_location_city_alter: newest_name
+            matchid_location_depcode_alter: newest_dep_code
+            matchid_location_city_population: population
+            matchid_location_city_surface: surface
+            matchid_location_city_geopoint_2d: geopoint_2d
+      - delete:
+          select: matchid_location_city_norm.*|matchid_location_depcode_ref
+      - eval: # override previous matches only if matched
+          - matchid_location_city: matchid_location_city_src if ('matchid_location_city' not in row.keys()) else (matchid_location_city_src if (matchid_location_city=="") else matchid_location_city )
+          - matchid_location_depcode: str("99") if ('matchid_location_depcode' not in row.keys()) else ( str("99") if (matchid_location_depcode == "") else matchid_location_depcode)
+          - matchid_location_citycode_history: list([]) if (matchid_location_citycode_history=="") else json.loads(matchid_location_citycode_history)
+      - eval:    
+          - matchid_location_latitude: geopoint(matchid_location_city_geopoint_2d)[0] if ('POINT' in matchid_location_city_geopoint_2d) else matchid_location_country_latitude if ("matchid_location_country_latitude" in row.keys()) else 90
+          - matchid_location_longitude: geopoint(matchid_location_city_geopoint_2d)[1] if ('POINT' in matchid_location_city_geopoint_2d) else matchid_location_country_longitude if ("matchid_location_country_latitude" in row.keys()) else 90
+      - to_float: 
+          select: ^matchid_location_(latitude|longitude)$
+          na_value: 90
+
+
+  algeria_city:
+    steps:
+      - map:
+          matchid_location_city_alg_tmp: matchid_location_city_src
+      - normalize: 
+          select: matchid_location_city_alg_tmp
+      - replace:
+          select: matchid_location_city_alg_tmp
+          regex:
+            - ^\s*departement\s(d|de|du)\s*: ''
+      - join:
+          type: in_memory
+          dataset: algeria_city_fuzzy
+          fuzzy: 
+            matchid_location_city_alg_tmp: norm_name
+          strict: 
+            matchid_location_countrycode: CODEISO3
+          select: 
+            matchid_location_city_alg: name
+            matchid_location_city_alg_new: newest_name
+            matchid_location_city_alg_population: population
+            matchid_location_city_alg_surface: surface
+            matchid_location_city_alg_geopoint_2d: geopoint_2d
+      - eval: # override previous matches only if matched
+          - matchid_location_city: matchid_location_city if (matchid_location_city_alg=="") else matchid_location_city_alg
+          - matchid_location_city_alter: matchid_location_city_alter if (matchid_location_city_alg_new=="") else matchid_location_city_alg_new
+          - matchid_location_city_surface: matchid_location_city_surface if (matchid_location_city_alg_surface=="") else matchid_location_city_alg_surface
+          - matchid_location_city_geopoint_2d: matchid_location_city_geopoint_2d if (matchid_location_city_alg_geopoint_2d=="") else matchid_location_city_alg_geopoint_2d
+          - matchid_location_city_population: matchid_location_city_population if (matchid_location_city_alg_population=="") else matchid_location_city_alg_population
+      - eval:    
+          - matchid_location_latitude: geopoint(matchid_location_city_geopoint_2d)[0] if ('POINT' in matchid_location_city_geopoint_2d) else matchid_location_country_latitude if ("matchid_location_country_latitude" in row.keys()) else 90
+          - matchid_location_longitude: geopoint(matchid_location_city_geopoint_2d)[1] if ('POINT' in matchid_location_city_geopoint_2d) else matchid_location_country_longitude if ("matchid_location_country_latitude" in row.keys()) else 90
+      - to_float: 
+          select: ^matchid_location_(latitude|longitude)$
+          na_value: 90
+      - delete:
+          select: matchid_location_city_alg.*
+      - to_integer: 
+          select: .*(surface|population)$
+
+
+  french_citycode:
+    steps:
+      - eval:
+          - matchid_location_citycode: matchid_location_citycode if ('matchid_location_citycode' in row.keys()) else matchid_location_citycode_src
+      - replace:
+          select: matchid_location_citycode$
+          regex:
+            - ^9.352$: '' #algérie
+            - ^985(..)$: '976\1' # mayotte
+            - ^98405: '97409' # mapping "La Réunion" to "Saint-Denis 1, La Réunion" 
+            - ^98(2|3|4).*$: '' # anciennes colonies
+            - ^99.*$: '' #pays étrangers
+      - join:
+          dataset: french_citycodes
+          type: in_memory
+          strict: 
+            matchid_location_citycode: insee_code
+          select: 
+            matchid_location_citycode_history: insee_code_history
+            matchid_location_city: name
+            matchid_location_city_alter: newest_name
+            matchid_location_depcode: dep_code
+            matchid_location_depcode_alter: newest_dep_code
+            matchid_location_city_population: population
+            matchid_location_city_surface: surface
+            matchid_location_city_geopoint_2d: geopoint_2d
+      - eval:
+          - matchid_location_city: matchid_location_city_src if ('matchid_location_city' not in row.keys()) else (matchid_location_city_src if (matchid_location_city=="") else matchid_location_city )
+          - matchid_location_depcode: str("99") if ('matchid_location_depcode' not in row.keys()) else ( str("99") if (matchid_location_depcode == "") else matchid_location_depcode)
+          - matchid_location_citycode_history: list([]) if (matchid_location_citycode_history=="") else json.loads(matchid_location_citycode_history)
+      - eval:    
+          - matchid_location_latitude: geopoint(matchid_location_city_geopoint_2d)[0] if ('POINT' in matchid_location_city_geopoint_2d) else matchid_location_country_latitude if ("matchid_location_country_latitude" in row.keys()) else 90
+          - matchid_location_longitude: geopoint(matchid_location_city_geopoint_2d)[1] if ('POINT' in matchid_location_city_geopoint_2d) else matchid_location_country_longitude if ("matchid_location_country_latitude" in row.keys()) else 90
+      - to_float: 
+          select: ^matchid_location_(latitude|longitude)$
+          na_value: 90
+      - to_integer: 
+          select: .*(surface|population)$
+
+  country_code_cog:
+    steps:
+      - eval:
+          - matchid_location_countrycode_cog: matchid_location_countrycode if ('matchid_location_countrycode' in row.keys()) else matchid_location_countrycode_src
+      - replace:
+          select: matchid_location_countrycode_cog
+          regex: # algérie, réunion, mayotte, anciennes colonies
+            - ^98201: "99336" # MAURITANIE
+            - ^98202: "99341" # SENEGAL
+            - ^98203: "99330" # GUINEE
+            - ^98204: "99326" # COTE D'IVOIRE
+            - ^98205: "99327" # BENIN
+            - ^98206: "99335" # MALI
+            - ^98207: "99337" # NIGER
+            - ^98208: "99345" # TOGO
+            - ^98209: "99331" # BURKINA
+            - ^98301: "99328" # GABON
+            - ^98302: "99324" # CONGO
+            - ^98303: "99323" # REP CENTRAFRICAINE
+            - ^98304: "99344" # TCHAD
+            - ^98305: "99322" # CAMEROUN
+            - ^98401: "99333" # MADAGASCAR
+            - ^98402: "99397" # COMORES
+            - ^98405: XXXXX # LA REUNION > FR
+            - ^98406: "99399" # DJIBOUTI
+            - ^9(1|2|3|4)352$: "99352" #algérie 
+            - ^98(4|5|6|7|8)(..)$: "XXXXX" #mayotte, nlle calédonie, ...
+            - ^9[0-5](...)$: "XXXXX" # idf+belfort
+            - ^97[1-6](..)$: "XXXXX" # DOMs
+            - ^[0-8]....$: "XXXXX" 
+
+      - join:
+          dataset: countries
+          type: in_memory
+          strict: 
+            matchid_location_countrycode_cog: COG
+          select:
+            matchid_location_country: LIBCOG
+            matchid_location_countrycode: CODEISO3
+            matchid_location_country_latitude: latitude
+            matchid_location_country_longitude: longitude
+    
+  country_label:
+    steps:         
+      - eval:
+          - matchid_location_country_norm: matchid_location_country if ("matchid_location_country" in row.keys()) else matchid_location_country_src
+      - normalize: 
+          select: matchid_location_country_norm
+      - join:
+          dataset: countries_for_fuzzy
+          type: in_memory
+          fuzzy: 
+            matchid_location_country_norm: norm_name
+          select:
+            matchid_location_country: LIBCOG
+            matchid_location_countrycode: CODEISO3
+      - delete:
+          select: matchid_location_country_norm
