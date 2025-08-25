@@ -1,0 +1,111 @@
+name: Index full data
+
+on:
+  schedule:
+    - cron: "3 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: hourly-workflow # Assurez-vous que ce nom est unique pour ce workflow
+  cancel-in-progress: true
+
+jobs:
+  check-previous-failure:
+    runs-on: ubuntu-latest
+    outputs:
+      should-skip: ${{ steps.skip-check.outputs.should-skip }}
+    steps:
+      - name: Check last workflow run status
+        id: skip-check
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'full.yml',
+            });
+            let shouldSkip = 'false';
+            if (github.event_name == 'schedule') {
+              const lastRun = runs.workflow_runs.find(run => run.head_branch === context.ref.replace('refs/heads/', ''));
+              if (lastRun && lastRun.conclusion === 'failure') {
+                console.log("Le dernier run du workflow a échoué. On saute ce run.");
+                shouldSkip = 'true';
+              }
+            }
+            core.setOutput('should-skip', shouldSkip);
+
+
+  build:
+    name: remotely, large datasets
+    needs: check-previous-failure
+    if: needs.check-previous-failure.outputs.should-skip == 'false' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50  # Timeout réglé à 50 minutes
+    steps:
+      - uses: actions/checkout@v1
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v2
+      - name: deploy-key (if dev or master)
+        run: |
+          mkdir -p ~/.ssh/;
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null;
+          echo "$SSHENC" | base64 -d | gpg -d --passphrase $SSHPWD --batch > /tmp/id_rsa_matchID;
+          chmod 600 /tmp/id_rsa_matchID;
+          ssh-add /tmp/id_rsa_matchID;
+          echo "$SSHPUB" > ~/.ssh/id_rsa_matchID.pub;
+          echo "Host * !""$BASTION_HOST" > ~/.ssh/config;
+          echo "   ProxyCommand ssh -o StrictHostKeyChecking=no $BASTION_USER@$BASTION_HOST nc %h %p" >> ~/.ssh/config;
+          cat ~/.ssh/config;
+        env:
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          BASTION_HOST: ${{ secrets.BASTION_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER }}
+          SSHENC: ${{ secrets.SSHENC }}
+          SSHPWD: ${{ secrets.SSHPWD }}
+          SSHPUB: ${{ secrets.SSHPUB }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      - name: Check
+        if: success()
+        run: make clean full-check GIT_BRANCH=${GIT_BRANCH}
+        env:
+          VERBOSE: True
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Run
+        if: success()
+        run: |
+          make remote-all \
+            GIT_BRANCH="$GIT_BRANCH" \
+            SCW_FLAVOR=${SCW_FLAVOR} SCW_VOLUME_SIZE=${SCW_VOLUME_SIZE} SCW_VOLUME_TYPE=${SCW_VOLUME_TYPE} \
+            CHUNK_SIZE=${CHUNK_SIZE} ES_THREADS=${ES_THREADS} RECIPE_THREADS=${RECIPE_THREADS} ES_MEM=${ES_MEM} RECIPE_QUEUE=${RECIPE_QUEUE} \
+            SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="$SLACK_WEBHOOK";
+        env:
+          VERBOSE: True
+          SCW_FLAVOR: PRO2-L
+          SCW_VOLUME_SIZE: 50000000000
+          SCW_VOLUME_TYPE: sbs_volume
+          CHUNK_SIZE: 75000
+          ES_THREADS: 30
+          RECIPE_THREADS: 32
+          ES_MEM: 62000m
+          RECIPE_QUEUE: 34
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_TITLE: deces-dataprep - full

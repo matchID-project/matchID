@@ -1,0 +1,10 @@
+datasets:
+  oppositions_rgpd:
+    # death people reference (fake - test sample)
+    # fixed with format with no header
+    connector: !ENV ${DATAGOUV_CONNECTOR}
+    table:
+      regex: fichier-opposition-deces-.*.csv.gz
+    type: csv
+    encoding: utf8
+    sep: ";"

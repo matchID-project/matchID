@@ -1,0 +1,351 @@
+recipes:
+  deces_dataprep:
+    test_chunk_size: 100
+    write_queue_length: !ENV ${RECIPE_QUEUE}
+    input: deces_src
+    output:
+      dataset: deces_index
+    threads: !ENV ${RECIPE_THREADS}
+    steps:
+      - normalize:
+          select: (NOM_PRENOMS|COMMUNE_NAISSANCE|PAYS_NAISSANCE|NUM_DECES)$
+      - exec:
+        # tag dataset and records with uniq id
+          - "df['UID'] = df.apply(lambda row:  base64.urlsafe_b64encode(blake3(str(tuple(row)).encode('utf-8')).digest()), axis=1).str.slice(stop=12)"
+          - df['_id'] = df['UID']
+          - df['SOURCE'] = str(desc['source']['name'])
+          - df['SOURCE_LINE'] = 1+df.index
+      - replace:
+          select: NUM_DECES
+          regex:
+            - '(.{9}).*': '\1'
+            - '\s*$': ''
+      - replace:
+          select: SOURCE
+          regex:
+            - '.*/deces-': ''
+            - '.txt.gz': ''
+      - replace:
+          select: (NOM_PRENOMS|COMMUNE_NAISSANCE|PAYS_NAISSACE)$
+          regex:
+            - '\s\?': 'X'
+      - map:
+          NOM: NOM_PRENOMS
+          PRENOMS: NOM_PRENOMS
+          PRENOM: NOM_PRENOMS
+      # Tag RGPD oppositions
+      - join:
+          dataset: oppositions_rgpd
+          type: in_memory
+          strict:
+            CODE_INSEE_DECES: Code du lieu de décès
+            DATE_DECES: Date de décès
+            NUM_DECES: "Numéro d'acte de décès"
+          select:
+            OPPOSITION_RGPD: "Numéro d'acte de décès"
+      #####
+      #filter invalid chars (resulting in utf8 bugs)
+      #sexe, and remove RGPD oppositions
+      - exec:
+          - df.drop(df[df['OPPOSITION_RGPD']!=""].index, inplace=True)
+          - df.drop('OPPOSITION_RGPD', axis=1, inplace=True)
+          - df['SEXE']=np.where(df['SEXE'] == '2',"F","M")
+      #nom prénoms
+      - replace:
+          select: NOM$
+          regex:
+            - ^(.*)\*.*/$: '\1'
+      - replace:
+          select: PRENOMS?$
+          regex:
+            - ^.*\*(.*)/$: '\1'
+      - replace:
+          select: PRENOM$
+          regex:
+            - ^(\S*)\s*.*$: '\1'
+      - delete:
+          select: NOM_PRENOMS
+      - exec:
+          - df['NOM'] = df['NOM'].astype('str').str.title()
+          - df['PRENOMS'] = df['PRENOMS'].astype('str').str.title()
+          - df['PRENOM'] = df['PRENOM'].astype('str').str.title()
+          - df['PRENOMS_NOM'] = df['PRENOMS'] + ' ' + df['NOM']
+          - df['PRENOMS_NOM'] = df['PRENOMS_NOM'].astype('str').str.lower()
+          - df['PRENOM_NOM'] = df['PRENOM']+ " " + df['NOM']
+          - df['PRENOM_NOM'] = df['PRENOM_NOM'].astype('str').str.lower()
+      #dates
+      - map:
+          DATE_NAISSANCE_NORM: DATE_NAISSANCE
+          DATE_DECES_NORM: DATE_DECES
+      - replace:
+          select: DATE_(DECES|NAISSANCE)_NORM
+          regex:
+            - '\D*': ''
+            - '00000000': ''
+            - (\d{4})(\d{2})(\d{2}): '\1/\2/\3'
+            - /(3[2-9]|[4-9][0-9])$: /31
+            - /(1[3-9])/: /12/
+            - /[2-9]([1-9])/: /0\1/
+            - /[2-9]0/: /01/
+            - (\d{4})/02/(30|31): \1/03/01
+            - (1900|(\d{2})([02468][26]|[13579][048]|\d[13579]))/02/29: \1/02/28
+            - (04|06|09|11)/31\$: \1/30
+            - /00: /01
+            - /: ''
+      - parsedate:
+         select: DATE.*NORM
+         format: "%Y%m%d"
+      - exec:
+          - df['AGE_DECES'] = np.where(df['DATE_DECES'] > df['DATE_NAISSANCE'],
+            (df['DATE_DECES_NORM'] - df['DATE_NAISSANCE_NORM']).astype('<m8[Y]'),
+            None)
+          - df['DATE_NAISSANCE_NORM'] = df['DATE_NAISSANCE_NORM'].dt.strftime('%Y%m%d')
+          - df['DATE_DECES_NORM'] = df['DATE_DECES_NORM'].dt.strftime('%Y%m%d')
+      #pays naissance
+      - map:
+          PAYS_NAISSANCE_CODE: CODE_INSEE_NAISSANCE
+      - replace:
+          select: PAYS_NAISSANCE_CODE
+          regex: # algérie, réunion, mayotte, anciennes colonies
+            - ^98201: "99336" # MAURITANIE
+            - ^98202: "99341" # SENEGAL
+            - ^98203: "99330" # GUINEE
+            - ^98204: "99326" # COTE D'IVOIRE
+            - ^98205: "99327" # BENIN
+            - ^98206: "99335" # MALI
+            - ^98207: "99337" # NIGER
+            - ^98208: "99345" # TOGO
+            - ^98209: "99331" # BURKINA
+            - ^98301: "99328" # GABON
+            - ^98302: "99324" # CONGO
+            - ^98303: "99323" # REP CENTRAFRICAINE
+            - ^98304: "99344" # TCHAD
+            - ^98305: "99322" # CAMEROUN
+            - ^98401: "99333" # MADAGASCAR
+            - ^98402: "99397" # COMORES
+            - ^98405: XXXXX # LA REUNION > FR
+            - ^98406: "99399" # DJIBOUTI
+            - ^98506: "99243" #VIETNAM (only for birth)
+            - ^99143: "99254" #CHYPRE
+            - ^9(1|2|3|4)352$: "99352" #algérie
+            - ^98(4|5|6|7|8)(..)$: "XXXXX" #mayotte, nlle calédonie, ...
+            - ^9[0-5](...)$: "XXXXX" # idf+belfort
+            - ^97[1-6](..)$: "XXXXX" # DOMs
+            - ^[0-8]....$: "XXXXX"
+      - join:
+          dataset: countries
+          type: in_memory
+          strict:
+            PAYS_NAISSANCE_CODE: COG
+          select:
+            PAYS_NAISSANCE_CODEISO3: CODEISO3
+            PAYS_NAISSANCE_LIBCOG: LIBCOG
+      - exec: >
+          df['PAYS_NAISSANCE'] = np.where(
+            df['PAYS_NAISSANCE'] == "",
+            df['PAYS_NAISSANCE_LIBCOG'].astype('str').str.title(),
+            np.where(
+              df['PAYS_NAISSANCE'] != df['PAYS_NAISSANCE_LIBCOG'],
+              df['PAYS_NAISSANCE_LIBCOG'].astype('str').str.title() + ", " +  df['PAYS_NAISSANCE'].astype('str').str.title(),
+              df['PAYS_NAISSANCE'].astype('str').str.title()
+            )
+          )
+      - delete:
+          select: PAYS_NAISSANCE_LIBCOG
+
+      #historique commune naissance
+      - map:
+          CODE_INSEE_NAISSANCE_NORM: CODE_INSEE_NAISSANCE
+      - replace:
+          select: CODE_INSEE_NAISSANCE_NORM$
+          regex:
+            - ^9.352$: '' #algérie
+            - ^985(..)$: '976\1' # mayotte
+            - ^98405: '97409' # mapping "La Réunion" to "Saint-Denis 1, La Réunion"
+            - ^98(2|3|4).*$: '' # anciennes colonies
+            - ^99.*$: '' #pays étrangers
+      - join:
+          dataset: french_citycodes
+          type: in_memory
+          strict:
+            CODE_INSEE_NAISSANCE_NORM: insee_code
+          select:
+            CODE_INSEE_NAISSANCE_HISTORIQUE: insee_code_history
+            CODE_POSTAL_NAISSANCE: Code postal
+            COMMUNE_NAISSANCE_REF: name
+            COMMUNE_NAISSANCE_ALTER: newest_name
+            DEPARTEMENT_NAISSANCE: dep_code
+            GEOPOINT_NAISSANCE: geopoint_2d
+      - exec:
+        - df['COMMUNE_NAISSANCE'] = df['COMMUNE_NAISSANCE'].astype('str').str.title()
+      - replace:
+          select: COMMUNE_NAISSANCE
+          regex:
+            - ^(.*)\s*\((\w+)\)$: '\2 \1'
+      - exec:
+          - df['COMMUNE_NAISSANCE_ALL'] = np.where(
+                df['COMMUNE_NAISSANCE'] == df['COMMUNE_NAISSANCE_REF'].str.normalize('NFKD').str.encode('ASCII','ignore').str.decode('ASCII').astype('str').str.title(),
+                df['COMMUNE_NAISSANCE_REF'],
+                np.where(
+                  df['COMMUNE_NAISSANCE_REF'] == "",
+                  df['COMMUNE_NAISSANCE'],
+                  df['COMMUNE_NAISSANCE'] + "/" + df['COMMUNE_NAISSANCE_REF']
+                )
+              )
+          - df['COMMUNE_NAISSANCE_ALL'] = np.where(
+                df['COMMUNE_NAISSANCE_REF'] == df['COMMUNE_NAISSANCE_ALTER'],
+                df['COMMUNE_NAISSANCE_ALL'],
+                np.where(
+                  df['COMMUNE_NAISSANCE'] == df['COMMUNE_NAISSANCE_ALTER'].str.normalize('NFKD').str.encode('ASCII','ignore').str.decode('ASCII').astype('str').str.title(),
+                  df['COMMUNE_NAISSANCE_ALL'],
+                  df['COMMUNE_NAISSANCE_ALL'] + "/" + df['COMMUNE_NAISSANCE_ALTER']
+                )
+              )
+          - df['COMMUNE_NAISSANCE'] = np.where(
+                df['COMMUNE_NAISSANCE_REF'].str.contains('Arrondissement'),
+                df['COMMUNE_NAISSANCE_REF'].str.replace(r'^(\w+)\s.*$',r'\1',regex=True) + "/" + df['COMMUNE_NAISSANCE_REF'],
+                df['COMMUNE_NAISSANCE_ALL']
+            )
+          - df['COMMUNE_NAISSANCE'] = np.where(
+              df['COMMUNE_NAISSANCE'].str.contains("/"),
+              df['COMMUNE_NAISSANCE'].str.split("/"),
+              df['COMMUNE_NAISSANCE']
+            )
+          - df['CODE_POSTAL_NAISSANCE'] = np.where(
+              df['CODE_POSTAL_NAISSANCE'].str.contains('"'),
+              df['CODE_POSTAL_NAISSANCE'].replace('[^AB0-9,]','',regex=True).str.split(','),
+              df['CODE_POSTAL_NAISSANCE']
+            )
+      - exec: >
+          df['DEPARTEMENT_NAISSANCE'] = np.where(
+            df['DEPARTEMENT_NAISSANCE'] == "",
+            np.where(
+              df['PAYS_NAISSANCE_CODE'].str.match('XXXXX'),
+              df['CODE_INSEE_NAISSANCE'].replace('...$','',regex=True),
+              df['DEPARTEMENT_NAISSANCE']
+            ),
+            df['DEPARTEMENT_NAISSANCE']
+          )
+      - delete:
+          select: CODE_INSEE_NAISSANCE_NORM|COMMUNE_NAISSANCE_(REF|ALL)
+      - exec: >
+          df['CODE_INSEE_NAISSANCE_HISTORIQUE'] = np.where(
+                df['CODE_INSEE_NAISSANCE_HISTORIQUE'].str.contains('"'),
+                np.where(
+                  df['CODE_INSEE_NAISSANCE_HISTORIQUE'].str.contains(','),
+                  df['CODE_INSEE_NAISSANCE_HISTORIQUE'].replace('[^AB0-9,]','',regex=True).str.split(','),
+                  df['CODE_INSEE_NAISSANCE_HISTORIQUE'].replace('[^AB0-9]','',regex=True)
+                ),
+                np.where(
+                  df['CODE_INSEE_NAISSANCE']  == df['PAYS_NAISSANCE_CODE'],
+                  df['CODE_INSEE_NAISSANCE'],
+                  (df['PAYS_NAISSANCE_CODE'] + "," + df['CODE_INSEE_NAISSANCE']).str.split(',')
+                )
+              )
+      #pays décès
+      - map:
+          PAYS_DECES_CODE: CODE_INSEE_DECES
+      - replace:
+          select: PAYS_DECES_CODE
+          regex: # algérie, réunion, mayotte, anciennes colonies
+            - ^98201: "99336" # MAURITANIE
+            - ^98202: "99341" # SENEGAL
+            - ^98203: "99330" # GUINEE
+            - ^98204: "99326" # COTE D'IVOIRE
+            - ^98205: "99327" # BENIN
+            - ^98206: "99335" # MALI
+            - ^98207: "99337" # NIGER
+            - ^98208: "99345" # TOGO
+            - ^98209: "99331" # BURKINA
+            - ^98301: "99328" # GABON
+            - ^98302: "99324" # CONGO
+            - ^98303: "99323" # REP CENTRAFRICAINE
+            - ^98304: "99344" # TCHAD
+            - ^98305: "99322" # CAMEROUN
+            - ^98401: "99333" # MADAGASCAR
+            - ^98402: "99397" # COMORES
+            - ^98405: XXXXX # LA REUNION > FR
+            - ^98406: "99399" # DJIBOUTI
+            - ^99143: "99254" #CHYPRE
+            - ^9(1|2|3|4)352$: "99352" #algérie
+            - ^98(4|5|6|7|8)(..)$: "XXXXX" #mayotte, nlle calédonie, ...
+            - ^9[0-5](...)$: "XXXXX" # idf+belfort
+            - ^97[1-6](..)$: "XXXXX" # DOMs
+            - ^[0-8]....$: "XXXXX"
+      - join:
+          dataset: countries
+          type: in_memory
+          strict:
+            PAYS_DECES_CODE: COG
+          select:
+            PAYS_DECES_CODEISO3: CODEISO3
+            PAYS_DECES: LIBCOG
+      - exec:
+          - df['PAYS_DECES'] = df['PAYS_DECES'].astype('str').str.title()
+
+      #historique commune décès
+      - map:
+          CODE_INSEE_DECES_NORM: CODE_INSEE_DECES
+      - replace:
+          select: CODE_INSEE_DECES_NORM$
+          regex:
+            - ^9.352$: '' #algérie
+            - ^985(..)$: '976\1' # mayotte
+            - ^98405: '97409' # mapping "La Réunion" to "Saint-Denis 1, La Réunion"
+            - ^98(2|3|4).*$: '' # anciennes colonies
+            - ^99.*$: '' #pays étrangers
+      - join:
+          dataset: french_citycodes
+          type: in_memory
+          strict:
+            CODE_INSEE_DECES_NORM: insee_code
+          select:
+            CODE_INSEE_DECES_HISTORIQUE: insee_code_history
+            CODE_POSTAL_DECES: Code postal
+            COMMUNE_DECES: name
+            COMMUNE_DECES_ALTER: newest_name
+            DEPARTEMENT_DECES: dep_code
+            GEOPOINT_DECES: geopoint_2d
+      - exec:
+          - df['COMMUNE_DECES'] = np.where(
+                df['COMMUNE_DECES'] == df['COMMUNE_DECES_ALTER'],
+                df['COMMUNE_DECES'],
+                np.where(
+                  df['COMMUNE_DECES_ALTER'] == "",
+                  df['COMMUNE_DECES'],
+                  df['COMMUNE_DECES'] + "/" + df['COMMUNE_DECES_ALTER']
+                )
+              )
+          - df['COMMUNE_DECES'] = np.where(
+                df['COMMUNE_DECES'].str.contains('Arrondissement'),
+                df['COMMUNE_DECES'].str.replace(r'^(\w+)\s.*$',r'\1',regex=True) + "/" + df['COMMUNE_DECES'],
+                df['COMMUNE_DECES']
+            )
+          - df['COMMUNE_DECES'] = np.where(
+              df['COMMUNE_DECES'].str.contains("/"),
+              df['COMMUNE_DECES'].str.split("/"),
+              df['COMMUNE_DECES']
+            )
+          - df['CODE_POSTAL_DECES'] = np.where(
+              df['CODE_POSTAL_DECES'].str.contains('"'),
+              df['CODE_POSTAL_DECES'].replace('[^AB0-9,]','',regex=True).str.split(','),
+              df['CODE_POSTAL_DECES']
+            )
+      - exec: >
+          df['CODE_INSEE_DECES_HISTORIQUE'] = np.where(
+                df['CODE_INSEE_DECES_HISTORIQUE'] .str.contains('"'),
+                np.where(
+                  df['CODE_INSEE_DECES_HISTORIQUE'] .str.contains(','),
+                  df['CODE_INSEE_DECES_HISTORIQUE'].replace('[^AB0-9,]','',regex=True).str.split(','),
+                  df['CODE_INSEE_DECES_HISTORIQUE'].replace('[^AB0-9]','',regex=True)
+                ),
+                np.where(
+                  df['CODE_INSEE_DECES']  == df['PAYS_DECES_CODE'],
+                  df['CODE_INSEE_DECES'],
+                  (df['PAYS_DECES_CODE'] + "," + df['CODE_INSEE_DECES']).str.split(',')
+                )
+              )
+      - delete:
+          select: PAYS_(NAISSANCE|DECES)_CODE
+      - delete:
+          select: .*ALTER|CODE.*NORM

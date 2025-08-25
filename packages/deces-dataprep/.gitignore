@@ -1,0 +1,9 @@
+backend
+frontend
+artifacts
+config
+data
+scw.id
+s3.tag
+ec2.id
+

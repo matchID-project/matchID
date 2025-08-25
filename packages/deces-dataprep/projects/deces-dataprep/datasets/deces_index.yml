@@ -1,0 +1,157 @@
+datasets:
+  deces_index:
+    connector: elasticsearch
+    table: deces
+    body:
+      settings:
+        #index.store.type: mmapfs
+        index:
+          refresh_interval: 30s
+          number_of_replicas: 0
+          store:
+            preload: !ENV ${ES_PRELOAD}
+        analysis:
+          analyzer:
+            autocomplete_analyzer:
+              tokenizer: edge_tokenizer2
+              filter: ["asciifolding", "lowercase"]
+              tokenizer: "keyword"
+            norm:
+              tokenizer: standard
+              char_filter: ["alphanum"]
+              filter: ["asciifolding", "lowercase"]
+          normalizer:
+            norm:
+              type: custom
+              char_filter: ["alphanum"]
+              filter: ["asciifolding", "lowercase"]
+          tokenizer:
+            edge_tokenizer2:
+              type: edge_ngram
+              min_gram: 2
+              max_gram: 10
+              token_chars: ["letter", "digit"]
+          char_filter:
+            alphanum:
+              type: pattern_replace
+              pattern: '[^\p{L}\d]'
+              replacement: " "
+      mappings:
+        dynamic: False
+        properties:
+          UID:
+            type: keyword
+          SOURCE:
+            type: keyword
+            normalizer: norm
+          SOURCE_LINE:
+            type: integer
+          PRENOMS_NOM:
+            type: text
+            analyzer: norm
+          PRENOM_NOM:
+            type: text
+            analyzer: norm
+          NOM:
+            type: text
+            analyzer: norm
+            fields:
+              raw:
+                type: keyword
+                normalizer: norm
+          PRENOM:
+            type: text
+            analyzer: norm
+            fields:
+              raw:
+                type: keyword
+                normalizer: norm
+          PRENOMS:
+            type: text
+            analyzer: norm
+            fields:
+              raw:
+                type: keyword
+                normalizer: norm
+          SEXE:
+            type: keyword
+          DATE_NAISSANCE:
+            type: text
+            index_prefixes:
+              min_chars: 4
+              max_chars: 6
+            fields:
+              raw:
+                type: keyword
+          DATE_NAISSANCE_NORM:
+            type: date
+            format: yyyyMMdd
+          COMMUNE_NAISSANCE:
+            type: text
+            analyzer: norm
+            fields:
+              raw:
+                type: keyword
+                normalizer: norm
+          CODE_INSEE_NAISSANCE:
+            type: keyword
+            normalizer: norm
+          CODE_POSTAL_NAISSANCE:
+            type: keyword
+            normalizer: norm
+          CODE_INSEE_NAISSANCE_HISTORIQUE:
+            type: keyword
+            normalizer: norm
+          DEPARTEMENT_NAISSANCE:
+            type: keyword
+            normalizer: norm
+          PAYS_NAISSANCE:
+            type: text
+            analyzer: norm
+            fields:
+              raw:
+                type: keyword
+                normalizer: norm
+          GEOPOINT_NAISSANCE:
+            type: geo_point
+          DATE_DECES:
+            type: text
+            index_prefixes:
+              min_chars: 4
+              max_chars: 6
+            fields:
+              raw:
+                type: keyword
+          DATE_DECES_NORM:
+            type: date
+            format: yyyyMMdd
+          AGE_DECES:
+            type: short
+          COMMUNE_DECES:
+            type: text
+            analyzer: norm
+            fields:
+              raw:
+                type: keyword
+                normalizer: norm
+          CODE_INSEE_DECES:
+            type: keyword
+            normalizer: norm
+          CODE_POSTAL_DECES:
+            type: keyword
+            normalizer: norm
+          CODE_INSEE_DECES_HISTORIQUE:
+            type: keyword
+            normalizer: norm
+          DEPARTEMENT_DECES:
+            type: keyword
+            normalizer: norm
+          PAYS_DECES:
+            type: text
+            analyzer: norm
+            fields:
+              raw:
+                type: keyword
+                normalizer: norm
+          GEOPOINT_DECES:
+            type: geo_point
