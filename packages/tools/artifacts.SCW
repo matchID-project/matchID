@@ -1,0 +1,45 @@
+#SCALEWAY TEMPLATE to copy to artifacts if you have to deploy to scaleway
+export SCW_REGION=fr-par
+export SCW_ENDPOINT=s3.${SCW_REGION}.scw.cloud
+export SCW_ZONE=${SCW_REGION}-1
+export SCW_API=https://api.scaleway.com/instance/v1/zones/${SCW_ZONE}
+export SCW_IPAM_API=https://api.scaleway.com/ipam/v1alpha1/regions/${SCW_REGION}
+SCW_FLAVOR=DEV1-S
+SCW_VOLUME_SIZE=10000000000
+SCW_VOLUME_TYPE=l_ssd
+
+#ubuntu 18.04
+
+SCW_SSHUSER=ubuntu
+
+#choose public or private address
+SCW_IP=private_ip
+SCW_IP=public_ip.address
+SCW_DOMAIN=priv.cloud.scaleway.com
+#if private, you use probably use a bastion for proxyJump
+# CLOUD_SSHOPTS=-J bastion
+
+#PRIVATE
+#SCW_ORGANIZATION_ID=yours
+#SCW_PROJECT_ID=yours
+#SCW_SECRET_TOKEN=yours
+
+#for SCW S3 storage using RCLONE
+export RCLONE_CONFIG_S3_TYPE=s3
+export RCLONE_CONFIG_S3_ENV_AUTH=false
+export RCLONE_CONFIG_S3_ENDPOINT=${SCW_ENDPOINT}
+#export RCLONE_CONFIG_S3_ACCESS_KEY_ID=SCWXXXXXXXXXXXXXX
+#export RCLONE_CONFIG_S3_SECRET_ACCESS_KEY=1111111-2222-3333-44444-55555555555555
+export RCLONE_CONFIG_S3_REGION=${SCW_REGION}
+export RCLONE_CONFIG_S3_LOCATION_CONSTRAINT=
+export RCLONE_CONFIG_S3_ACL=public-read
+export RCLONE_CONFIG_S3_FORCE_PATH_STYLE=false
+export RCLONE_CONFIG_S3_SERVER_SIDE_ENCRYPTION=
+export RCLONE_CONFIG_S3_STORAGE_CLASS=
+
+SCW_KUBE_API=https://api.scaleway.com/k8s/v1/regions/${SCW_REGION}/clusters
+SCW_KUBE_NODES=1
+SCW_KUBE_VERSION=1.27.2
+SCW_IMAGE_BASE_ID=bfcb8579-a98f-464c-a958-af80eeef020b
+SCW_IMAGE_ID=bfcb8579-a98f-464c-a958-af80eeef020b
+SCW_IMAGE_TOOLS_ID=bfcb8579-a98f-464c-a958-af80eeef020b

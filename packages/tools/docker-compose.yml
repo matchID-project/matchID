@@ -1,0 +1,27 @@
+version: '3.4'
+
+services:
+  tools:
+    build:
+      context: .
+      dockerfile: Dockerfile.${CLOUD_CLI}
+      args:
+        http_proxy: ${http_proxy}
+        https_proxy: ${https_proxy}
+        no_proxy: ${no_proxy}
+        app_path: /${APP}
+        app_name: ${APP}
+        app_ver: ${APP_VERSION}
+    image: ${DOCKER_USERNAME}/${DC_PREFIX}:${APP_VERSION}
+    container_name: ${DC_PREFIX}
+    environment:
+      - APP
+
+
+
+
+
+
+
+
+

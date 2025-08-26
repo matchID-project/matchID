@@ -1,0 +1,73 @@
+name: build and test
+
+on: [push]
+
+jobs:
+  swift:
+    name: build docker swift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: Display branch name
+        run: echo using ${GIT_BRANCH}
+        env:
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+      - name: Build docker swift
+        run: |
+          make docker-check CLOUD_CLI=swift || make docker-build CLOUD_CLI=swift &&\
+          if [[ "$GIT_BRANCH" == "master" ]]; then
+            make docker-push GIT_BRANCH="$GIT_BRANCH" CLOUD_CLI=swift
+          fi
+        env:
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  remote:
+    name: configure cloud instance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: Prepare deploy keys
+        run: |
+          mkdir -p ~/.ssh/
+          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+          echo "$SSHENC" | base64 -d | gpg -d --passphrase $SSHPWD --batch > /tmp/id_rsa_matchID
+          chmod 600 /tmp/id_rsa_matchID
+          ssh-add /tmp/id_rsa_matchID
+          echo "$SSHPUB" > ~/.ssh/id_rsa_matchID.pub
+          echo "Host * !""$BASTION_HOST" > ~/.ssh/config
+          echo "   ProxyCommand ssh -o StrictHostKeyChecking=no $BASTION_USER@$BASTION_HOST nc %h %p" >> ~/.ssh/config
+          cat ~/.ssh/config
+        env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER }}
+          SSHENC: ${{ secrets.SSHENC }}
+          SSHPWD: ${{ secrets.SSHPWD }}
+          SSHPUB: ${{ secrets.SSHPUB }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      - name: Remote config test
+        if: steps.extract_branch.outputs.branch == 'master'
+        run: |
+          if [[ "$BLOCK_DEPLOY" == "" ]]; then
+            make remote-config-test GIT_BRANCH="$GIT_BRANCH" remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy;
+          fi
+        env:
+          GIT_BRANCH: ${{ steps.extract_branch.outputs.branch }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_http_proxy }}
+          SCW_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          BLOCK_DEPLOY: ${{ secrets.BLOCK_DEPLOY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
