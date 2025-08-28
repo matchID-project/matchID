@@ -1,12 +1,10 @@
-version: '3.4'
-
 # this docker configuation is for dev use only
 
 services:
   nginx-development:
     image: ${DOCKER_USERNAME}/${DC_PREFIX}-nginx-development:${APP_VERSION}
     build:
-      context: ${NGINX}
+      context: ${NGINX_PATH}
       target: development
       dockerfile: Dockerfile
       args:
@@ -52,9 +50,9 @@ services:
       - GOOGLE_ANALYTICS_ID
       - GOOGLE_ADSENSE_ID
     volumes:
-      - ${NGINX}/default-dev.template:/etc/nginx/conf.d/default.template
-      - ${NGINX}/nginx-dev.template:/etc/nginx/nginx.template
-      - ${FRONTEND}/public:/usr/share/nginx/html
+      - ${NGINX_PATH}/default-dev.template:/etc/nginx/conf.d/default.template
+      - ${NGINX_PATH}/nginx-dev.template:/etc/nginx/nginx.template
+      - ${FRONTEND_PATH}/public:/usr/share/nginx/html
     ports:
       - ${PORT}:${PORT}
       - "35729:35729"
@@ -62,7 +60,7 @@ services:
 
   frontend-development:
     build:
-      context: ${FRONTEND}
+      context: ${FRONTEND_PATH}
       dockerfile: Dockerfile
       target: development
       args:
@@ -99,11 +97,11 @@ services:
       MITM_URL: ${MITM_URL}
       THEME_DNUM: ${THEME_DNUM}
     volumes:
-      - ${FRONTEND}/public:/${APP}/public
+      - ${FRONTEND_PATH}/public:/${APP}/public
       - ${STATS}:/${APP}/public/stats
-      - ${FRONTEND}/.eslintrc.js:/${APP}/.eslintrc.js
-      - ${FRONTEND}/rollup.config.js:/${APP}/rollup.config.js
-      - ${FRONTEND}/src:/${APP}/src/
+      - ${FRONTEND_PATH}/.eslintrc.js:/${APP}/.eslintrc.js
+      - ${FRONTEND_PATH}/rollup.config.js:/${APP}/rollup.config.js
+      - ${FRONTEND_PATH}/src:/${APP}/src/
       - /${APP}/node_modules
 
 networks:

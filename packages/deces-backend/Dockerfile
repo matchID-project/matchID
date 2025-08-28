@@ -90,13 +90,16 @@ ARG app_path
 ARG port
 ARG app_ver
 ARG NPM_AUDIT_DRY_RUN
+ARG DATA_DIR
 ENV NODE_ENV=production
 
 WORKDIR /$app_path
 
 COPY package.json ./
 COPY tests ./tests
-COPY data ./data
+COPY ${DATA_DIR}/communes.json ./data/communes.json
+COPY ${DATA_DIR}/disposable-mail.txt ./data/disposable-mail.txt
+COPY ${DATA_DIR}/wikidata.json ./data/wikidata.json
 
 # Install production dependencies and clean cache
 RUN npm install --production && \

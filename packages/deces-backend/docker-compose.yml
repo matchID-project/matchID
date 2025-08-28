@@ -5,7 +5,7 @@ services:
     image: ${DOCKER_USERNAME}/deces-backend:${APP_VERSION}
     container_name: deces-backend
     build:
-      context: ${BACKEND}
+      context: ${BACKEND_PATH}
       target: ${EXEC_ENV}
       dockerfile: Dockerfile
       args:
@@ -60,8 +60,8 @@ services:
       - JOBS=data/jobs
       - WIKIDATA_LINKS=data/wikidata.json
     volumes:
-      - ${PROOFS}:/${APP}/data/proofs
-      - ${JOBS}:/${APP}/data/jobs
+      - ${PROOFS}:/${DATA_DIR}/proofs
+      - ${JOBS}:/${DATA_DIR}/jobs
     restart: always
     depends_on:
       - "redis"
