@@ -29,12 +29,21 @@ export MAKE = ${MAKEBIN} --no-print-directory -s
 
 #base paths
 export APP = deces-ui
+export APP_FRONTEND = deces-ui
+export APP_BACKEND = deces-backend
+export APP_TOOLS = tools
+export APP_DATAPREP = deces-dataprep
 export DATASET=fichier-des-personnes-decedees
 export APP_GROUP = matchID
 export APP_PATH := $(shell pwd)
 export APP_DNS?=deces.matchid.io
 export API_EMAIL?=matchid.project@gmail.com
-export FRONTEND := ${APP_PATH}
+export FRONTEND_PATH := ${APP_PATH}/packages/${APP_FRONTEND}
+export BACKEND_PATH := ${APP_PATH}/packages/${APP_BACKEND}
+export TOOLS_PATH := ${APP_PATH}/packages/${APP_TOOLS}
+export DATAPREP_PATH := ${APP_PATH}/packages/${APP_DATAPREP}
+export NGINX_PATH = ${FRONTEND_PATH}/nginx
+export INFRA_PATH = ${APP_PATH}/packages/deces-infra
 export FRONTEND_DEV_HOST = frontend-development
 export FRONTEND_DEV_PORT = ${PORT}
 # export LOG_BUCKET = s3bucket/override/me
@@ -42,11 +51,11 @@ export FRONTEND_DEV_PORT = ${PORT}
 # export LOG_DB_BUCKET = s3bucket/override/me
 # export PROOFS_BUCKET = s3bucket/override/me
 # export MONITOR_BUCKET = s3bucket/override/me
-export LOG_DIR = ${FRONTEND}/log/mirror
-export LOG_DB_DIR = ${FRONTEND}/log/db
-export STATS_SCRIPTS = ${FRONTEND}/stats/src
+export LOG_DIR = ${FRONTEND_PATH}/log/mirror
+export LOG_DB_DIR = ${FRONTEND_PATH}/log/db
+export STATS_SCRIPTS = ${FRONTEND_PATH}/stats/src
 export STATS_UPDATE_DAYS = 35
-export STATS = ${FRONTEND}/stats/public
+export STATS = ${FRONTEND_PATH}/stats/public
 export BACKEND_PORT=8080
 export BACKEND_HOST=backend
 export BACKEND_JOB_CONCURRENCY=6
@@ -65,7 +74,6 @@ export SMTP_USER?=${API_EMAIL}
 export SMTP_PWD?=$(shell echo $$RANDOM )
 export API_PATH = deces
 export BACKEND_PROXY_PATH=/${API_PATH}/api/v1
-export NGINX = ${APP_PATH}/nginx
 export NGINX_TIMEOUT = 30
 export API_TIMEOUT = 45
 export NGINX_CSP=default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' static.cloudflareinsights.com ajax.cloudflare.com www.googletagmanager.com fundingchoicesmessages.google.com www.google.com www.google.ca analytics.google.com www.google-analytics.com pagead2.googlesyndication.com partner.googleadservices.com tpc.googlesyndication.com www.googletagservices.com adservice.google.com adservice.google.fr;style-src https: 'self' 'unsafe-inline';font-src 'self' data:;img-src 'self' matchid.io a.basemaps.cartocdn.com b.basemaps.cartocdn.com c.basemaps.cartocdn.com upload.wikimedia.org pagead2.googlesyndication.com www.google-analytics.com stats.g.doubleclick.net www.google.fr;connect-src 'self' www.data.gouv.fr cloudflareinsights.com www.google-analytics.com analytics.google.com csi.gstatic.com region1.analytics.google.com stats.g.doubleclick.net pagead2.googlesyndication.com; frame-src 'self' matchid.io www.google.com google.com googleads.g.doubleclick.net tpc.googlesyndication.com
@@ -95,31 +103,24 @@ export API_TEST_PATH = ${API_PATH}/api/v1/search
 export API_TEST_JSON_PATH=response
 export API_TEST_REQUEST={"fuzzy":"false","sort":[{"score":"desc"}],"page":1,"size":20,"scroll":"1m","firstName":"jean"}
 
-export DC_DIR=${APP_PATH}
-export DC_FILE=${DC_DIR}/docker-compose
 export DC_PREFIX := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]' | tr '_' '-')
 export DC_IMAGE_NAME = ${DC_PREFIX}
 export DC_NETWORK := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
-export DC := docker-compose
+export DC := docker compose
 export GIT_ORIGIN=origin
 export GIT_BRANCH ?= $(shell git branch | grep '*' | awk '{print $$2}')
 export GIT_BRANCH_MASTER = master
-export GIT_DATAPREP = deces-dataprep
-export GIT_BACKEND = deces-backend
-export BACKEND_APP=${GIT_BACKEND}
-export GIT_BACKEND_BRANCH ?= dev
-export GIT_ROOT = https://github.com/matchid-project
-export GIT_TOOLS = tools
+export GIT_ROOT = https://github.com/matchID-project
 export APP_URL?=https://${APP_DNS}
 export API_SSL?=1
 export APP_NODES=1
 export KUBE_NAMESPACE:=$(shell echo -n ${APP_GROUP}-${APP}-${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
-export KUBE_DIR=${FRONTEND}/k8s
+export KUBE_DIR=${FRONTEND_PATH}/k8s
 export KUBECONFIG=${HOME}/.kube/config
 export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
 
-export PROOFS=${FRONTEND}/${GIT_BACKEND}/backend/data/proofs
+export PROOFS=${DATA_DIR}/proofs
 export MONITOR_DIR = ${APP}/log/instances/${APP_GROUP}-${APP}-${GIT_BRANCH}
 
 # backup dir
@@ -141,7 +142,8 @@ export ES_TIMEOUT = 60
 export ES_RESTORE_TIMEOUT = 480
 export ES_INDEX = deces
 export ES_MAX_RESULTS = 10000
-export ES_DATA = ${APP_PATH}/esdata
+export DATA_DIR = ${APP_PATH}/data
+export ES_DATA = ${DATA_DIR}/esdata
 export ES_NODES = 1
 export ES_MEM = 512m
 export ES_JAVA_OPTS=-Xms${ES_MEM} -Xmx${ES_MEM}
@@ -162,7 +164,7 @@ export SCW_VOLUME_TYPE=l_ssd
 #prebuild image with docker and nginx-node-elasticsearch docker images
 export SCW_IMAGE_ID=d48f33cd-127d-4315-be8e-083978c9be63
 
--include ${APP_PATH}/${GIT_TOOLS}/artifacts.SCW
+-include ${TOOLS_PATH}/artifacts.SCW
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
@@ -183,22 +185,14 @@ export FILE_FRONTEND_DIST_APP_VERSION = $(APP)-$(APP_VERSION)-frontend-dist.tar.
 export FILE_FRONTEND_DIST_LATEST_VERSION = $(APP)-latest-frontend-dist.tar.gz
 
 export DOCKER_USERNAME=matchid
-export DC_BUILD_FRONTEND = ${DC_FILE}-build.yml
-export DC_RUN_NGINX_FRONTEND = ${DC_FILE}.yml
+export DC_BUILD_FRONTEND = ${FRONTEND_PATH}/docker-compose-build.yml
+export DC_RUN_NGINX_FRONTEND = ${FRONTEND_PATH}/docker-compose.yml
 export BUILD_DIR=${APP_PATH}/${APP}-build
 
 include /etc/os-release
 
 version:
 	@echo ${APP_VERSION}
-
-config-minimal:
-	@if [ -z "${TOOLS_PATH}" ];then\
-		git clone ${GIT_ROOT}/${GIT_TOOLS};\
-		${MAKE} -C ${APP_PATH}/${GIT_TOOLS} tools-install ${MAKEOVERRIDES};\
-	else\
-		ln -s ${TOOLS_PATH} ${APP_PATH}/${GIT_TOOLS};\
-	fi
 
 config-stats: geolite-city
 	@if [ -z "$(wildcard /usr/lib/*/perl*/*/Date/Pcalc)" ] || \
@@ -213,36 +207,32 @@ config-stats: geolite-city
 	fi
 
 config:
-	@if [ -z "${TOOLS_PATH}" ];then\
-		git clone ${GIT_ROOT}/${GIT_TOOLS};\
-		${MAKE} -C ${APP_PATH}/${GIT_TOOLS} config ${MAKEOVERRIDES};\
-	else\
-		ln -s ${TOOLS_PATH} ${APP_PATH}/${GIT_TOOLS};\
-	fi
-	@cp artifacts ${APP_PATH}/${GIT_TOOLS}/
-	@touch config
-
+	# this proc relies on matchid/tools and works both local and remote
+	@sudo apt-get install make
+	@make -C ${TOOLS_PATH} config;\
+	@touch config && touch ${BACKEND_PATH}/config
 
 clean-data: elasticsearch-clean backup-dir-clean
-	@sudo rm -rf ${APP_PATH}/${GIT_DATAPREP} ${DATA_VERSION_FILE} ${DATAPREP_VERSION_FILE}\
+	@rm -rf ${DATA_VERSION_FILE} ${DATAPREP_VERSION_FILE}\
 		${DATA_VERSION_FILE}.list > /dev/null 2>&1 || true
 
 clean-frontend: rollup-clean build-dir-clean frontend-clean-dist frontend-clean-dist-archive
 
-clean-backend: backend-clean-dir
+clean-backend:
+	@${MAKE} -C ${BACKEND_PATH} clean-local
 
 clean-remote:
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-clean ${MAKEOVERRIDES} > /dev/null 2>&1 || true
+	@${MAKE} -C ${TOOLS_PATH} remote-clean ${MAKEOVERRIDES} > /dev/null 2>&1 || true
 
 clean-config:
-	@rm -rf ${APP_PATH}/${GIT_TOOLS} ${APP_PATH}/aws config elasticsearch-repository-* > /dev/null 2>&1 || true
+	@rm -rf elasticsearch-repository-* > /dev/null 2>&1 || true
 
 clean-local: clean-data clean-frontend clean-backend clean-config
 
 clean: clean-remote clean-local
 
 docker-push:
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} docker-push DC_IMAGE_NAME=${DC_IMAGE_NAME} APP_VERSION=${APP_VERSION} ${MAKEOVERRIDES}
+	@${MAKE} -C ${TOOLS_PATH} docker-push DC_IMAGE_NAME=${DC_IMAGE_NAME} APP_VERSION=${APP_VERSION} ${MAKEOVERRIDES}
 
 docker-pull:
 	docker pull ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION}
@@ -267,65 +257,54 @@ network-stop:
 network: config
 	@docker network create ${DC_NETWORK_OPT} ${DC_NETWORK} 2> /dev/null; true
 
-backend-config:
-	@if [ ! -d "${APP_PATH}/${GIT_BACKEND}" ]; then\
-		cd ${APP_PATH};\
-		git clone ${GIT_ROOT}/${GIT_BACKEND};\
-		cd ${GIT_BACKEND};\
-		git checkout ${GIT_BACKEND_BRANCH};\
-	fi
-
-backend-dev: backend-config
+backend-dev:
 	@echo docker-compose up backend dev
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} dev DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BACKEND_BRANCH}\
+	@${MAKE} -C ${BACKEND_PATH} dev TOOLS_PATH=${TOOLS_PATH} DATA_DIR=${DATA_DIR} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}\
 		APP_URL=http://localhost:${PORT} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}\
 		BACKEND_JOB_CONCURRENCY=${BACKEND_JOB_CONCURRENCY} BACKEND_CHUNK_CONCURRENCY=${BACKEND_CHUNK_CONCURRENCY}\
 		BACKEND_TOKEN_USER=${BACKEND_TOKEN_USER} BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
 		BACKEND_TMP_MAX=${BACKEND_TMP_MAX} BACKEND_TMP_DURATION=${BACKEND_TMP_DURATION} BACKEND_TMP_WINDOW=${BACKEND_TMP_WINDOW}
 
 backend-dev-stop:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} dev-stop DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BACKEND_BRANCH}
+	@${MAKE} -C ${BACKEND_PATH} dev-stop TOOLS_PATH=${TOOLS_PATH} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}
 
 backend-clean-version:
 	rm backend-version
 
 backend-docker-check: backend-config
-	@BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
-	${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BACKEND_BRANCH}
+	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
 
 backend: backend-config backend-docker-check proofs-mount elasticsearch-index-readiness
-	@BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BACKEND_BRANCH}\
+	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}\
 		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}\
                 BACKEND_JOB_CONCURRENCY=${BACKEND_JOB_CONCURRENCY} BACKEND_CHUNK_CONCURRENCY=${BACKEND_CHUNK_CONCURRENCY}\
                 BACKEND_TOKEN_USER=${BACKEND_TOKEN_USER} BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
                 BACKEND_TMP_MAX=${BACKEND_TMP_MAX} BACKEND_TMP_DURATION=${BACKEND_TMP_DURATION} BACKEND_TMP_WINDOW=${BACKEND_TMP_WINDOW}
 
 backend-stop:
-	@BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BACKEND_BRANCH}
+	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	${MAKE} -C ${BACKEND_PATH} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
 	@make proofs-umount
 
-backend-clean-dir:
-	@sudo rm -rf ${APP_PATH}/${GIT_BACKEND}
-
 frontend-update:
-	@cd ${FRONTEND}; git pull ${GIT_ORIGIN} ${GIT_BRANCH}
+	@cd ${FRONTEND_PATH}; git pull ${GIT_ORIGIN} ${GIT_BRANCH}
 
 update: frontend-update
 
 frontend-dev: clean-frontend
 ifneq "$(commit)" "$(lastcommit)"
 	@echo docker-compose up ${APP} frontend for dev after new commit ${APP_VERSION}
-	${DC} -f ${DC_FILE}-dev.yml up -d
-	@echo "${commit}" > ${FRONTEND}/.lastcommit
+	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml up -d
+	@echo "${commit}" > ${FRONTEND_PATH}/.lastcommit
 else
 	@echo docker-compose up ${APP} frontend for dev
-	${DC} -f  ${DC_FILE}-dev.yml up -d
+	${DC} -f  ${FRONTEND_PATH}/docker-compose-dev.yml up -d
 endif
 
 frontend-dev-stop:
-	${DC} -f ${DC_FILE}-dev.yml down
+	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml down
 
 dev: network frontend-stop elasticsearch backend-dev frontend-dev
 
@@ -342,8 +321,8 @@ build-dir:
 build-dir-clean:
 	@if [ -d "$(BUILD_DIR)" ] ; then (rm -rf $(BUILD_DIR) > /dev/null 2>&1) ; fi
 
-${FRONTEND}/$(FILE_FRONTEND_APP_VERSION):
-	( cd ${FRONTEND} && tar -zcvf $(FILE_FRONTEND_APP_VERSION) --exclude ${APP}.tar.gz \
+${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION):
+	( cd ${FRONTEND_PATH} && tar -zcvf $(FILE_FRONTEND_APP_VERSION) --exclude ${APP}.tar.gz \
 		.eslintrc.js \
 		rollup.config.js \
         src \
@@ -352,8 +331,8 @@ ${FRONTEND}/$(FILE_FRONTEND_APP_VERSION):
 frontend-check-build:
 	${DC} -f $(DC_BUILD_FRONTEND) config -q
 
-frontend-build-dist: ${FRONTEND}/$(FILE_FRONTEND_APP_VERSION) frontend-check-build
-	@echo building ${APP} frontend in ${FRONTEND}
+frontend-build-dist: ${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION) frontend-check-build
+	@echo building ${APP} frontend in ${FRONTEND_PATH}
 	${DC} -f $(DC_BUILD_FRONTEND) build $(DC_BUILD_ARGS)
 
 $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION): build-dir
@@ -365,22 +344,22 @@ $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION): build-dir
 frontend-build: network frontend-build-dist $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION)
 
 frontend-clean-dist:
-	@rm -rf ${FRONTEND}/$(FILE_FRONTEND_APP_VERSION) > /dev/null 2>&1 || true
+	@rm -rf ${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION) > /dev/null 2>&1 || true
 
 frontend-clean-dist-archive:
-	@rm -rf ${FRONTEND}/$(FILE_FRONTEND_DIST_APP_VERSION) > /dev/null 2>&1 || true
-	@rm -rf ${NGINX}/$(FILE_FRONTEND_DIST_APP_VERSION) > /dev/null 2>&1 || true
+	@rm -rf ${FRONTEND_PATH}/$(FILE_FRONTEND_DIST_APP_VERSION) > /dev/null 2>&1 || true
+	@rm -rf ${NGINX_PATH}/$(FILE_FRONTEND_DIST_APP_VERSION) > /dev/null 2>&1 || true
 
 nginx-check-build:
 	${DC} -f $(DC_RUN_NGINX_FRONTEND) config -q
 
 nginx-build: $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) nginx-check-build
 	@echo building ${APP} nginx
-	cp $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ${NGINX}/
+	cp $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ${NGINX_PATH}/
 	${DC} -f $(DC_RUN_NGINX_FRONTEND) build $(DC_BUILD_ARGS)
 
 frontend-stop:
-	${DC} -f ${DC_FILE}.yml down
+	${DC} -f ${FRONTEND_PATH}/docker-compose.yml down
 
 frontend:
 	@echo docker-compose up ${APP_GROUP} ${APP}
@@ -395,7 +374,7 @@ start: elasticsearch backend frontend
 	@sleep 2 && docker-compose logs
 
 log:
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} docker-logs-to-API ${MAKEOVERRIDES} &
+	@${MAKE} -C ${TOOLS_PATH} docker-logs-to-API ${MAKEOVERRIDES} &
 
 backup-dir:
 	@if [ ! -d "$(BACKUP_DIR)" ] ; then mkdir -p $(BACKUP_DIR) ; fi
@@ -481,18 +460,15 @@ down: stop
 
 restart: down up
 
-${GIT_DATAPREP}:
-	@cd ${APP_PATH};\
-	git clone ${GIT_ROOT}/${GIT_DATAPREP}
 
-${DATAPREP_VERSION_FILE}: ${GIT_DATAPREP}
-	@cat    ${GIT_DATAPREP}/Makefile\
-		${GIT_DATAPREP}/projects/deces-dataprep/recipes/deces_dataprep.yml\
-		${GIT_DATAPREP}/projects/deces-dataprep/datasets/deces_index.yml\
+${DATAPREP_VERSION_FILE}:
+	@cat ${DATAPREP_PATH}/Makefile\
+		${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml\
+		${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml\
 	| sha1sum | awk '{print $1}' | cut -c-8 > ${DATAPREP_VERSION_FILE}
 
 ${DATA_VERSION_FILE}:
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} catalog-tag CATALOG_TAG=${DATA_VERSION_FILE}\
+	@${MAKE} -C ${TOOLS_PATH} catalog-tag CATALOG_TAG=${DATA_VERSION_FILE}\
 		DATAGOUV_DATASET=${DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
 		STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		FILES_PATTERN='${FILES_TO_PROCESS}'
@@ -503,21 +479,21 @@ show-env:
 deploy-local: config show-env stats-background elasticsearch-restore-async docker-check up local-test-api
 
 smtp:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} smtp DC_NETWORK=${DC_NETWORK}
+	@${MAKE} -C ${BACKEND_PATH} smtp DC_NETWORK=${DC_NETWORK}
 
 smtp-stop:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} smtp-stop
+	@${MAKE} -C ${BACKEND_PATH} smtp-stop
 
 frontend-test: smtp
-	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${DC_FILE}-test.yml run ui-test sh -c "yarn install && node runAllTests.js"
+	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${FRONTEND_PATH}/docker-compose-test.yml run ui-test sh -c "yarn install && node runAllTests.js"
 
 backend-test:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend-test
+	@${MAKE} -C ${BACKEND_PATH} backend-test
 
 local-test-api:
 	@timeout=${API_TIMEOUT} ;\
 	ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do \
-		(${MAKE} -C ${APP_PATH}/${GIT_TOOLS} local-test-api \
+		(${MAKE} -C ${TOOLS_PATH} local-test-api \
 			PORT=${PORT} \
 			API_TEST_PATH=${API_TEST_PATH} API_TEST_JSON_PATH=${API_TEST_JSON_PATH} API_TEST_DATA='${API_TEST_REQUEST}'\
 			${MAKEOVERRIDES} 2>&1 | grep ': ok' ); \
@@ -559,7 +535,7 @@ deploy-k8s-redis: deploy-k8s-namespace
 
 deploy-k8s-backend: deploy-k8s-namespace
 	@echo $@
-	@export BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
+	@export BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	cat ${KUBE_DIR}/backend.yaml | envsubst `env | sed "s/=.*//;s/^/$$/" | tr "\n" ","` | kubectl apply -f -
 
 deploy-k8s-frontend: deploy-k8s-namespace
@@ -568,10 +544,10 @@ deploy-k8s-frontend: deploy-k8s-namespace
 
 deploy-remote-instance: config-minimal backend-config ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
+	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-config\
+	${MAKE} -C ${TOOLS_PATH} remote-config\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
 		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=${DC_PREFIX}\
 		SCW_IMAGE_ID=${SCW_IMAGE_ID} SCW_VOLUME_SIZE=${SCW_VOLUME_SIZE} SCW_VOLUME_TYPE=${SCW_VOLUME_TYPE} \
@@ -579,10 +555,10 @@ deploy-remote-instance: config-minimal backend-config ${DATAPREP_VERSION_FILE} $
 
 deploy-remote-services:
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
+	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-deploy remote-actions\
+	${MAKE} -C ${TOOLS_PATH} remote-deploy remote-actions\
 		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=${DC_PREFIX}\
 		BACKEND_APP_VERSION=$${BACKEND_APP_VERSION} DATAPREP_VERSION=$${DATAPREP_VERSION} DATA_VERSION=$${DATA_VERSION}\
 		ACTIONS=deploy-local GIT_BRANCH=${GIT_BRANCH}\
@@ -601,10 +577,10 @@ deploy-remote-publish:
 	else\
 		APP_DNS="${GIT_BRANCH}-${APP_DNS}";\
 	fi;\
-	BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
+	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-test-api-in-vpc nginx-conf-apply remote-test-api\
+	${MAKE} -C ${TOOLS_PATH} remote-test-api-in-vpc nginx-conf-apply remote-test-api\
 		APP=${APP} APP_VERSION=${APP_VERSION} GIT_BRANCH=${GIT_BRANCH} PORT=${PORT}\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
 		APP_DNS=$$APP_DNS API_TEST_PATH=${API_TEST_PATH} API_TEST_JSON_PATH=${API_TEST_JSON_PATH} API_TEST_DATA='${API_TEST_REQUEST}'\
@@ -612,48 +588,48 @@ deploy-remote-publish:
 
 deploy-delete-old: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags);\
+	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} cloud-instance-down-invalid\
+	${MAKE} -C ${TOOLS_PATH} cloud-instance-down-invalid\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
 		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=${DC_PREFIX}\
 		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}
 
 deploy-monitor:
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-install-monitor\
+	@${MAKE} -C ${TOOLS_PATH} remote-install-monitor\
 		MONITOR_BUCKET=${MONITOR_BUCKET} MONITOR_DIR=${MONITOR_DIR}\
 		STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY}\
 		NEW_RELIC_INGEST_KEY=${NEW_RELIC_INGEST_KEY} NEW_RELIC_API_KEY=${NEW_RELIC_API_KEY} NEW_RELIC_ACCOUNT_ID=${NEW_RELIC_ACCOUNT_ID}\
 		${MAKEOVERRIDES}
 
 deploy-cdn-purge-cache:
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} cdn-cache-purge
+	@${MAKE} -C ${TOOLS_PATH} cdn-cache-purge
 
 deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
 
 deploy-docker-pull-base: deploy-remote-instance
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-docker-pull DOCKER_IMAGE=node:12.14.0-slim
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-docker-pull DOCKER_IMAGE=nginx:alpine
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
-	@${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-docker-pull DOCKER_IMAGE=redis:alpine
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=node:12.14.0-slim
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=nginx:alpine
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=redis:alpine
 
 
 update-base-image: deploy-remote-instance deploy-docker-pull-base
-	@BACKEND_APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && git describe --tags); \
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-cmd REMOTE_CMD="sync"; \
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags); \
+	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
+	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
 	sleep 5;\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} SCW-instance-snapshot \
+	${MAKE} -C ${TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${APP_VERSION}\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$$BACKEND_APP_VERSION\
 		DC_IMAGE_NAME=${DC_PREFIX};
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} SCW-instance-image \
+	${MAKE} -C ${TOOLS_PATH} SCW-instance-image \
 		CLOUD_APP=nner;\
-	SCW_IMAGE_ID=$$(cat ${APP_PATH}/${GIT_TOOLS}/cloud/SCW.image.id)/;\
+	SCW_IMAGE_ID=$$(cat ${TOOLS_PATH}/cloud/SCW.image.id)/;\
 	cat ${APP_PATH}/Makefile | sed "s/^export SCW_IMAGE_ID=.*/export SCW_IMAGE_ID=$${SCW_IMAGE_ID}" \
 		> ${APP_PATH}/Makefile.tmp && mv ${APP_PATH}/Makefile.tmp ${APP_PATH}/Makefile;\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} remote-clean;\
+	${MAKE} -C ${TOOLS_PATH} remote-clean;\
 	git add Makefile && git commit -m '⬆️  update SCW_IMAGE_ID'
 
 ${LOG_DIR}:
@@ -661,7 +637,7 @@ ${LOG_DIR}:
 
 logs-restore: ${LOG_DIR}
 	@echo sync ${LOG_BUCKET} to ${LOG_DIR};\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} storage-sync-pull\
+	${MAKE} -C ${TOOLS_PATH} storage-sync-pull\
 		RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
 		STORAGE_BUCKET=${LOG_BUCKET} DATA_DIR=${LOG_DIR}\
 		STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};
@@ -681,7 +657,7 @@ geolite-city: /usr/local/share/GeoLite2/GeoLite2-City.mmdb
 stats-db-restore: ${LOG_DB_DIR}
 	@mkdir -p ${LOG_DB_DIR};\
 	echo sync ${LOG_DB_BUCKET} to ${LOG_DB_DIR};\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} storage-sync-pull\
+	${MAKE} -C ${TOOLS_PATH} storage-sync-pull\
 		RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
 		STORAGE_BUCKET=${LOG_DB_BUCKET} DATA_DIR=${LOG_DB_DIR}\
 		STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};
@@ -689,7 +665,7 @@ stats-db-restore: ${LOG_DB_DIR}
 
 stats-db-backup: ${LOG_DB_DIR}
 	@echo sync ${LOG_DB_DIR} to ${LOG_DB_BUCKET};\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} storage-sync-push\
+	${MAKE} -C ${TOOLS_PATH} storage-sync-push\
 		RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
 		STORAGE_BUCKET=${LOG_DB_BUCKET} DATA_DIR=${LOG_DB_DIR}\
 		STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};
@@ -699,14 +675,14 @@ ${STATS}:
 
 stats-backup: ${STATS}
 	@echo sync ${STATS} to ${STATS_BUCKET};\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} storage-sync-push\
+	${MAKE} -C ${TOOLS_PATH} storage-sync-push\
 		RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
 		STORAGE_BUCKET=${STATS_BUCKET} DATA_DIR=${STATS}\
 		STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};
 
 stats-restore: ${STATS}
 	@echo sync ${STATS_BUCKET} to ${STATS};\
-	${MAKE} -C ${APP_PATH}/${GIT_TOOLS} storage-sync-pull\
+	${MAKE} -C ${TOOLS_PATH} storage-sync-pull\
 		RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
 		STORAGE_BUCKET=${STATS_BUCKET} DATA_DIR=${STATS}\
 		STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};
@@ -736,14 +712,14 @@ ${PROOFS}:
 proofs-restore: ${PROOFS}
 	@if [ -n "${PROOFS_BUCKET}" ];then\
 		echo restoring proofs data;\
-		${MAKE} -C ${APP_PATH}/${GIT_TOOLS} storage-sync-pull STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BACKEND_BRANCH} DATA_DIR=${PROOFS} \
+		${MAKE} -C ${TOOLS_PATH} storage-sync-pull STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BRANCH} DATA_DIR=${PROOFS} \
 			RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
 			STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};\
 	fi
 
 proofs-backup: ${PROOFS}
 	@if [ -n "${PROOFS_BUCKET}" ];then\
-		${MAKE} -C ${APP_PATH}/${GIT_TOOLS} storage-sync-push STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BACKEND_BRANCH} DATA_DIR=${PROOFS} \
+		${MAKE} -C ${TOOLS_PATH} storage-sync-push STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BRANCH} DATA_DIR=${PROOFS} \
 			RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
 			STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};\
 	fi;
