@@ -155,8 +155,6 @@ export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz # reference for prepro
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
 export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev # reference for non-prod env
 
-vm_max_count            := $(shell cat /etc/sysctl.conf | egrep vm.max_map_count\s*=\s*262144 && echo true)
-
 export STORAGE_BUCKET=${DATASET}
 export SCW_VOLUME_SIZE=20000000000
 export SCW_VOLUME_TYPE=l_ssd
@@ -336,7 +334,7 @@ dev-stop: frontend-dev-stop backend-dev-stop elasticsearch-stop
 build: clean-frontend frontend-build nginx-build
 
 rollup-clean:
-	@sudo rm -rf public/build public/sw.js* public/workbox*
+	@rm -rf public/build public/sw.js* public/workbox*
 
 build-dir:
 	@if [ ! -d "$(BUILD_DIR)" ] ; then mkdir -p $(BUILD_DIR) ; fi
