@@ -1,9 +1,7 @@
-version: '3.4'
-
 services:
   frontend-build:
     build:
-      context: ${FRONTEND}
+      context: ${FRONTEND_PATH}
       dockerfile: Dockerfile
       target: build
       args:
@@ -35,6 +33,8 @@ services:
         THEME_DNUM: ${THEME_DNUM}
     image: ${DOCKER_USERNAME}/${DC_PREFIX}-frontend-build:${APP_VERSION}
     container_name: ${DC_PREFIX}-frontend-build
+    user: ${UID}:${GID}
+
 
 
 

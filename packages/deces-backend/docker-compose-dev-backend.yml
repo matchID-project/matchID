@@ -1,14 +1,12 @@
-version: '3.4'
-
 services:
   backend:
     image: ${DOCKER_USERNAME}/deces-backend-${EXEC_ENV}:${APP_VERSION}
     container_name: deces-backend-${EXEC_ENV}
     volumes:
-      - ${BACKEND}/src:/${APP}/src/
-      - ${BACKEND}/dist:/${APP}/dist/
-      - ${BACKEND}/tests:/${APP}/tests/
-      - ${BACKEND}/data:/${APP}/data/
+      - ${BACKEND_PATH}/src:/${APP}/src/
+      - ${BACKEND_PATH}/dist:/${APP}/dist/
+      - ${BACKEND_PATH}/tests:/${APP}/tests/
+      - ${DATA_DIR}:/${APP}/data/
       - /${APP}/node_modules
     ports:
       - ${PORT}:8080

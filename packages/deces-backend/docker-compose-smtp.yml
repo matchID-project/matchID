@@ -1,5 +1,3 @@
-version: '3.4'
-
 # fake smtp for dev and test usage
 
 services:
