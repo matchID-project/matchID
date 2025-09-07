@@ -191,8 +191,10 @@ export BUILD_DIR=${APP_PATH}/${APP}-build
 
 include /etc/os-release
 
-# Include deces-infra Makefile for elasticsearch targets
+# Include deces-* Makefile for elasticsearch targets
+-include ${FRONTEND_PATH}/Makefile
 -include ${INFRA_PATH}/Makefile
+# Include deces-ui Makefile for frontend and nginx targets
 
 version:
 	@echo ${APP_VERSION}
@@ -291,23 +293,7 @@ backend-stop:
 	${MAKE} -C ${BACKEND_PATH} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
 	@make proofs-umount
 
-frontend-update:
-	@cd ${FRONTEND_PATH}; git pull ${GIT_ORIGIN} ${GIT_BRANCH}
-
-update: frontend-update
-
-frontend-dev: clean-frontend
-ifneq "$(commit)" "$(lastcommit)"
-	@echo docker-compose up ${APP} frontend for dev after new commit ${APP_VERSION}
-	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml up -d
-	@echo "${commit}" > ${FRONTEND_PATH}/.lastcommit
-else
-	@echo docker-compose up ${APP} frontend for dev
-	${DC} -f  ${FRONTEND_PATH}/docker-compose-dev.yml up -d
-endif
-
-frontend-dev-stop:
-	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml down
+# Frontend targets are now defined in packages/deces-ui/Makefile
 
 dev: network frontend-stop elasticsearch backend-dev frontend-dev
 
@@ -315,60 +301,7 @@ dev-stop: frontend-dev-stop backend-dev-stop elasticsearch-stop
 
 build: clean-frontend frontend-build nginx-build
 
-rollup-clean:
-	@rm -rf public/build public/sw.js* public/workbox*
-
-build-dir:
-	@if [ ! -d "$(BUILD_DIR)" ] ; then mkdir -p $(BUILD_DIR) ; fi
-
-build-dir-clean:
-	@if [ -d "$(BUILD_DIR)" ] ; then (rm -rf $(BUILD_DIR) > /dev/null 2>&1) ; fi
-
-${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION):
-	( cd ${FRONTEND_PATH} && tar -zcvf $(FILE_FRONTEND_APP_VERSION) --exclude ${APP}.tar.gz \
-		.eslintrc.js \
-		rollup.config.js \
-        src \
-        public )
-
-frontend-check-build:
-	${DC} -f $(DC_BUILD_FRONTEND) config -q
-
-frontend-build-dist: ${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION) frontend-check-build
-	@echo building ${APP} frontend in ${FRONTEND_PATH}
-	${DC} -f $(DC_BUILD_FRONTEND) build $(DC_BUILD_ARGS)
-
-$(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION): build-dir
-	${DC} -f $(DC_BUILD_FRONTEND) run -T --rm frontend-build tar czf - $$(basename /$(APP)/public) -C $$(dirname /$(APP)/public) > $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION)
-	  cp $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION)
-	if [ -f $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ]; then ls -alsrt  $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) && sha1sum $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ; fi
-	if [ -f $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION) ]; then ls -alsrt  $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION) && sha1sum $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION) ; fi
-
-frontend-build: network frontend-build-dist $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION)
-
-frontend-clean-dist:
-	@rm -rf ${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION) > /dev/null 2>&1 || true
-
-frontend-clean-dist-archive:
-	@rm -rf ${FRONTEND_PATH}/$(FILE_FRONTEND_DIST_APP_VERSION) > /dev/null 2>&1 || true
-	@rm -rf ${NGINX_PATH}/$(FILE_FRONTEND_DIST_APP_VERSION) > /dev/null 2>&1 || true
-
-nginx-check-build:
-	${DC} -f $(DC_RUN_NGINX_FRONTEND) config -q
-
-nginx-build: $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) nginx-check-build
-	@echo building ${APP} nginx
-	cp $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ${NGINX_PATH}/
-	${DC} -f $(DC_RUN_NGINX_FRONTEND) build $(DC_BUILD_ARGS)
-
-frontend-stop:
-	${DC} -f ${FRONTEND_PATH}/docker-compose.yml down
-
-frontend:
-	@echo docker-compose up ${APP_GROUP} ${APP}
-	@echo DATAGOUV PROXY: ${DATAGOUV_RESOURCES_PROXY}, RW: ${DATAGOUV_RESOURCES_REWRITE_PATH}
-	${DC} -f ${DC_RUN_NGINX_FRONTEND} up -d
-	@timeout=${NGINX_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (curl -s --fail -XGET localhost:${PORT} > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo "waiting for nginx to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; exit $$ret
+# Frontend and nginx targets are now defined in packages/deces-ui/Makefile
 
 stop: frontend-stop backend-stop elasticsearch-stop
 	@echo all components stopped
@@ -417,7 +350,7 @@ smtp:
 smtp-stop:
 	@${MAKE} -C ${BACKEND_PATH} smtp-stop
 
-frontend-test: smtp
+# Frontend targets are now defined in packages/deces-ui/Makefile
 	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${FRONTEND_PATH}/docker-compose-test.yml run ui-test sh -c "yarn install && node runAllTests.js"
 
 backend-test:
