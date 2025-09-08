@@ -13,15 +13,6 @@ export OS_TYPE := $(shell cat /etc/os-release | grep -E '^NAME=' | sed 's/^.*deb
 
 #search-ui
 export PORT=8083
-export TEST_HOST=nginx
-
-#AB-switch (in percent)
-#currently used for backend / no backend test
-export AB_THRESHOLD=100
-
-#google IDs disabled by default
-export GOOGLE_ANALYTICS_ID=
-export GOOGLE_ADSENSE_ID=
 
 #make binary and options
 export MAKEBIN = $(shell which make || echo make)
@@ -42,10 +33,7 @@ export FRONTEND_PATH := ${APP_PATH}/packages/${APP_FRONTEND}
 export BACKEND_PATH := ${APP_PATH}/packages/${APP_BACKEND}
 export TOOLS_PATH := ${APP_PATH}/packages/${APP_TOOLS}
 export DATAPREP_PATH := ${APP_PATH}/packages/${APP_DATAPREP}
-export NGINX_PATH = ${FRONTEND_PATH}/nginx
 export INFRA_PATH = ${APP_PATH}/packages/deces-infra
-export FRONTEND_DEV_HOST = frontend-development
-export FRONTEND_DEV_PORT = ${PORT}
 # export LOG_BUCKET = s3bucket/override/me
 # export STATS_BUCKET = s3bucket/override/me
 # export LOG_DB_BUCKET = s3bucket/override/me
@@ -74,34 +62,7 @@ export SMTP_USER?=${API_EMAIL}
 export SMTP_PWD?=$(shell echo $$RANDOM )
 export API_PATH = deces
 export BACKEND_PROXY_PATH=/${API_PATH}/api/v1
-export NGINX_TIMEOUT = 30
 export API_TIMEOUT = 45
-export NGINX_CSP=default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' static.cloudflareinsights.com ajax.cloudflare.com www.googletagmanager.com fundingchoicesmessages.google.com www.google.com www.google.ca analytics.google.com www.google-analytics.com pagead2.googlesyndication.com partner.googleadservices.com tpc.googlesyndication.com www.googletagservices.com adservice.google.com adservice.google.fr;style-src https: 'self' 'unsafe-inline';font-src 'self' data:;img-src 'self' matchid.io a.basemaps.cartocdn.com b.basemaps.cartocdn.com c.basemaps.cartocdn.com upload.wikimedia.org pagead2.googlesyndication.com www.google-analytics.com stats.g.doubleclick.net www.google.fr;connect-src 'self' www.data.gouv.fr cloudflareinsights.com www.google-analytics.com analytics.google.com csi.gstatic.com region1.analytics.google.com stats.g.doubleclick.net pagead2.googlesyndication.com; frame-src 'self' matchid.io www.google.com google.com googleads.g.doubleclick.net tpc.googlesyndication.com
-#export NGINX_CSP=default-src https: 'self' 'unsafe-inline' 'unsafe-eval';font-src 'self' data:;img-src 'self' data: https://*.cartocdn.com http://*.wikimedia.org https://www.google-analytics.com https://www.googletagmanager.com https://*.doubleclick.net;
-export API_SEARCH_LIMIT_RATE?=1r/s
-export API_SEARCH_USER_BURST?=30 nodelay
-export API_SEARCH_GLOBAL_LIMIT_RATE?=20r/s
-export API_SEARCH_GLOBAL_BURST?=400 nodelay
-export API_BULK_SUBMIT_LIMIT_RATE?=4r/m
-export API_BULK_SUBMIT_BURST?=4 nodelay
-export API_MISC_LIMIT_RATE?=2r/s
-export API_MISC_USER_BURST?=7 nodelay
-export API_MISC_GLOBAL_LIMIT_RATE?=5r/s
-export API_MISC_GLOBAL_BURST?=40 nodelay
-export API_AGG_LIMIT_RATE?=30r/m
-export API_AGG_USER_BURST?=15 nodelay
-export API_AGG_GLOBAL_LIMIT_RATE?=1r/s
-export API_AGG_GLOBAL_BURST?=15 nodelay
-export API_DOWNLOAD_LIMIT_RATE?=30r/m
-export API_USER_SCOPE?=http_x_forwarded_for
-export API_READ_TIMEOUT?=3600
-export API_SEND_TIMEOUT?=1200
-export API_MAX_BODY?=100m
-export MITM_URL=/mitm/mitm.html
-export THEME_DNUM=0
-export API_TEST_PATH = ${API_PATH}/api/v1/search
-export API_TEST_JSON_PATH=response
-export API_TEST_REQUEST={"fuzzy":"false","sort":[{"score":"desc"}],"page":1,"size":20,"scroll":"1m","firstName":"jean"}
 
 export DC_PREFIX := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]' | tr '_' '-')
 export DC_IMAGE_NAME = ${DC_PREFIX}
@@ -180,21 +141,15 @@ date                := $(shell date -I)
 
 export APP_VERSION :=  ${tag}-${VERSION}
 
-export FILE_FRONTEND_APP_VERSION = $(APP)-$(APP_VERSION)-frontend.tar.gz
-export FILE_FRONTEND_DIST_APP_VERSION = $(APP)-$(APP_VERSION)-frontend-dist.tar.gz
-export FILE_FRONTEND_DIST_LATEST_VERSION = $(APP)-latest-frontend-dist.tar.gz
 
 export DOCKER_USERNAME=matchid
-export DC_BUILD_FRONTEND = ${FRONTEND_PATH}/docker-compose-build.yml
-export DC_RUN_NGINX_FRONTEND = ${FRONTEND_PATH}/docker-compose.yml
-export BUILD_DIR=${APP_PATH}/${APP}-build
 
 include /etc/os-release
 
-# Include deces-* Makefile for elasticsearch targets
+# Include deces-* Makefile
 -include ${FRONTEND_PATH}/Makefile
 -include ${INFRA_PATH}/Makefile
-# Include deces-ui Makefile for frontend and nginx targets
+#-include ${BACKEND_PATH}/Makefile
 
 version:
 	@echo ${APP_VERSION}
@@ -213,8 +168,8 @@ config-stats: geolite-city
 
 config:
 	# this proc relies on matchid/tools and works both local and remote
-	@sudo apt-get install make
-	@make -C ${TOOLS_PATH} config;\
+	@(which make > /dev/null 2>&1) || sudo apt-get install make
+	@make -C ${TOOLS_PATH} config;
 	@touch config && touch ${BACKEND_PATH}/config
 
 clean-data: elasticsearch-clean backup-dir-clean
