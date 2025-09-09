@@ -2,7 +2,7 @@
 
 services:
   nginx:
-    image: ${DOCKER_USERNAME}/${DC_PREFIX}:${APP_VERSION}
+    image: ${DOCKER_USERNAME}/deces-ui:${APP_VERSION}
     build:
       context: ${NGINX_PATH}
       target: production
@@ -10,7 +10,7 @@ services:
       args:
         app_name: ${APP}
         app_ver: ${APP_VERSION}
-    container_name: ${DC_PREFIX}
+    container_name: deces-ui
     environment:
       - APP
       - PORT

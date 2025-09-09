@@ -30,8 +30,8 @@ services:
         DATAGOUV_RESOURCES_URL: ${DATAGOUV_RESOURCES_URL}
         MITM_URL: ${MITM_URL}
         THEME_DNUM: ${THEME_DNUM}
-    image: ${DOCKER_USERNAME}/${DC_PREFIX}-frontend-build:${APP_VERSION}
-    container_name: ${DC_PREFIX}-frontend-build
+    image: ${DOCKER_USERNAME}/deces-ui-frontend-build:${APP_VERSION}
+    container_name: deces-ui-frontend-build
     user: ${UID}:${GID}
 
 

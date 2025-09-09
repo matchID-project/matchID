@@ -64,9 +64,7 @@ export API_PATH = deces
 export BACKEND_PROXY_PATH=/${API_PATH}/api/v1
 export API_TIMEOUT = 45
 
-export DC_PREFIX := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-export DC_IMAGE_NAME = ${DC_PREFIX}
-export DC_NETWORK := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]')
+export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
 export DC := docker compose
 export GIT_ORIGIN=origin
@@ -345,7 +343,7 @@ deploy-remote-instance: config-minimal backend-config ${DATAPREP_VERSION_FILE} $
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-config\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
-		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=${DC_PREFIX}\
+		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
 		SCW_IMAGE_ID=${SCW_IMAGE_ID} SCW_VOLUME_SIZE=${SCW_VOLUME_SIZE} SCW_VOLUME_TYPE=${SCW_VOLUME_TYPE} \
 		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}
 
@@ -355,7 +353,7 @@ deploy-remote-services:
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-deploy remote-actions\
-		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=${DC_PREFIX}\
+		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
 		BACKEND_APP_VERSION=$${BACKEND_APP_VERSION} DATAPREP_VERSION=$${DATAPREP_VERSION} DATA_VERSION=$${DATA_VERSION}\
 		ACTIONS=deploy-local GIT_BRANCH=${GIT_BRANCH}\
 		TOOLS_STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY}\
@@ -389,7 +387,7 @@ deploy-delete-old: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} cloud-instance-down-invalid\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
-		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=${DC_PREFIX}\
+		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
 		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}
 
 deploy-monitor:
@@ -419,7 +417,7 @@ update-base-image: deploy-remote-instance deploy-docker-pull-base
 	${MAKE} -C ${TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${APP_VERSION}\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$$BACKEND_APP_VERSION\
-		DC_IMAGE_NAME=${DC_PREFIX};
+		DC_IMAGE_NAME=deces-ui;
 	${MAKE} -C ${TOOLS_PATH} SCW-instance-image \
 		CLOUD_APP=nner;\
 	SCW_IMAGE_ID=$$(cat ${TOOLS_PATH}/cloud/SCW.image.id)/;\
