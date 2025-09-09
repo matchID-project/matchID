@@ -23,7 +23,6 @@ export DC_SMTP=${DC} -f ${DC_DIR}/docker-compose-smtp.yml
 
 # elasticsearch defaut configuration
 export API_PATH = deces
-export ES_PROXY_PATH = /${API_PATH}/api/v0/search
 
 # BACKEND dir
 export PORT=8084

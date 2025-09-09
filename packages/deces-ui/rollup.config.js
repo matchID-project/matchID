@@ -36,7 +36,6 @@ const options = {
 			__AB_THRESHOLD__: process.env.AB_THRESHOLD,
 			__API_EMAIL__: process.env.API_EMAIL,
 			__API_MAX_BODY__: process.env.API_MAX_BODY,
-			__ES_PROXY_PATH__: process.env.ES_PROXY_PATH,
 			__ES_MAX_RESULTS__: process.env.ES_MAX_RESULTS,
 			__BACKEND_TOKEN_USER__: process.env.BACKEND_TOKEN_USER,
 			__BACKEND_PROXY_PATH__: process.env.BACKEND_PROXY_PATH,

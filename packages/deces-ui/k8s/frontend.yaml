@@ -23,8 +23,6 @@ spec:
             value: "${PORT}"
           - name: APP
             value: "${APP}"
-          - name: ES_PROXY_PATH
-            value: "${ES_PROXY_PATH}"
           - name: ES_HOST
             value: "elasticsearch"
           - name: ES_INDEX
