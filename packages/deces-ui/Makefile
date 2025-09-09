@@ -99,6 +99,31 @@ frontend:
 	@timeout=${NGINX_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (curl -s --fail -XGET localhost:${PORT} > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo "waiting for nginx to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; exit $$ret
 
 frontend-test: smtp
+	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${DC_FILE}-test.yml run ui-test sh -c "yarn install && node runAllTests.js"
+
+clean-frontend: rollup-clean build-dir-clean frontend-clean-dist frontend-clean-dist-archive
+
+# Docker targets
+frontend-docker-push:
+	@${MAKE} -C ${TOOLS_PATH} docker-push DC_IMAGE_NAME=deces-ui APP_VERSION=${APP_VERSION} ${MAKEOVERRIDES}
+
+frontend-docker-pull:
+	docker pull ${DOCKER_USERNAME}/deces-ui:${APP_VERSION}
+
+frontend-docker-check:
+	@if [ ! -f ".${DOCKER_USERNAME}-deces-ui:${APP_VERSION}" ]; then\
+		(\
+			(docker image inspect ${DOCKER_USERNAME}/deces-ui:${APP_VERSION} > /dev/null 2>&1)\
+			&& touch .${DOCKER_USERNAME}-deces-ui:${APP_VERSION}\
+		)\
+		||\
+		(\
+			(docker pull ${DOCKER_USERNAME}/deces-ui:${APP_VERSION} > /dev/null 2>&1)\
+			&& touch .${DOCKER_USERNAME}-deces-ui:${APP_VERSION}\
+		)\
+		|| (echo no previous build found for ${DOCKER_USERNAME}/deces-ui:${APP_VERSION} && exit 1);\
+	fi;
+
 
 # Nginx targets
 nginx-check-build:

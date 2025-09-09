@@ -176,8 +176,6 @@ clean-data: elasticsearch-clean backup-dir-clean
 	@rm -rf ${DATA_VERSION_FILE} ${DATAPREP_VERSION_FILE}\
 		${DATA_VERSION_FILE}.list > /dev/null 2>&1 || true
 
-clean-frontend: rollup-clean build-dir-clean frontend-clean-dist frontend-clean-dist-archive
-
 clean-backend:
 	@${MAKE} -C ${BACKEND_PATH} clean-local
 
@@ -190,26 +188,6 @@ clean-config:
 clean-local: clean-data clean-frontend clean-backend clean-config
 
 clean: clean-remote clean-local
-
-docker-push:
-	@${MAKE} -C ${TOOLS_PATH} docker-push DC_IMAGE_NAME=${DC_IMAGE_NAME} APP_VERSION=${APP_VERSION} ${MAKEOVERRIDES}
-
-docker-pull:
-	docker pull ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION}
-
-docker-check:
-	@if [ ! -f ".${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}" ]; then\
-		(\
-			(docker image inspect ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} > /dev/null 2>&1)\
-			&& touch .${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}\
-		)\
-		||\
-		(\
-			(docker pull ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} > /dev/null 2>&1)\
-			&& touch .${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}\
-		)\
-		|| (echo no previous build found for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} && exit 1);\
-	fi;
 
 network-stop:
 	docker network rm ${DC_NETWORK}
@@ -299,14 +277,11 @@ show-env:
 
 deploy-local: config show-env stats-background elasticsearch-restore-async docker-check up local-test-api
 
-smtp:
-	@${MAKE} -C ${BACKEND_PATH} smtp DC_NETWORK=${DC_NETWORK}
+# smtp:
+# 	@${MAKE} -C ${BACKEND_PATH} smtp DC_NETWORK=${DC_NETWORK}
 
 smtp-stop:
 	@${MAKE} -C ${BACKEND_PATH} smtp-stop
-
-# Frontend targets are now defined in packages/deces-ui/Makefile
-	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${FRONTEND_PATH}/docker-compose-test.yml run ui-test sh -c "yarn install && node runAllTests.js"
 
 backend-test:
 	@${MAKE} -C ${BACKEND_PATH} backend-test
