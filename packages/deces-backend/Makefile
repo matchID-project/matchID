@@ -22,16 +22,6 @@ export DC_NETWORK := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]')
 export DC_SMTP=${DC} -f ${DC_DIR}/docker-compose-smtp.yml
 
 # elasticsearch defaut configuration
-export ES_HOST = elasticsearch
-export ES_PORT = 9200
-export ES_TIMEOUT = 60
-export ES_RESTORE_TIMEOUT = 600
-export ES_INDEX = deces
-export ES_DATA = ${APP_PATH}/esdata
-export ES_NODES = 1
-export ES_MEM = 1024m
-export ES_VERSION = 8.6.1
-export ES_BACKUP_BASENAME := esdata
 export API_PATH = deces
 export ES_PROXY_PATH = /${API_PATH}/api/v0/search
 
