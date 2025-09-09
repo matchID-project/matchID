@@ -43,7 +43,7 @@ const options = {
 			__DATAGOUV_CATALOG_URL__: process.env.DATAGOUV_CATALOG_URL,
 			__DATAGOUV_RESOURCES_URL__: process.env.DATAGOUV_RESOURCES_URL,
 			__MITM_URL__: process.env.MITM_URL,
-			__APP__: process.env.APP,
+			__APP_FRONTEND__: process.env.APP_FRONTEND,
 			__APP_VERSION__: process.env.APP_VERSION,
 			__THEME_DNUM__: process.env.THEME_DNUM
 		}),

@@ -6,7 +6,7 @@ networks:
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
-    container_name: ${DC_PREFIX}-elasticsearch
+    container_name: deces-elasticsearch
     command:
       - /bin/bash
       - -c

@@ -16,7 +16,7 @@ ARG NPM_VERBOSE
 ARG app_path
 ARG app_name
 ARG app_ver
-ENV APP ${APP}
+ENV APP_FRONTEND ${APP_FRONTEND}
 ENV APP_VERSION ${app_ver}
 
 WORKDIR /$app_path
@@ -109,7 +109,7 @@ ARG THEME_DNUM
 ARG app_path
 ARG app_name
 ARG app_ver
-ENV APP ${app_name}
+ENV APP_FRONTEND ${app_name}
 ENV APP_VERSION ${app_ver}
 ENV AB_THRESHOLD ${AB_THRESHOLD}
 ENV API_EMAIL ${API_EMAIL}
@@ -125,9 +125,9 @@ ENV THEME_DNUM ${THEME_DNUM}
 # VOLUME /$app_path/build
 
 
-COPY ${APP}-${APP_VERSION}-frontend.tar.gz .
+COPY ${APP_FRONTEND}-${APP_VERSION}-frontend.tar.gz .
 
-RUN  set -ex ; tar -zxvf ${APP}-${APP_VERSION}-frontend.tar.gz  && \
+RUN  set -ex ; tar -zxvf ${APP_FRONTEND}-${APP_VERSION}-frontend.tar.gz  && \
      npm run build 2>&1 | tee npm.log; egrep -E '(ERROR|error)' npm.log && exit 1 ; rm -f npm.log \
      rm -rf ${app_name}-${app_ver}-frontend.tar.gz
 

@@ -8,7 +8,7 @@ services:
       target: development
       dockerfile: Dockerfile
       args:
-        app_name: ${APP}
+        app_name: ${APP_FRONTEND}
         app_ver: ${APP_VERSION}
     container_name: deces-ui-nginx-development
     depends_on:
@@ -69,8 +69,8 @@ services:
         npm_registry: ${NPM_REGISTRY}
         sass_registry: ${SASS_REGISTRY}
         MIRROR_DEBIAN: ${MIRROR_DEBIAN}
-        app_path: /${APP}
-        app_name: ${APP}
+        app_path: /${APP_FRONTEND}
+        app_name: ${APP_FRONTEND}
         app_ver: ${APP_VERSION}
         NPM_FIX: ${NPM_FIX}
         NPM_LATEST: ${NPM_LATEST}
@@ -80,7 +80,7 @@ services:
     image: ${DOCKER_USERNAME}/deces-ui-frontend-development:${APP_VERSION}
     container_name: deces-ui-frontend-development
     environment:
-      APP: ${APP}
+      APP: ${APP_FRONTEND}
       PORT: ${FRONTEND_DEV_PORT}
       HOST: 0.0.0.0
       AB_THRESHOLD: ${AB_THRESHOLD}
@@ -95,12 +95,12 @@ services:
       MITM_URL: ${MITM_URL}
       THEME_DNUM: ${THEME_DNUM}
     volumes:
-      - ${FRONTEND_PATH}/public:/${APP}/public
-      - ${STATS}:/${APP}/public/stats
-      - ${FRONTEND_PATH}/.eslintrc.js:/${APP}/.eslintrc.js
-      - ${FRONTEND_PATH}/rollup.config.js:/${APP}/rollup.config.js
-      - ${FRONTEND_PATH}/src:/${APP}/src/
-      - /${APP}/node_modules
+      - ${FRONTEND_PATH}/public:/${APP_FRONTEND}/public
+      - ${STATS}:/${APP_FRONTEND}/public/stats
+      - ${FRONTEND_PATH}/.eslintrc.js:/${APP_FRONTEND}/.eslintrc.js
+      - ${FRONTEND_PATH}/rollup.config.js:/${APP_FRONTEND}/rollup.config.js
+      - ${FRONTEND_PATH}/src:/${APP_FRONTEND}/src/
+      - /${APP_FRONTEND}/node_modules
 
 networks:
   default:

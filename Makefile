@@ -19,7 +19,7 @@ export MAKEBIN = $(shell which make || echo make)
 export MAKE = ${MAKEBIN} --no-print-directory -s
 
 #base paths
-export APP = deces-ui
+export APP = deces
 export APP_FRONTEND = deces-ui
 export APP_BACKEND = deces-backend
 export APP_TOOLS = tools
@@ -74,13 +74,13 @@ export GIT_ROOT = https://github.com/matchID-project
 export APP_URL?=https://${APP_DNS}
 export API_SSL?=1
 export APP_NODES=1
-export KUBE_NAMESPACE:=$(shell echo -n ${APP_GROUP}-${APP}-${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
+export KUBE_NAMESPACE:=$(shell echo -n ${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
 export KUBE_DIR=${FRONTEND_PATH}/k8s
 export KUBECONFIG=${HOME}/.kube/config
 export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
 
 export PROOFS=${DATA_DIR}/proofs
-export MONITOR_DIR = ${APP}/log/instances/${APP_GROUP}-${APP}-${GIT_BRANCH}
+export MONITOR_DIR = ${APP_FRONTED}/log/instances/${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH}
 
 # backup dir
 export BACKUP_DIR = ${APP_PATH}/backup
@@ -343,7 +343,7 @@ deploy-remote-instance: config-minimal backend-config ${DATAPREP_VERSION_FILE} $
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-config\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
-		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
+		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
 		SCW_IMAGE_ID=${SCW_IMAGE_ID} SCW_VOLUME_SIZE=${SCW_VOLUME_SIZE} SCW_VOLUME_TYPE=${SCW_VOLUME_TYPE} \
 		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}
 
@@ -353,7 +353,7 @@ deploy-remote-services:
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-deploy remote-actions\
-		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
+		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
 		BACKEND_APP_VERSION=$${BACKEND_APP_VERSION} DATAPREP_VERSION=$${DATAPREP_VERSION} DATA_VERSION=$${DATA_VERSION}\
 		ACTIONS=deploy-local GIT_BRANCH=${GIT_BRANCH}\
 		TOOLS_STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY}\
@@ -375,7 +375,7 @@ deploy-remote-publish:
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-test-api-in-vpc nginx-conf-apply remote-test-api\
-		APP=${APP} APP_VERSION=${APP_VERSION} GIT_BRANCH=${GIT_BRANCH} PORT=${PORT}\
+		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} GIT_BRANCH=${GIT_BRANCH} PORT=${PORT}\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
 		APP_DNS=$$APP_DNS API_TEST_PATH=${API_TEST_PATH} API_TEST_JSON_PATH=${API_TEST_JSON_PATH} API_TEST_DATA='${API_TEST_REQUEST}'\
 		${MAKEOVERRIDES}
@@ -387,7 +387,7 @@ deploy-delete-old: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} cloud-instance-down-invalid\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
-		APP=${APP} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
+		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
 		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}
 
 deploy-monitor:
@@ -415,7 +415,7 @@ update-base-image: deploy-remote-instance deploy-docker-pull-base
 	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
 	sleep 5;\
 	${MAKE} -C ${TOOLS_PATH} SCW-instance-snapshot \
-		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${APP_VERSION}\
+		GIT_BRANCH=${GIT_BRANCH} APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION}\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$$BACKEND_APP_VERSION\
 		DC_IMAGE_NAME=deces-ui;
 	${MAKE} -C ${TOOLS_PATH} SCW-instance-image \

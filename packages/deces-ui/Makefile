@@ -13,7 +13,7 @@ export NGINX_CSP=default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-ev
 # Build files configuration variables
 export DC_BUILD_FRONTEND = ${FRONTEND_PATH}/docker-compose-build.yml
 export DC_RUN_NGINX_FRONTEND = ${FRONTEND_PATH}/docker-compose.yml
-export BUILD_DIR=${APP_PATH}/${APP}-build
+export BUILD_DIR=${APP_PATH}/${APP_FRONTEND}-build
 export FILE_FRONTEND_APP_VERSION = $(APP)-$(APP_VERSION)-frontend.tar.gz
 export FILE_FRONTEND_DIST_APP_VERSION = $(APP)-$(APP_VERSION)-frontend-dist.tar.gz
 export FILE_FRONTEND_DIST_LATEST_VERSION = $(APP)-latest-frontend-dist.tar.gz
@@ -62,11 +62,11 @@ frontend-update:
 
 frontend-dev: clean-frontend
 ifneq "$(commit)" "$(lastcommit)"
-	@echo docker-compose up ${APP} frontend for dev after new commit ${APP_VERSION}
+	@echo docker-compose up ${APP_FRONTEND} frontend for dev after new commit ${APP_VERSION}
 	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml up -d
 	@echo "${commit}" > ${FRONTEND_PATH}/.lastcommit
 else
-	@echo docker-compose up ${APP} frontend for dev
+	@echo docker-compose up ${APP_FRONTEND} frontend for dev
 	${DC} -f  ${FRONTEND_PATH}/docker-compose-dev.yml up -d
 endif
 
@@ -77,7 +77,7 @@ frontend-check-build:
 	${DC} -f $(DC_BUILD_FRONTEND) config -q
 
 frontend-build-dist: ${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION) frontend-check-build
-	@echo building ${APP} frontend in ${FRONTEND_PATH}
+	@echo building ${APP_FRONTEND} frontend in ${FRONTEND_PATH}
 	${DC} -f $(DC_BUILD_FRONTEND) build $(DC_BUILD_ARGS)
 
 frontend-build: network frontend-build-dist $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION)
@@ -93,7 +93,7 @@ frontend-stop:
 	${DC} -f ${FRONTEND_PATH}/docker-compose.yml down
 
 frontend:
-	@echo docker-compose up ${APP_GROUP} ${APP}
+	@echo docker-compose up ${APP_GROUP} ${APP_FRONTEND}
 	@echo DATAGOUV PROXY: ${DATAGOUV_RESOURCES_PROXY}, RW: ${DATAGOUV_RESOURCES_REWRITE_PATH}
 	${DC} -f ${DC_RUN_NGINX_FRONTEND} up -d
 	@timeout=${NGINX_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (curl -s --fail -XGET localhost:${PORT} > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo "waiting for nginx to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; exit $$ret
@@ -130,7 +130,7 @@ nginx-check-build:
 	${DC} -f $(DC_RUN_NGINX_FRONTEND) config -q
 
 nginx-build: $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) nginx-check-build
-	@echo building ${APP} nginx
+	@echo building ${APP_FRONTEND} nginx
 	cp $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ${NGINX_PATH}/
 	${DC} -f ${DC_RUN_NGINX_FRONTEND} build $(DC_BUILD_ARGS)
 
@@ -145,7 +145,7 @@ build-dir-clean:
 	@if [ -d "$(BUILD_DIR)" ] ; then (rm -rf $(BUILD_DIR) > /dev/null 2>&1) ; fi
 
 ${FRONTEND_PATH}/$(FILE_FRONTEND_APP_VERSION):
-	( cd ${FRONTEND_PATH} && tar -zcvf $(FILE_FRONTEND_APP_VERSION) --exclude ${APP}.tar.gz \
+	( cd ${FRONTEND_PATH} && tar -zcvf $(FILE_FRONTEND_APP_VERSION) --exclude ${APP_FRONTEND}.tar.gz \
 		.eslintrc.js \
 		rollup.config.js \
         src \

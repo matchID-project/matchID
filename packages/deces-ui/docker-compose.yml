@@ -8,11 +8,11 @@ services:
       target: production
       dockerfile: ${NGINX_PATH}/Dockerfile
       args:
-        app_name: ${APP}
+        app_name: ${APP_FRONTEND}
         app_ver: ${APP_VERSION}
     container_name: deces-ui
     environment:
-      - APP
+      - APP_FRONTEND
       - PORT
       - ES_HOST
       - ES_INDEX
