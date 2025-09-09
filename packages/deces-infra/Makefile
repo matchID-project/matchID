@@ -4,6 +4,21 @@
 # Infrastructure-specific variables
 # INFRA_PATH is defined in the main Makefile
 
+# Elasticsearch configuration variables
+export ES_HOST = elasticsearch
+export ES_PORT = 9200
+export ES_TIMEOUT = 60
+export ES_RESTORE_TIMEOUT = 480
+export ES_INDEX = deces
+export ES_MAX_RESULTS = 10000
+export ES_DATA = ${DATA_DIR}/esdata
+export ES_NODES = 1
+export ES_MEM = 512m
+export ES_JAVA_OPTS=-Xms${ES_MEM} -Xmx${ES_MEM}
+export ES_VERSION = 8.6.1
+export ES_BACKUP_BASENAME := esdata
+export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
+
 # Elasticsearch targets
 elasticsearch-stop:
 	@echo docker-compose down matchID elasticsearch

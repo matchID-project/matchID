@@ -77,7 +77,6 @@ export APP_NODES=1
 export KUBE_NAMESPACE:=$(shell echo -n ${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
 export KUBE_DIR=${FRONTEND_PATH}/k8s
 export KUBECONFIG=${HOME}/.kube/config
-export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
 
 export PROOFS=${DATA_DIR}/proofs
 export MONITOR_DIR = ${APP_FRONTED}/log/instances/${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH}
@@ -94,20 +93,8 @@ export DATAGOUV_RESOURCES_URL = ${DATAGOUV_RESOURCES_HOST}/${DATAGOUV_RESOURCES_
 export DATAGOUV_RESOURCES_PROXY = $(shell echo ${http_proxy} | sed 's|^$$|${DATAGOUV_RESOURCES_HOST}|;')
 export DATAGOUV_RESOURCES_REWRITE_PATH := $(shell echo ${DATAGOUV_RESOURCES_HOST}/${DATAGOUV_RESOURCES_PATH} | sed 's|^${DATAGOUV_RESOURCES_PROXY}||')
 
-# elasticsearch defaut configuration
-export ES_HOST = elasticsearch
-export ES_PORT = 9200
-export ES_TIMEOUT = 60
-export ES_RESTORE_TIMEOUT = 480
-export ES_INDEX = deces
-export ES_MAX_RESULTS = 10000
+# data configuration
 export DATA_DIR = ${APP_PATH}/data
-export ES_DATA = ${DATA_DIR}/esdata
-export ES_NODES = 1
-export ES_MEM = 512m
-export ES_JAVA_OPTS=-Xms${ES_MEM} -Xmx${ES_MEM}
-export ES_VERSION = 8.6.1
-export ES_BACKUP_BASENAME := esdata
 export DATAPREP_VERSION_FILE = ${APP_PATH}/.dataprep.sha1
 export DATA_VERSION_FILE = ${APP_PATH}/.data.sha1
 export FILES_TO_PROCESS?=deces-([0-9]{4}|2025-m[0-9]{2}).txt.gz
