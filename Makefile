@@ -44,24 +44,12 @@ export LOG_DB_DIR = ${FRONTEND_PATH}/log/db
 export STATS_SCRIPTS = ${FRONTEND_PATH}/stats/src
 export STATS_UPDATE_DAYS = 35
 export STATS = ${FRONTEND_PATH}/stats/public
-export BACKEND_PORT=8080
-export BACKEND_HOST=backend
-export BACKEND_JOB_CONCURRENCY=6
-export BACKEND_CHUNK_CONCURRENCY=3
-export BACKEND_TMP_MAX = 150 # number of requests before ban
-export BACKEND_TMP_DURATION = 14400 # duration of ban in seconds after exceeding number of max request
-export BACKEND_TMP_WINDOW = 86400 # seconds before reset of request count
-#export BACKEND_LOG_LEVEL=error
-export BACKEND_TOKEN_USER?=${API_EMAIL}
-export BACKEND_TOKEN_KEY?=$(shell openssl rand -base64 16)
-export BACKEND_TOKEN_PASSWORD?=$(shell openssl rand -base64 16)
-#export SMTP_TLS_SELFSIGNED=true #if need self signed smtp relay
-export SMTP_HOST=smtp
-export SMTP_PORT?=1025
-export SMTP_USER?=${API_EMAIL}
-export SMTP_PWD?=$(shell echo $$RANDOM )
+# Backend configuration variables are now defined in packages/deces-backend/Makefile
+# SMTP configuration variables are now defined in packages/deces-backend/Makefile
 export API_PATH = deces
 export BACKEND_PROXY_PATH=/${API_PATH}/api/v1
+export BACKEND_PORT=8080
+export BACKEND_HOST=backend
 export API_TIMEOUT = 45
 
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
@@ -162,7 +150,7 @@ clean-data: elasticsearch-clean backup-dir-clean
 		${DATA_VERSION_FILE}.list > /dev/null 2>&1 || true
 
 clean-backend:
-	@${MAKE} -C ${BACKEND_PATH} clean-local
+	@${MAKE} -C ${BACKEND_PATH} clean-backend
 
 clean-remote:
 	@${MAKE} -C ${TOOLS_PATH} remote-clean ${MAKEOVERRIDES} > /dev/null 2>&1 || true
@@ -182,11 +170,8 @@ network: config
 
 backend-dev:
 	@echo docker-compose up backend dev
-	@${MAKE} -C ${BACKEND_PATH} dev TOOLS_PATH=${TOOLS_PATH} DATA_DIR=${DATA_DIR} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}\
-		APP_URL=http://localhost:${PORT} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}\
-		BACKEND_JOB_CONCURRENCY=${BACKEND_JOB_CONCURRENCY} BACKEND_CHUNK_CONCURRENCY=${BACKEND_CHUNK_CONCURRENCY}\
-		BACKEND_TOKEN_USER=${BACKEND_TOKEN_USER} BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
-		BACKEND_TMP_MAX=${BACKEND_TMP_MAX} BACKEND_TMP_DURATION=${BACKEND_TMP_DURATION} BACKEND_TMP_WINDOW=${BACKEND_TMP_WINDOW}
+	@${MAKE} -C ${BACKEND_PATH} backend-dev TOOLS_PATH=${TOOLS_PATH} DATA_DIR=${DATA_DIR} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}\
+		APP_URL=http://localhost:${PORT} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
 
 backend-dev-stop:
 	@${MAKE} -C ${BACKEND_PATH} dev-stop TOOLS_PATH=${TOOLS_PATH} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}
@@ -201,10 +186,7 @@ backend-docker-check: backend-config
 backend: backend-config backend-docker-check proofs-mount elasticsearch-index-readiness
 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}\
-		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}\
-                BACKEND_JOB_CONCURRENCY=${BACKEND_JOB_CONCURRENCY} BACKEND_CHUNK_CONCURRENCY=${BACKEND_CHUNK_CONCURRENCY}\
-                BACKEND_TOKEN_USER=${BACKEND_TOKEN_USER} BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
-                BACKEND_TMP_MAX=${BACKEND_TMP_MAX} BACKEND_TMP_DURATION=${BACKEND_TMP_DURATION} BACKEND_TMP_WINDOW=${BACKEND_TMP_WINDOW}
+		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
 
 backend-stop:
 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
