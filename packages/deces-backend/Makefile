@@ -23,17 +23,16 @@ export DC_SMTP=${DC} -f ${BACKEND_PATH}/docker-compose-smtp.yml
 export API_PATH = deces
 
 # BACKEND dir
-export PORT=8084
-export BACKEND_PATH?=${APP_PATH}/backend
-export BACKEND_PORT?=8080
-export BACKEND_HOST?=backend
+export API_PATH = deces
+export BACKEND_PROXY_PATH=/${API_PATH}/api/v1
+export BACKEND_PORT=8080
+export BACKEND_HOST=backend
 export API_SSL?=1
 export APP_URL?=http$([ "$API_SSL" == 1 ] && echo "s" || echo "")://${APP_DNS}
 export API_EMAIL?=matchid.project@gmail.com
 export BACKEND_TOKEN_USER?=${API_EMAIL}
 export BACKEND_TOKEN_KEY?=$(shell openssl rand -base64 16)
 export BACKEND_TOKEN_PASSWORD?=$(shell openssl rand -base64 16)
-export BACKEND_PROXY_PATH=/${API_PATH}/api/v1
 export NPM_REGISTRY = $(shell echo $$NPM_REGISTRY )
 export NPM_VERBOSE ?= 1
 export REDIS_DATA=${DATA_DIR}/redisdata
@@ -99,36 +98,15 @@ export SCW_ENDPOINT?=s3.fr-par.scw.cloud
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-config:
-	@touch config
 
-clean-data: backup-dir-clean
-	@rm -rf ${GIT_DATAPREP} ${DATA_VERSION_FILE} ${DATAPREP_VERSION_FILE}\
-		${DATA_VERSION_FILE}.list > /dev/null 2>&1 || true
 
-clean-config:
-	@rm -rf config > /dev/null 2>&1 || true
-
-clean-backend: clean-data clean-config
-
-backup-dir:
-	@if [ ! -d "$(BACKUP_DIR)" ] ; then mkdir -p $(BACKUP_DIR) ; fi
-
-backup-dir-clean:
-	@if [ -d "$(BACKUP_DIR)" ] ; then (rm -rf $(BACKUP_DIR) > /dev/null 2>&1 || true) ; fi
-
-# deploy
-
-deploy-local: config elasticsearch-restore-async docker-check up
-
-deploy-dependencies: config elasticsearch-restore-async docker-check backend/tests/clients_test.csv elasticsearch-index-readiness
 
 # DOCKER
 
-docker-push:
+docker-push-backend:
 	@make -C ${TOOLS_PATH} docker-push DC_IMAGE_NAME=${DC_IMAGE_NAME} APP_VERSION=${APP_VERSION}
 
-docker-check:
+docker-check-backend:
 	@if [ ! -f ".${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}" ]; then\
 		(\
 			(docker image inspect ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} > /dev/null 2>&1)\
@@ -142,10 +120,10 @@ docker-check:
 		|| (echo no previous build found for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} && exit 1);\
 	fi;
 
-docker-save:
+docker-save-backend:
 	@docker save -o deces-backend.tar ${DOCKER_USERNAME}/deces-backend:${APP_VERSION}
 
-docker-load:
+docker-load-backend:
 	@docker load -i deces-backend.tar
 
 #############
@@ -233,9 +211,6 @@ backend-dev-test:
 	@echo Testing API parameters
 	@docker exec -i ${USE_TTY} ${APP_BACKEND}-development bash /deces-backend/tests/test_query_params.sh
 
-dev: network backend-dev-stop backend-dev
-
-dev-stop: backend-dev-stop smtp-stop
 
 # download wikidata test data
 ${WIKIDATA_SRC}:
@@ -312,6 +287,29 @@ disposable-mail: ${DISPOSABLE_MAIL}
 
 ${PROOFS}:
 	mkdir -p ${PROOFS}
+
+proofs-restore: ${PROOFS}
+	@if [ -n "${PROOFS_BUCKET}" ];then\
+		echo restoring proofs data;\
+		${MAKE} -C ${TOOLS_PATH} storage-sync-pull STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BRANCH} DATA_DIR=${PROOFS} \
+			RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
+			STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};\
+	fi
+
+proofs-backup: ${PROOFS}
+	@if [ -n "${PROOFS_BUCKET}" ];then\
+		${MAKE} -C ${TOOLS_PATH} storage-sync-push STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BRANCH} DATA_DIR=${PROOFS} \
+			RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
+			STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};\
+	fi;
+
+proofs-mount:
+	@if [ -n "${PROOFS_BUCKET}" ];then\
+		((make proofs-restore && while (true); do  make proofs-backup;sleep 30;done) > .proofs-backup 2>&1 &);\
+	fi;
+
+proofs-umount:
+	@ps -elf | grep "make proofs-backup" | awk '{print $$4}'  | head -1 | xargs kill || echo -n
 
 ${JOBS}:
 	mkdir -p ${JOBS}

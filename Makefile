@@ -46,10 +46,6 @@ export STATS_UPDATE_DAYS = 35
 export STATS = ${FRONTEND_PATH}/stats/public
 # Backend configuration variables are now defined in packages/deces-backend/Makefile
 # SMTP configuration variables are now defined in packages/deces-backend/Makefile
-export API_PATH = deces
-export BACKEND_PROXY_PATH=/${API_PATH}/api/v1
-export BACKEND_PORT=8080
-export BACKEND_HOST=backend
 export API_TIMEOUT = 45
 
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
@@ -122,7 +118,7 @@ include /etc/os-release
 # Include deces-* Makefile
 -include ${FRONTEND_PATH}/Makefile
 -include ${INFRA_PATH}/Makefile
-#-include ${BACKEND_PATH}/Makefile
+-include ${BACKEND_PATH}/Makefile
 
 version:
 	@echo ${APP_VERSION}
@@ -149,16 +145,19 @@ clean-data: elasticsearch-clean backup-dir-clean
 	@rm -rf ${DATA_VERSION_FILE} ${DATAPREP_VERSION_FILE}\
 		${DATA_VERSION_FILE}.list > /dev/null 2>&1 || true
 
-clean-backend:
-	@${MAKE} -C ${BACKEND_PATH} clean-backend
+# clean-backend:
+# 	@${MAKE} -C ${BACKEND_PATH} clean-backend
 
 clean-remote:
 	@${MAKE} -C ${TOOLS_PATH} remote-clean ${MAKEOVERRIDES} > /dev/null 2>&1 || true
 
-clean-config:
+clean-config-elasticsearch:
 	@rm -rf elasticsearch-repository-* > /dev/null 2>&1 || true
 
-clean-local: clean-data clean-frontend clean-backend clean-config
+clean-config: clean-config-elasticsearch
+	@rm -rf config > /dev/null 2>&1 || true
+
+clean-local: clean-data clean-frontend clean-config
 
 clean: clean-remote clean-local
 
@@ -168,36 +167,34 @@ network-stop:
 network: config
 	@docker network create ${DC_NETWORK_OPT} ${DC_NETWORK} 2> /dev/null; true
 
-backend-dev:
-	@echo docker-compose up backend dev
-	@${MAKE} -C ${BACKEND_PATH} backend-dev TOOLS_PATH=${TOOLS_PATH} DATA_DIR=${DATA_DIR} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}\
-		APP_URL=http://localhost:${PORT} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
+# backend-dev:
+# 	@echo docker-compose up backend dev
+# 	@${MAKE} -C ${BACKEND_PATH} backend-dev TOOLS_PATH=${TOOLS_PATH} DATA_DIR=${DATA_DIR} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}\
+# 		APP_URL=http://localhost:${PORT} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
 
-backend-dev-stop:
-	@${MAKE} -C ${BACKEND_PATH} dev-stop TOOLS_PATH=${TOOLS_PATH} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}
+# backend-dev-stop:
+# 	@${MAKE} -C ${BACKEND_PATH} dev-stop TOOLS_PATH=${TOOLS_PATH} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}
 
-backend-clean-version:
-	rm backend-version
 
-backend-docker-check: backend-config
-	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
-	${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
+# backend-docker-check:
+# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+# 	${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
 
-backend: backend-config backend-docker-check proofs-mount elasticsearch-index-readiness
-	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
-	${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}\
-		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
+# backend: backend-docker-check proofs-mount elasticsearch-index-readiness
+# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+# 	${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}\
+# 		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
 
-backend-stop:
-	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
-	${MAKE} -C ${BACKEND_PATH} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
-	@make proofs-umount
+# backend-stop:
+# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+# 	${MAKE} -C ${BACKEND_PATH} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
+# 	@make proofs-umount
 
 # Frontend targets are now defined in packages/deces-ui/Makefile
 
 dev: network frontend-stop elasticsearch backend-dev frontend-dev
 
-dev-stop: frontend-dev-stop backend-dev-stop elasticsearch-stop
+dev-stop: frontend-dev-stop backend-dev-stop elasticsearch-stop smtp-stop
 
 build: clean-frontend frontend-build nginx-build
 
@@ -247,11 +244,11 @@ deploy-local: config show-env stats-background elasticsearch-restore-async docke
 # smtp:
 # 	@${MAKE} -C ${BACKEND_PATH} smtp DC_NETWORK=${DC_NETWORK}
 
-smtp-stop:
-	@${MAKE} -C ${BACKEND_PATH} smtp-stop
+# smtp-stop:
+# 	@${MAKE} -C ${BACKEND_PATH} smtp-stop
 
-backend-test:
-	@${MAKE} -C ${BACKEND_PATH} backend-test
+# backend-test:
+# 	@${MAKE} -C ${BACKEND_PATH} backend-test
 
 local-test-api:
 	@timeout=${API_TIMEOUT} ;\
@@ -305,7 +302,7 @@ deploy-k8s-frontend: deploy-k8s-namespace
 	@echo $@
 	@cat ${KUBE_DIR}/frontend.yaml | envsubst `env | sed "s/=.*//;s/^/$$/" | tr "\n" ","` | kubectl apply -f -
 
-deploy-remote-instance: config-minimal backend-config ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
+deploy-remote-instance: config-minimal ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
 	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
@@ -469,28 +466,6 @@ stats-catalog: ${STATS}
 stats-background:
 	@((sleep 180;while (true); do make stats-live;sleep 300;done) > .stats-live 2>&1 &)
 
-${PROOFS}:
-	@mkdir -p ${PROOFS}
+# ${PROOFS}:
+# 	@mkdir -p ${PROOFS}
 
-proofs-restore: ${PROOFS}
-	@if [ -n "${PROOFS_BUCKET}" ];then\
-		echo restoring proofs data;\
-		${MAKE} -C ${TOOLS_PATH} storage-sync-pull STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BRANCH} DATA_DIR=${PROOFS} \
-			RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
-			STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};\
-	fi
-
-proofs-backup: ${PROOFS}
-	@if [ -n "${PROOFS_BUCKET}" ];then\
-		${MAKE} -C ${TOOLS_PATH} storage-sync-push STORAGE_BUCKET=${PROOFS_BUCKET}/${GIT_BRANCH} DATA_DIR=${PROOFS} \
-			RCLONE_OPTS="--checksum" RCLONE_SYNC="copy"\
-			STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY};\
-	fi;
-
-proofs-mount:
-	@if [ -n "${PROOFS_BUCKET}" ];then\
-		((make proofs-restore && while (true); do  make proofs-backup;sleep 30;done) > .proofs-backup 2>&1 &);\
-	fi;
-
-proofs-umount:
-	@ps -elf | grep "make proofs-backup" | awk '{print $$4}'  | head -1 | xargs kill || echo -n

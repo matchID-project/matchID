@@ -63,7 +63,7 @@ frontend-update:
 frontend-dev: clean-frontend
 ifneq "$(commit)" "$(lastcommit)"
 	@echo docker-compose up ${APP_FRONTEND} frontend for dev after new commit ${APP_VERSION}
-	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml up -d
+	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml up -d --build --force-recreate
 	@echo "${commit}" > ${FRONTEND_PATH}/.lastcommit
 else
 	@echo docker-compose up ${APP_FRONTEND} frontend for dev
