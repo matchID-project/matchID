@@ -104,7 +104,7 @@ export STORAGE_SECRET_KEY_B64:=$(shell echo -n ${STORAGE_SECRET_KEY} | openssl b
 export VERSION := $(shell cat tagfiles.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
 
 commit              := $(shell git describe --tags || cat VERSION )
-tag                 := $(shell git describe --tags | sed 's/-.*//')
+tag                 := $(shell git describe --tags || git rev-parse --short HEAD | sed 's/-.*//' )
 lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 
