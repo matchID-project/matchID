@@ -70,7 +70,6 @@ export DATASET=fichier-des-personnes-decedees
 export STORAGE_BUCKET=${DATASET}
 export AWS=${APP_PATH}/aws
 
-export DATA_DIR ?= ${BACKEND_PATH}/data
 export COMMUNES_JSON=${DATA_DIR}/communes.json
 export DISPOSABLE_MAIL=${DATA_DIR}/disposable-mail.txt
 export DB_JSON=${DATA_DIR}/userDB.json

@@ -22,6 +22,7 @@ services:
         NPM_FIX: ${NPM_FIX}
         NPM_LATEST: ${NPM_LATEST}
         NPM_VERBOSE: ${NPM_VERBOSE}
+        DATA_DIR: ${DATA_DIR}
     environment:
       - NODE_ENV=${EXEC_ENV}
       - BACKEND_PORT=${BACKEND_PORT}
