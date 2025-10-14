@@ -211,7 +211,7 @@ backend-dev-test:
 
 # download wikidata test data
 ${WIKIDATA_SRC}:
-	@echo "downloading wikidata set of died french people...";\
+	@echo -n "downloading wikidata set of died french people... ";\
 	(curl -s -f -G 'https://query.wikidata.org/sparql'      --header "Accept: text/csv"       --data-urlencode query="\
 		select ?person  ?personLabel ?firstnameLabel ?id ?lastnameLabel ?birthdateLabel ?birthplaceLabel ?citizenshipLabel ?diedLabel where {\
 		?person wdt:P27 wd:Q142.\
@@ -229,7 +229,7 @@ ${WIKIDATA_SRC}:
 		&& echo "done!"
 
 ${WIKIDATA_LINKS}:
-	@echo "downloading wikidata and wikipedia links";\
+	@echo -n "downloading wikidata and wikipedia links";\
 	mkdir -p ${DATA_DIR};\
 	curl -s -f -G 'https://query.wikidata.org/sparql' --header "Accept: application/json" --data-urlencode query="\
 		select ?sitelink ?person ?personDescription ?img ?id where {\
@@ -240,7 +240,8 @@ ${WIKIDATA_LINKS}:
 			service wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],fr'. }\
 		}" |\
 		jq -c '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
-		> ${WIKIDATA_LINKS}
+		> ${WIKIDATA_LINKS} \
+		&& echo " done!"
 
 wikidata-src: ${WIKIDATA_SRC}
 
