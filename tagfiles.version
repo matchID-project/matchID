@@ -1,0 +1,17 @@
+packages/deces-ui/docker-compose-build.yml
+packages/deces-ui/docker-compose-dev.yml
+packages/deces-ui/docker-compose.yml
+packages/deces-ui/Dockerfile
+packages/deces-ui/Makefile
+packages/deces-ui/nginx
+packages/deces-ui/package.json
+packages/deces-ui/public
+packages/deces-ui/rollup.config.js
+packages/deces-ui/src
+packages/deces-backend/docker-compose-dev-backend.yml
+packages/deces-backend/docker-compose.yml
+packages/deces-backend/Dockerfile
+packages/deces-backend/Makefile
+packages/deces-backend/package.json
+packages/deces-backend/src
+tagfiles.version
