@@ -1,0 +1,74 @@
+name: Backend test & build
+
+on:
+  push:
+    paths:
+      - 'packages/deces-backend/**'
+      - 'Makefile'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 🐳 Build docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: 🐋 Build the master docker image
+        run: make backend-build-all
+      - name: 👷 Make deploy local
+        run: make deploy-dependencies
+        env:
+          FILES_TO_PROCESS: deces-2020-m01.txt.gz
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+          STORAGE_ACCESS_KEY: ${{ secrets.aws_access_key_id }}
+          STORAGE_SECRET_KEY: ${{ secrets.aws_secret_access_key }}
+      - name: ✅ Execute vitest tests
+        run: make backend-test-vitest
+      - name: 🚀 Push the docker image
+        if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master'
+        run: make docker-push GIT_BRANCH="${GITHUB_REF#refs/heads/}"
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: 🐋 Save docker image
+        run: make docker-save
+      - name: ⬆ Upload docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: deces-backend
+          path: deces-backend.tar
+  bulk:
+    name: ✅ Perfs test with artillery.io
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: ⬇ Download docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: deces-backend
+      - name: 🐳 Load docker image
+        run: make docker-load
+      - name: Make deploy local
+        run: make deploy-dependencies backend-perf-clinic
+        env:
+          FILES_TO_PROCESS: deaths.txt.gz
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+          STORAGE_ACCESS_KEY: ${{ secrets.aws_access_key_id }}
+          STORAGE_SECRET_KEY: ${{ secrets.aws_secret_access_key }}
+      - name: ⚗ Run artillery tests
+        run: |
+          docker cp backend/tests/clients_test.csv `docker ps -l --format "{{.Names}}" --filter name=deces-backend`:/deces-backend/tests/clients_test.csv
+          make test-perf-v1
+      - name: ⚕ Save doctor.js results
+        run: |
+          make backend-perf-clinic-stop
+      - name: 📦 Upload results as job artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: match-results
+          path: |
+            backend/tests/performance/reports/*.html
+            backend/clinic/*html
