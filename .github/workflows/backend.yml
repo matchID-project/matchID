@@ -18,7 +18,7 @@ jobs:
       - name: 🐋 Build the master docker image
         run: make backend-build-all
       - name: 👷 Make deploy local
-        run: make deploy-dependencies
+        run: make deploy-dependencies-backend
         env:
           FILES_TO_PROCESS: deces-2020-m01.txt.gz
           REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
@@ -52,7 +52,7 @@ jobs:
       - name: 🐳 Load docker image
         run: make docker-load
       - name: Make deploy local
-        run: make deploy-dependencies backend-perf-clinic
+        run: make deploy-dependencies-backend backend-perf-clinic
         env:
           FILES_TO_PROCESS: deaths.txt.gz
           REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev

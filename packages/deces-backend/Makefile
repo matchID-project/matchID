@@ -123,6 +123,12 @@ docker-save-backend:
 docker-load-backend:
 	@docker load -i deces-backend.tar
 
+## deploy
+
+deploy-local-backend: config elasticsearch-restore-async docker-check-backend elasticsearch elasticsearch-index-readiness backend-start
+
+deploy-dependencies-backend: config elasticsearch-restore-async docker-check-backend backend/tests/clients_test.csv elasticsearch-index-readiness
+
 #############
 #  Backend  #
 #############
