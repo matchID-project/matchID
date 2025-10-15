@@ -97,9 +97,9 @@ WORKDIR /$app_path
 
 COPY package.json ./
 COPY tests ./tests
-COPY ${DATA_DIR}/communes.json ./data/communes.json
-COPY ${DATA_DIR}/disposable-mail.txt ./data/disposable-mail.txt
-COPY ${DATA_DIR}/wikidata.json ./data/wikidata.json
+COPY --from=data communes.json ./data/communes.json
+COPY --from=data disposable-mail.txt ./data/disposable-mail.txt
+COPY --from=data wikidata.json ./data/wikidata.json
 
 # Install production dependencies and clean cache
 RUN npm install --production && \

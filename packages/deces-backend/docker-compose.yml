@@ -6,6 +6,8 @@ services:
     container_name: deces-backend
     build:
       context: ${BACKEND_PATH}
+      additional_contexts:
+        data: ../../data
       target: ${EXEC_ENV}
       dockerfile: Dockerfile
       args:
