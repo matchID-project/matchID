@@ -22,8 +22,8 @@ jobs:
         env:
           FILES_TO_PROCESS: deces-2020-m01.txt.gz
           REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
-          STORAGE_ACCESS_KEY: ${{ secrets.aws_access_key_id }}
-          STORAGE_SECRET_KEY: ${{ secrets.aws_secret_access_key }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: ✅ Execute vitest tests
         run: make backend-test-vitest
       - name: 🚀 Push the docker image
@@ -56,8 +56,8 @@ jobs:
         env:
           FILES_TO_PROCESS: deaths.txt.gz
           REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
-          STORAGE_ACCESS_KEY: ${{ secrets.aws_access_key_id }}
-          STORAGE_SECRET_KEY: ${{ secrets.aws_secret_access_key }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: ⚗ Run artillery tests
         run: |
           docker cp backend/tests/clients_test.csv `docker ps -l --format "{{.Names}}" --filter name=deces-backend`:/deces-backend/tests/clients_test.csv
