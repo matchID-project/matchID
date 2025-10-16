@@ -127,7 +127,7 @@ docker-load-backend:
 
 deploy-local-backend: config elasticsearch-restore-async docker-check-backend elasticsearch elasticsearch-index-readiness backend-start
 
-deploy-dependencies-backend: config elasticsearch-restore-async docker-check-backend backend/tests/clients_test.csv elasticsearch-index-readiness
+deploy-dependencies-backend: config elasticsearch-restore-async ${BACKEND_PATH}/tests/clients_test.csv elasticsearch-index-readiness
 
 #############
 #  Backend  #
@@ -173,8 +173,8 @@ backend-test-vitest: db-json-fake smtp
 	@export EXEC_ENV=development; export BACKEND_LOG_LEVEL=error; \
 		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml run --rm backend npm run test --verbose
 
-backend/tests/clients_test.csv:
-	curl -L https://github.com/matchID-project/examples/raw/master/data/clients_test.csv -o backend/tests/clients_test.csv
+${BACKEND_PATH}/tests/clients_test.csv:
+	curl -L https://github.com/matchID-project/examples/raw/master/data/clients_test.csv -o ${BACKEND_PATH}/tests/clients_test.csv
 
 # test artillery
 test-perf-v1:
