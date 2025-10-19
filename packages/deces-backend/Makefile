@@ -125,9 +125,9 @@ docker-load-backend:
 
 ## deploy
 
-deploy-local-backend: config elasticsearch-restore-async docker-check-backend elasticsearch elasticsearch-index-readiness backend-start
+deploy-local-backend: config elasticsearch-restore docker-check-backend elasticsearch elasticsearch-index-readiness backend-start
 
-deploy-dependencies-backend: config elasticsearch-restore-async ${BACKEND_PATH}/tests/clients_test.csv elasticsearch-index-readiness
+deploy-dependencies-backend: config elasticsearch-restore ${BACKEND_PATH}/tests/clients_test.csv elasticsearch-index-readiness
 
 #############
 #  Backend  #
