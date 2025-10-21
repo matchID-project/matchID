@@ -32,7 +32,7 @@ jobs:
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: 🐋 Save docker image
-        run: make docker-save
+        run: make docker-save-backend
       - name: ⬆ Upload docker image
         uses: actions/upload-artifact@v4
         with:
@@ -50,7 +50,7 @@ jobs:
         with:
           name: deces-backend
       - name: 🐳 Load docker image
-        run: make docker-load
+        run: make docker-load-backend
       - name: Make deploy local
         run: make deploy-dependencies-backend backend-perf-clinic
         env:
