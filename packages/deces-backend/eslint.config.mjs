@@ -63,7 +63,7 @@ export default [...compat.extends(
         "@typescript-eslint/no-unused-vars": "warn",
         "@typescript-eslint/prefer-promise-reject-errors": "warn",
         "@typescript-eslint/type-annotation-spacing": "off",
-        "@typescript-eslint/unified-signatures": "error",
+        "@typescript-eslint/unified-signatures": "off",
         "@typescript-eslint/no-misused-promises": "warn",
         "@typescript-eslint/no-unsafe-call": "off",
         "@typescript-eslint/no-unsafe-member-access": "off",
