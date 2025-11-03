@@ -13,5 +13,7 @@ packages/deces-backend/docker-compose.yml
 packages/deces-backend/Dockerfile
 packages/deces-backend/Makefile
 packages/deces-backend/package.json
-packages/deces-backend/src
+packages/deces-backend/src/*ts
+packages/deces-backend/src/controllers/*ts
+packages/deces-backend/src/models/*ts
 tagfiles.version
