@@ -60,7 +60,7 @@ jobs:
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: ⚗ Run artillery tests
         run: |
-          docker cp backend/tests/clients_test.csv `docker ps -l --format "{{.Names}}" --filter name=deces-backend`:/deces-backend/tests/clients_test.csv
+          docker cp ./packages/deces-backend/tests/clients_test.csv `docker ps -l --format "{{.Names}}" --filter name=deces-backend`:/deces-backend/tests/clients_test.csv
           make test-perf-v1
       - name: ⚕ Save doctor.js results
         run: |
