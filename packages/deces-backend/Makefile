@@ -29,8 +29,8 @@ export BACKEND_PORT=8080
 export BACKEND_HOST=backend
 export API_SSL?=1
 export APP_URL?=http$([ "$API_SSL" == 1 ] && echo "s" || echo "")://${APP_DNS}
-export API_EMAIL?=matchid.project@gmail.com
-export BACKEND_TOKEN_USER?=${API_EMAIL}
+export API_EMAIL?=contact@matchid.io
+export BACKEND_TOKEN_USER?=matchid.project@gmail.com
 export BACKEND_TOKEN_KEY?=$(shell openssl rand -base64 16)
 export BACKEND_TOKEN_PASSWORD?=$(shell openssl rand -base64 16)
 export NPM_REGISTRY = $(shell echo $$NPM_REGISTRY )
@@ -325,4 +325,3 @@ smtp:
 
 smtp-stop:
 	${DC_SMTP} down
-
