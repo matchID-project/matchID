@@ -1,36 +1,36 @@
 # PLAN
 
-- [ ] Lot 0 - Cadrage de migration fige
-  - [ ] Exec
-    - [ ] Creer la branche d'integration dediee au rebase monorepo
-    - [ ] Figer dans une spec la matrice des SHAs importes et des branches upstream cibles
-    - [ ] Figer dans une spec la liste des ecarts monorepo voulus vs ecarts non voulus
-    - [ ] Decider et documenter que l'execution de reference se fait depuis la racine
-    - [ ] Decider et documenter le role cible de `deces-infra`
-    - [ ] Decider et documenter le role cible de `tools`
-    - [ ] Decider et documenter la strategie de configuration hors git
-    - [ ] Figer et documenter que `deploy-remote` est la voie canonique de deploiement preprod et prod a ce stade
-    - [ ] Sortir `deploy-k8s` du chemin critique et le placer en roadmap
-    - [ ] Figer et documenter que le contrat d'artefacts de reference de la chaine complete est `image backend` + `image deces-backend` + `image deces-ui` + `snapshot Elasticsearch esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
-    - [ ] Figer et documenter que l'artefact de reference de `deces-dataprep` pour `deploy-remote` est le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
-  - [ ] Tests
-    - [ ] Verifier la coherence entre `PLAN.md` et les specs
-    - [ ] Verifier la coherence entre artefacts de reference, execution du dataprep, `deploy-remote` et preprod cible
-    - [ ] Verifier que les decisions actees couvrent bien `deces-dataprep`, `deces-backend`, `deces-ui` et `deces-infra`
-  - [ ] UAT
-    - [ ] Gate: je te presente la matrice upstream, les ecarts voulus, les artefacts de reference complets et la voie de deploiement canonique
-    - [ ] Gate: tu valides le cadrage du lot 0 avant tout rattrapage upstream
+- [x] Lot 0 - Cadrage de migration fige
+  - [x] Exec
+    - [x] Creer la branche d'integration dediee au rebase monorepo
+    - [x] Figer dans une spec la matrice des SHAs importes et des branches upstream cibles
+    - [x] Figer dans une spec la liste des ecarts monorepo voulus vs ecarts non voulus
+    - [x] Decider et documenter que l'execution de reference se fait depuis la racine
+    - [x] Decider et documenter le role cible de `deces-infra`
+    - [x] Decider et documenter le role cible de `tools`
+    - [x] Decider et documenter la strategie de configuration hors git
+    - [x] Figer et documenter que `deploy-remote` est la voie canonique de deploiement preprod et prod a ce stade
+    - [x] Sortir `deploy-k8s` du chemin critique et le placer en roadmap
+    - [x] Figer et documenter que le contrat d'artefacts de reference de la chaine complete est `image backend` + `image deces-backend` + `image deces-ui` + `snapshot Elasticsearch esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+    - [x] Figer et documenter que l'artefact de reference de `deces-dataprep` pour `deploy-remote` est le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+  - [x] Tests
+    - [x] Verifier la coherence entre `PLAN.md` et les specs
+    - [x] Verifier la coherence entre artefacts de reference, execution du dataprep, `deploy-remote` et preprod cible
+    - [x] Verifier que les decisions actees couvrent bien `deces-dataprep`, `deces-backend`, `deces-ui` et `deces-infra`
+  - [x] UAT
+    - [x] Gate: je te presente la matrice upstream, les ecarts voulus, les artefacts de reference complets et la voie de deploiement canonique
+    - [x] Gate: tu valides le cadrage du lot 0 avant tout rattrapage upstream
 
 - [ ] Lot 1 - Rattrapage upstream de `tools` et `deces-dataprep`
   - [ ] Exec
-    - [ ] Relever precisement les 2 commits upstream manquants de `packages/tools`
-    - [ ] Integrer le commit `19bdb29` de `packages/tools` (`checksums changed their address in datagouv`)
-    - [ ] Integrer le commit `3797919` de `packages/tools` (`lets fix again : no more checksum in datagouv ...`)
+    - [x] Relever precisement les 2 commits upstream manquants de `packages/tools`
+    - [x] Integrer le commit `19bdb29` de `packages/tools` (`checksums changed their address in datagouv`)
+    - [x] Integrer le commit `3797919` de `packages/tools` (`lets fix again : no more checksum in datagouv ...`)
     - [ ] Documenter les ecarts residuels conserves pour `packages/tools`
-    - [ ] Relever precisement les 2 commits upstream manquants de `packages/deces-dataprep`
-    - [ ] Integrer le commit `d12b125` de `packages/deces-dataprep` (`feat: update FILES_TO_PROCESS regex for year 2026`)
-    - [ ] Integrer le commit `e0489f1` de `packages/deces-dataprep` (`Merge pull request #158 ... year-2026`)
-    - [ ] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
+    - [x] Relever precisement les 2 commits upstream manquants de `packages/deces-dataprep`
+    - [x] Integrer le commit `d12b125` de `packages/deces-dataprep` (`feat: update FILES_TO_PROCESS regex for year 2026`)
+    - [x] Integrer le commit `e0489f1` de `packages/deces-dataprep` (`Merge pull request #158 ... year-2026`)
+    - [x] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
     - [ ] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
   - [ ] Tests
     - [ ] Valider les commandes `tools` utilisees par `deces-dataprep`, `deces-backend` et le deploiement
