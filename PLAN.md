@@ -4,21 +4,21 @@
   - [ ] Exec
     - [ ] Creer la branche d'integration dediee au rebase monorepo
     - [ ] Figer dans une spec la matrice des SHAs importes et des branches upstream cibles
-    - [ ] Figer dans une spec la liste des ecarts monorepo voulus vs drift non voulu
+    - [ ] Figer dans une spec la liste des ecarts monorepo voulus vs ecarts non voulus
     - [ ] Decider et documenter que l'execution de reference se fait depuis la racine
     - [ ] Decider et documenter le role cible de `deces-infra`
     - [ ] Decider et documenter le role cible de `tools`
     - [ ] Decider et documenter la strategie de configuration hors git
     - [ ] Figer et documenter que `deploy-remote` est la voie canonique de deploiement preprod et prod a ce stade
     - [ ] Sortir `deploy-k8s` du chemin critique et le placer en roadmap
-    - [ ] Figer et documenter que le triplet d'artefacts de reference est `image deces-backend` + `image deces-ui` + `snapshot Elasticsearch esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+    - [ ] Figer et documenter que le contrat d'artefacts de reference de la chaine complete est `image backend` + `image deces-backend` + `image deces-ui` + `snapshot Elasticsearch esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Figer et documenter que l'artefact de reference de `deces-dataprep` pour `deploy-remote` est le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
   - [ ] Tests
     - [ ] Verifier la coherence entre `PLAN.md` et les specs
-    - [ ] Verifier la coherence entre artefacts de reference, `deploy-remote` et preprod cible
+    - [ ] Verifier la coherence entre artefacts de reference, execution du dataprep, `deploy-remote` et preprod cible
     - [ ] Verifier que les decisions actees couvrent bien `deces-dataprep`, `deces-backend`, `deces-ui` et `deces-infra`
   - [ ] UAT
-    - [ ] Gate: je te presente la matrice upstream, les ecarts voulus, les artefacts de reference et la voie de deploiement canonique
+    - [ ] Gate: je te presente la matrice upstream, les ecarts voulus, les artefacts de reference complets et la voie de deploiement canonique
     - [ ] Gate: tu valides le cadrage du lot 0 avant tout rattrapage upstream
 
 - [ ] Lot 1 - Rattrapage upstream de `tools` et `deces-dataprep`
@@ -179,6 +179,8 @@
     - [ ] Definir les artefacts versionnes par package
     - [ ] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
   - [ ] Tests
+    - [ ] Valider le build de l'image `backend`
+    - [ ] Valider la publication de l'image `backend`
     - [ ] Valider le build de l'image `deces-backend`
     - [ ] Valider la publication de l'image `deces-backend`
     - [ ] Valider le build de l'image `deces-ui`
@@ -202,6 +204,7 @@
     - [ ] Valider les prerequis et variables du flux `deploy-remote` pour la preprod
     - [ ] Provisionner l'infra de preprod depuis le monorepo
     - [ ] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+    - [ ] Rendre disponible en preprod l'image `backend` necessaire a l'execution du dataprep
     - [ ] Deployer `deces-infra` en preprod
     - [ ] Deployer l'image `deces-backend` en preprod
     - [ ] Deployer l'image `deces-ui` en preprod

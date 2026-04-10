@@ -2,7 +2,7 @@
 
 ## Contexte
 
-Le monorepo a importé plusieurs dépôts via subtree, mais quatre packages ont encore du drift par rapport à leurs références GitHub:
+Le monorepo a importé plusieurs dépôts via subtree, mais quatre packages ont encore des écarts non voulus par rapport à leurs références GitHub:
 
 - `packages/deces-ui`
 - `packages/deces-backend`
@@ -99,5 +99,6 @@ SHAs importés de référence:
 
 ## Dépendances
 
+- [SPEC_EVOL_000](SPEC_EVOL_000_CADRAGE_MIGRATION_MONOREPO.md)
 - [SPEC_EVOL_002](SPEC_EVOL_002_NORMALISATION_RUNTIME_MONOREPO.md)
 - [SPEC_EVOL_003](SPEC_EVOL_003_CHAINE_DATAPREP_BACKEND_UI.md)

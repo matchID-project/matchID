@@ -24,10 +24,12 @@ Préparer puis exécuter une bascule progressive vers un pipeline de déploiemen
 
 - la voie canonique de déploiement préprod/prod à ce stade est `deploy-remote`
 - `deploy-k8s` sort du chemin critique et devient un sujet de roadmap
-- le triplet d'artefacts de référence est:
+- le contrat d'artefacts de référence de la chaîne complète est:
+  - image `backend`
   - image `deces-backend`
   - image `deces-ui`
   - snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+- l'image `backend` est requise pour l'exécution du dataprep
 - pour `deploy-remote`, l'artefact de référence de `deces-dataprep` est le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
 - `DATAPREP_VERSION` dérive du code, de la recipe et de l'index du dataprep
 - `DATA_VERSION` dérive du catalog tag des données source
@@ -49,6 +51,7 @@ Préparer puis exécuter une bascule progressive vers un pipeline de déploiemen
 
 - environnement isofonctionnel
 - déploiement depuis le monorepo via `deploy-remote`
+- disponibilité de l'image `backend` nécessaire au dataprep
 - restauration du snapshot Elasticsearch versionné
 - déploiement des images backend et UI versionnées
 - tests de fumée applicatifs
@@ -70,7 +73,7 @@ Préparer puis exécuter une bascule progressive vers un pipeline de déploiemen
 ## Critères d'acceptation
 
 - la préprod tourne sur le pipeline monorepo `deploy-remote`
-- la préprod consomme le triplet d'artefacts de référence attendu
+- la préprod consomme le contrat d'artefacts de référence attendu
 - le runbook de rollback est validé
 - la prod peut être basculée avec un risque maîtrisé
 
@@ -82,5 +85,6 @@ Préparer puis exécuter une bascule progressive vers un pipeline de déploiemen
 
 ## Dépendances
 
+- [SPEC_EVOL_000](SPEC_EVOL_000_CADRAGE_MIGRATION_MONOREPO.md)
 - [SPEC_EVOL_003](SPEC_EVOL_003_CHAINE_DATAPREP_BACKEND_UI.md)
 - [SPEC_EVOL_004](SPEC_EVOL_004_VALIDATION_DEV_ET_CI.md)

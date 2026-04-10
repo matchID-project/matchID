@@ -19,17 +19,19 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 - réécrire toute la couche Makefile
 - remplacer immédiatement tous les scripts shell par un autre orchestrateur
 
-## Décisions de design à figer
+## Décisions de design actées
 
 1. Exécution de référence:
-   - soit uniquement depuis la racine
-   - soit racine + exécution autonome par package
+   - la référence d'exécution du service décès est la racine du monorepo
+   - les commandes package-level restent des aides locales et non le contrat principal de déploiement
 2. Ownership de l'infra:
-   - `deces-infra` porte Elasticsearch, Redis, SMTP et snapshots
+   - `deces-infra` porte Elasticsearch, Redis, SMTP et les opérations de repository/snapshot Elasticsearch
 3. Ownership des opérations cloud:
-   - `tools` reste central au début
+   - `tools` reste central pour le stockage, le catalogue, les opérations cloud et `deploy-remote`
 4. Ownership des données:
-   - emplacement unique des fichiers versionnés et des états `.data.sha1` / `.dataprep.sha1`
+   - emplacement unique des fichiers versionnés et des états `.data.sha1` / `.dataprep.sha1` à la racine
+5. Configuration hors git:
+   - les secrets restent hors git via `artifacts` racine et `packages/tools/artifacts.*`
 
 ## Travaux
 
@@ -77,5 +79,6 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 
 ## Dépendances
 
+- [SPEC_EVOL_000](SPEC_EVOL_000_CADRAGE_MIGRATION_MONOREPO.md)
 - [SPEC_EVOL_001](SPEC_EVOL_001_RATTRAPAGE_UPSTREAM_REFERENCES.md)
 - [SPEC_EVOL_003](SPEC_EVOL_003_CHAINE_DATAPREP_BACKEND_UI.md)
