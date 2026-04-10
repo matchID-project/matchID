@@ -56,7 +56,7 @@
     - [x] Integrer le commit `747c0ff` de `packages/deces-backend` (`Apply exponential rate limit when sending emails frequently`)
     - [x] Integrer le commit `b5dba5a` de `packages/deces-backend` (`fix: exp backoff; refine display; fix OTP delay`)
     - [x] Integrer le commit `5894a91` de `packages/deces-backend` (`Merge pull request #502 ... send-email-ratelimit`)
-    - [ ] Documenter les ecarts residuels conserves pour `packages/deces-backend`
+    - [x] Documenter les ecarts residuels conserves pour `packages/deces-backend`
   - [ ] Tests
     - [ ] Valider le demarrage local cible de `packages/deces-backend`
     - [ ] Valider les tests et smoke checks backend cibles
