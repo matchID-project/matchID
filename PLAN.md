@@ -43,19 +43,19 @@
 
 - [ ] Lot 2 - Rattrapage upstream de `deces-backend`
   - [ ] Exec
-    - [ ] Relever precisement tous les commits upstream manquants de `packages/deces-backend`
-    - [ ] Integrer le commit `b3a91cc` de `packages/deces-backend` (`Update score.ts`)
-    - [ ] Integrer le commit `8a38acd` de `packages/deces-backend` (`Merge pull request #491 ... Update score.ts`)
-    - [ ] Integrer le commit `d8eda70` de `packages/deces-backend` (`move contact mail to contact@matchid.io`)
-    - [ ] Integrer le commit `8dcdfc3` de `packages/deces-backend` (`Merge pull request #492 ... new-contact-mail`)
-    - [ ] Integrer le commit `c37bd0d` de `packages/deces-backend` (`update vuln in package-lock`)
-    - [ ] Integrer le commit `f73db56` de `packages/deces-backend` (`push mail validation code duration to 6 hours`)
-    - [ ] Integrer le commit `367c0f1` de `packages/deces-backend` (`Merge pull request #500 ... code-validation-duration`)
-    - [ ] Integrer le commit `794b3b6` de `packages/deces-backend` (`Add rate limit to send OTP mail function`)
-    - [ ] Integrer le commit `79cc134` de `packages/deces-backend` (`Add test for send email rate limit`)
-    - [ ] Integrer le commit `747c0ff` de `packages/deces-backend` (`Apply exponential rate limit when sending emails frequently`)
-    - [ ] Integrer le commit `b5dba5a` de `packages/deces-backend` (`fix: exp backoff; refine display; fix OTP delay`)
-    - [ ] Integrer le commit `5894a91` de `packages/deces-backend` (`Merge pull request #502 ... send-email-ratelimit`)
+    - [x] Relever precisement tous les commits upstream manquants de `packages/deces-backend`
+    - [x] Integrer le commit `b3a91cc` de `packages/deces-backend` (`Update score.ts`)
+    - [x] Integrer le commit `8a38acd` de `packages/deces-backend` (`Merge pull request #491 ... Update score.ts`)
+    - [x] Integrer le commit `d8eda70` de `packages/deces-backend` (`move contact mail to contact@matchid.io`)
+    - [x] Integrer le commit `8dcdfc3` de `packages/deces-backend` (`Merge pull request #492 ... new-contact-mail`)
+    - [x] Integrer le commit `c37bd0d` de `packages/deces-backend` (`update vuln in package-lock`)
+    - [x] Integrer le commit `f73db56` de `packages/deces-backend` (`push mail validation code duration to 6 hours`)
+    - [x] Integrer le commit `367c0f1` de `packages/deces-backend` (`Merge pull request #500 ... code-validation-duration`)
+    - [x] Integrer le commit `794b3b6` de `packages/deces-backend` (`Add rate limit to send OTP mail function`)
+    - [x] Integrer le commit `79cc134` de `packages/deces-backend` (`Add test for send email rate limit`)
+    - [x] Integrer le commit `747c0ff` de `packages/deces-backend` (`Apply exponential rate limit when sending emails frequently`)
+    - [x] Integrer le commit `b5dba5a` de `packages/deces-backend` (`fix: exp backoff; refine display; fix OTP delay`)
+    - [x] Integrer le commit `5894a91` de `packages/deces-backend` (`Merge pull request #502 ... send-email-ratelimit`)
     - [ ] Documenter les ecarts residuels conserves pour `packages/deces-backend`
   - [ ] Tests
     - [ ] Valider le demarrage local cible de `packages/deces-backend`
