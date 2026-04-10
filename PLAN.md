@@ -1,0 +1,182 @@
+# PLAN
+
+- [ ] Lot 0 - Cadrage de l'integration monorepo
+  - [ ] Creer la branche d'integration dediee au rebase monorepo
+  - [ ] Figer dans une spec la matrice des SHAs importes et des branches upstream cibles
+  - [ ] Figer dans une spec la liste des ecarts monorepo voulus vs drift non voulu
+  - [ ] Decider et documenter que l'execution de reference se fait depuis la racine
+  - [ ] Decider et documenter le role cible de `deces-infra`
+  - [ ] Decider et documenter le role cible de `tools`
+  - [ ] Decider et documenter la strategie de configuration hors git
+  - [ ] Figer et documenter que `deploy-remote` est la voie canonique de deploiement preprod et prod a ce stade
+  - [ ] Sortir `deploy-k8s` du chemin critique et le placer en roadmap
+  - [ ] Figer et documenter que le triplet d'artefacts de reference est `image deces-backend` + `image deces-ui` + `snapshot Elasticsearch esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+  - [ ] Figer et documenter que l'artefact de reference de `deces-dataprep` pour `deploy-remote` est le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+  - [ ] Valider le cadrage du lot 0
+
+- [ ] Lot 1 - Rattrapage upstream de `packages/tools`
+  - [ ] Relever precisement les 2 commits upstream manquants de `packages/tools`
+  - [ ] Integrer le commit `19bdb29` de `packages/tools` (`checksums changed their address in datagouv`)
+  - [ ] Integrer le commit `3797919` de `packages/tools` (`lets fix again : no more checksum in datagouv ...`)
+  - [ ] Documenter les ecarts residuels conserves pour `packages/tools`
+  - [ ] Valider les commandes `tools` utilisees par `deces-dataprep`, `deces-backend` et le deploiement
+  - [ ] Valider le lot 1
+
+- [ ] Lot 2 - Rattrapage upstream de `packages/deces-dataprep`
+  - [ ] Relever precisement les 2 commits upstream manquants de `packages/deces-dataprep`
+  - [ ] Integrer le commit `d12b125` de `packages/deces-dataprep` (`feat: update FILES_TO_PROCESS regex for year 2026`)
+  - [ ] Integrer le commit `e0489f1` de `packages/deces-dataprep` (`Merge pull request #158 ... year-2026`)
+  - [ ] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
+  - [ ] Valider le lancement local cible de `packages/deces-dataprep`
+  - [ ] Valider un run minimal de dataprep en environnement de dev
+  - [ ] Valider le lot 2
+
+- [ ] Lot 3 - Rattrapage upstream de `packages/deces-backend`
+  - [ ] Relever precisement tous les commits upstream manquants de `packages/deces-backend`
+  - [ ] Integrer le commit `b3a91cc` de `packages/deces-backend` (`Update score.ts`)
+  - [ ] Integrer le commit `8a38acd` de `packages/deces-backend` (`Merge pull request #491 ... Update score.ts`)
+  - [ ] Integrer le commit `d8eda70` de `packages/deces-backend` (`move contact mail to contact@matchid.io`)
+  - [ ] Integrer le commit `8dcdfc3` de `packages/deces-backend` (`Merge pull request #492 ... new-contact-mail`)
+  - [ ] Integrer le commit `c37bd0d` de `packages/deces-backend` (`update vuln in package-lock`)
+  - [ ] Integrer le commit `f73db56` de `packages/deces-backend` (`push mail validation code duration to 6 hours`)
+  - [ ] Integrer le commit `367c0f1` de `packages/deces-backend` (`Merge pull request #500 ... code-validation-duration`)
+  - [ ] Integrer le commit `794b3b6` de `packages/deces-backend` (`Add rate limit to send OTP mail function`)
+  - [ ] Integrer le commit `79cc134` de `packages/deces-backend` (`Add test for send email rate limit`)
+  - [ ] Integrer le commit `747c0ff` de `packages/deces-backend` (`Apply exponential rate limit when sending emails frequently`)
+  - [ ] Integrer le commit `b5dba5a` de `packages/deces-backend` (`fix: exp backoff; refine display; fix OTP delay`)
+  - [ ] Integrer le commit `5894a91` de `packages/deces-backend` (`Merge pull request #502 ... send-email-ratelimit`)
+  - [ ] Documenter les ecarts residuels conserves pour `packages/deces-backend`
+  - [ ] Valider le demarrage local cible de `packages/deces-backend`
+  - [ ] Valider les tests et smoke checks backend cibles
+  - [ ] Valider le lot 3
+
+- [ ] Lot 4 - Rattrapage upstream de `packages/deces-ui`
+  - [ ] Relever precisement tous les commits upstream manquants de `packages/deces-ui`
+  - [ ] Integrer le commit `31b8079` de `packages/deces-ui` (`art 85`)
+  - [ ] Integrer le commit `073cf2d` de `packages/deces-ui` (`Merge pull request #976 ... art-85`)
+  - [ ] Integrer le commit `cc72ff0` de `packages/deces-ui` (`art 85`)
+  - [ ] Integrer le commit `0ba3431` de `packages/deces-ui` (`Merge pull request #979 ... art-85`)
+  - [ ] Integrer le commit `47bcb86` de `packages/deces-ui` (`move contact mail to contact@matchid.io`)
+  - [ ] Integrer le commit `b828650` de `packages/deces-ui` (`Merge pull request #981 ... new-contact-mail`)
+  - [ ] Integrer le commit `7875bc3` de `packages/deces-ui` (`avoid resetting token if there is an atypical network error`)
+  - [ ] Integrer le commit `c51de22` de `packages/deces-ui` (`Merge pull request #983 ... reset-token`)
+  - [ ] Integrer le commit `d0e25ab` de `packages/deces-ui` (`fix vulns in package-lock`)
+  - [ ] Integrer le commit `12d50e1` de `packages/deces-ui` (`art 85`)
+  - [ ] Integrer le commit `f50aa3c` de `packages/deces-ui` (`enable test to be flexible to validation code duration`)
+  - [ ] Integrer le commit `8a53d7e` de `packages/deces-ui` (`Merge pull request #986 ... art-85`)
+  - [ ] Integrer le commit `f182d28` de `packages/deces-ui` (`art 85`)
+  - [ ] Integrer le commit `da04697` de `packages/deces-ui` (`Merge pull request #988 ... art-85`)
+  - [ ] Integrer le commit `69713ba` de `packages/deces-ui` (`year 2026`)
+  - [ ] Integrer le commit `43bd91a` de `packages/deces-ui` (`Merge pull request #993 ... 2026`)
+  - [ ] Integrer le commit `08e33bb` de `packages/deces-ui` (`desactivate google analytics`)
+  - [ ] Integrer le commit `82ba880` de `packages/deces-ui` (`Merge pull request #995 ... desactivate-google-analytics`)
+  - [ ] Documenter les ecarts residuels conserves pour `packages/deces-ui`
+  - [ ] Valider le demarrage local cible de `packages/deces-ui`
+  - [ ] Valider les tests et smoke checks UI cibles
+  - [ ] Valider le lot 4
+
+- [ ] Lot 5 - Alignement des composants generiques et conventions communes
+  - [ ] Verifier que `packages/dataprep-backend` reste aligne sur `matchID-project/backend:dev`
+  - [ ] Verifier que `packages/dataprep-frontend` reste aligne sur `matchID-project/frontend:dev`
+  - [ ] Valider le fonctionnement local cible de `packages/dataprep-backend`
+  - [ ] Valider le fonctionnement local cible de `packages/dataprep-frontend`
+  - [ ] Valider le lot 5
+
+- [ ] Lot 6 - Normalisation runtime du monorepo
+  - [ ] Corriger la dependance racine a `tagfiles.version`
+  - [ ] Supprimer le `git clone backend` dans `packages/deces-dataprep/Makefile`
+  - [ ] Remplacer dans `packages/deces-dataprep` les appels `backend/tools` par `packages/tools`
+  - [ ] Remplacer dans `packages/deces-dataprep` les chemins `backend/*` par des chemins monorepo explicites
+  - [ ] Retirer ou neutraliser le doublon `packages/deces-backend/tools`
+  - [ ] Definir le contrat des variables exportees par la racine
+  - [ ] Definir le contrat des variables propres aux packages
+  - [ ] Stabiliser la source de verite de `.data.sha1`
+  - [ ] Stabiliser la source de verite de `.dataprep.sha1`
+  - [ ] Deplacer Redis de `deces-backend` vers `deces-infra`
+  - [ ] Deplacer SMTP de `deces-backend` vers `deces-infra`
+  - [ ] Clarifier la responsabilite des snapshots et restores entre `deces-infra`, `deces-dataprep` et `tools`
+  - [ ] Valider que chaque package peut etre execute sans dependance implicite a un clone externe
+  - [ ] Valider le lot 6
+
+- [ ] Lot 7 - Validation dev composant par composant
+  - [ ] Definir la commande canonique de bootstrap dev depuis la racine
+  - [ ] Definir la procedure canonique de restore snapshot
+  - [ ] Definir la procedure canonique de run dataprep
+  - [ ] Rendre `make dev` racine reproductible
+  - [ ] Valider `deces-infra` en local
+  - [ ] Valider Elasticsearch en local
+  - [ ] Valider Redis en local
+  - [ ] Valider SMTP en local
+  - [ ] Valider `deces-backend` en local
+  - [ ] Valider `deces-ui` en local
+  - [ ] Valider `deces-dataprep` en local
+  - [ ] Valider la recuperation de `communes`
+  - [ ] Valider la recuperation de `wikidata`
+  - [ ] Valider la recuperation de `disposable-mail`
+  - [ ] Valider la recuperation des sources Data.gouv
+  - [ ] Valider la compatibilite dataprep -> index -> backend -> ui
+  - [ ] Documenter la procedure de bootstrap dev
+  - [ ] Valider le lot 7
+
+- [ ] Lot 8 - Tests de non-regression et CI monorepo
+  - [ ] Ajouter un smoke test dataprep
+  - [ ] Ajouter un smoke test backend
+  - [ ] Ajouter un smoke test UI
+  - [ ] Ajouter un smoke test bout-en-bout
+  - [ ] Creer la CI racine du monorepo
+  - [ ] Ajouter le job lint/build/tests de `deces-backend`
+  - [ ] Ajouter le job build/tests ou smoke checks de `deces-ui`
+  - [ ] Ajouter le job de validation ciblee de `deces-dataprep`
+  - [ ] Ajouter le job de validation ciblee de `tools`
+  - [ ] Ajouter le job d'integration chaine complete
+  - [ ] Definir les declenchements conditionnels par chemins modifies
+  - [ ] Sortir la CI des dependances a l'environnement personnel
+  - [ ] Definir les fixtures et mocks necessaires
+  - [ ] Definir les secrets necessaires en CI
+  - [ ] Definir les checks bloquants pour merge
+  - [ ] Valider un pipeline CI vert sur la branche d'integration
+  - [ ] Valider le lot 8
+
+- [ ] Lot 9 - Build et publication des artefacts de reference
+  - [ ] Definir la convention de versionnage monorepo des artefacts
+  - [ ] Definir les artefacts versionnes par package
+  - [ ] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
+  - [ ] Valider le build de l'image `deces-backend`
+  - [ ] Valider la publication de l'image `deces-backend`
+  - [ ] Valider le build de l'image `deces-ui`
+  - [ ] Valider la publication de l'image `deces-ui`
+  - [ ] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+  - [ ] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+  - [ ] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
+  - [ ] Valider le lot 9
+
+- [ ] Lot 10 - Preproduction `dev-deces.matchid.io` via `deploy-remote`
+  - [ ] Inventorier les images Docker encore pilotees par les anciens repos
+  - [ ] Inventorier les buckets et snapshots encore pilotes par les anciens repos
+  - [ ] Inventorier les volumes encore pilotes par les anciens repos
+  - [ ] Inventorier DNS, certificats, monitoring et jobs de refresh encore pilotes par les anciens repos
+  - [ ] Definir l'environnement cible de `dev-deces.matchid.io`
+  - [ ] Definir la configuration preprod hors git necessaire au monorepo
+  - [ ] Valider les prerequis et variables du flux `deploy-remote` pour la preprod
+  - [ ] Provisionner l'infra de preprod depuis le monorepo
+  - [ ] Deployer `deces-infra` en preprod
+  - [ ] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+  - [ ] Deployer l'image `deces-backend` en preprod
+  - [ ] Deployer l'image `deces-ui` en preprod
+  - [ ] Executer le flux `deploy-remote` de bout en bout pour la preprod
+  - [ ] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
+  - [ ] Publier la configuration d'acces `dev-deces.matchid.io`
+  - [ ] Valider le smoke test API en preprod
+  - [ ] Valider le smoke test UI en preprod
+  - [ ] Valider la chaine dataprep -> index -> backend -> ui en preprod
+  - [ ] Valider l'observabilite preprod
+  - [ ] Valider le lot 10
+
+- [ ] Lot 11 - Bascule du repo de reference et preparation prod
+  - [ ] Ecrire le runbook de bascule
+  - [ ] Ecrire le runbook de rollback
+  - [ ] Basculer la source de build et release vers le monorepo
+  - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
+  - [ ] Passer les anciens repos en lecture seule ou archive
+  - [ ] Mettre a jour la documentation de gouvernance et d'exploitation
+  - [ ] Valider le lot 11
