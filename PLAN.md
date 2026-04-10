@@ -30,6 +30,7 @@
     - [ ] Relever precisement les 2 commits upstream manquants de `packages/deces-dataprep`
     - [ ] Integrer le commit `d12b125` de `packages/deces-dataprep` (`feat: update FILES_TO_PROCESS regex for year 2026`)
     - [ ] Integrer le commit `e0489f1` de `packages/deces-dataprep` (`Merge pull request #158 ... year-2026`)
+    - [ ] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
     - [ ] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
   - [ ] Tests
     - [ ] Valider les commandes `tools` utilisees par `deces-dataprep`, `deces-backend` et le deploiement
@@ -111,6 +112,7 @@
     - [ ] Definir le contrat des variables propres aux packages
     - [ ] Stabiliser la source de verite de `.data.sha1`
     - [ ] Stabiliser la source de verite de `.dataprep.sha1`
+    - [ ] Traiter en commit separe l'harmonisation du moteur regex shell/Python autour de `FILES_TO_PROCESS` en forme POSIX-compatible (`[0-9]` plutot que `\d`) si l'ecart reste utile a corriger
     - [ ] Deplacer Redis de `deces-backend` vers `deces-infra`
     - [ ] Deplacer SMTP de `deces-backend` vers `deces-infra`
     - [ ] Clarifier la responsabilite des snapshots et restores entre `deces-infra`, `deces-dataprep` et `tools`
