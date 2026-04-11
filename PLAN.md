@@ -21,8 +21,8 @@
     - [x] Gate: je te presente la matrice upstream, les ecarts voulus, les artefacts de reference complets et la voie de deploiement canonique
     - [x] Gate: tu valides le cadrage du lot 0 avant tout rattrapage upstream
 
-- [ ] Lot 1 - Rattrapage upstream de `tools` et `deces-dataprep`
-  - [ ] Exec
+- [x] Lot 1 - Rattrapage upstream de `tools` et `deces-dataprep`
+  - [x] Exec
     - [x] Relever precisement les 2 commits upstream manquants de `packages/tools`
     - [x] Integrer le commit `19bdb29` de `packages/tools` (`checksums changed their address in datagouv`)
     - [x] Integrer le commit `3797919` de `packages/tools` (`lets fix again : no more checksum in datagouv ...`)
@@ -35,15 +35,15 @@
     - [x] Corriger en commit separe l'usage local inutile de `sudo` dans `packages/tools` (`config-proxy` et `docker-config-proxy`) pour respecter les regles du monorepo et debloquer les validations `make`
     - [x] Faire reutiliser a `packages/deces-dataprep` les prerequis mutualises du monorepo pour `config`, `network` et `vm_max` afin de debloquer les gates `make` du lot 1 sans rouvrir le lot 4
     - [x] Debloquer le `frontend` historique utilise par `packages/deces-dataprep` en neutralisant l'audit npm uniquement pour le `dev` local
-  - [ ] Tests
+  - [x] Tests
     - [x] Ne compter comme validation du lot 1 que des executions via cibles `make`
     - [x] Valider le calcul canonique du tag de donnees via `make data-version` a la racine et `make -C packages/deces-dataprep data-tag`
     - [x] Valider le lancement local cible de `packages/deces-dataprep` via `make -C packages/deces-dataprep dev`
     - [x] Valider un run minimal de dataprep en environnement de dev via `make -C packages/deces-dataprep recipe-run`
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 1
-  - [ ] UAT
-    - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test `tools` + `deces-dataprep`
-    - [ ] Gate: tu valides que le lot 1 est termine et qu'on peut ouvrir le lot 2
+  - [x] UAT
+    - [x] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test `tools` + `deces-dataprep`
+    - [x] Gate: tu valides que le lot 1 est termine et qu'on peut ouvrir le lot 2
 
 - [ ] Lot 2 - Rattrapage upstream de `deces-backend`
   - [ ] Exec
@@ -246,3 +246,18 @@
   - [ ] UAT
     - [ ] Gate: je te presente les preuves de substitution complete du processus actuel
     - [ ] Gate: tu valides la bascule finale vers le monorepo comme source unique de build et de deploiement
+
+- [ ] Lot 10 - Cleanup final et archivage
+  - [ ] Exec
+    - [ ] Nettoyer ou ignorer proprement les fichiers d'etat et artefacts locaux generes par les validations (`data-tag`, `recipe-run`, `s3-pull`, artefacts de build temporaires)
+    - [ ] Archiver les specs closes dans `spec/archive/` une fois la migration complete
+    - [ ] Supprimer ou neutraliser les cibles legacy devenues sans objet apres mutualisation
+    - [ ] Nettoyer les commentaires morts et les chemins historiques restes dans les Makefiles
+    - [ ] Finaliser la documentation d'exploitation et de contribution du monorepo
+  - [ ] Tests
+    - [ ] Verifier que le cleanup ne casse aucun workflow `make` retenu
+    - [ ] Verifier que les documents archives restent tracables depuis le plan ou la doc de gouvernance
+    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 10
+  - [ ] UAT
+    - [ ] Gate: je te presente le diff final de cleanup et l'etat documentaire final
+    - [ ] Gate: tu valides la cloture propre de la migration
