@@ -33,9 +33,10 @@
     - [x] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
     - [ ] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
   - [ ] Tests
-    - [ ] Valider les commandes `tools` utilisees par `deces-dataprep`, `deces-backend` et le deploiement
-    - [ ] Valider le lancement local cible de `packages/deces-dataprep`
-    - [ ] Valider un run minimal de dataprep en environnement de dev
+    - [ ] Ne compter comme validation du lot 1 que des executions via cibles `make`
+    - [ ] Valider les commandes `tools` via `make -C packages/tools catalog-tag` et la ou les cibles `make` appelees par `deces-dataprep` et le deploiement
+    - [ ] Valider le lancement local cible de `packages/deces-dataprep` via `make -C packages/deces-dataprep dev`
+    - [ ] Valider un run minimal de dataprep en environnement de dev via `make -C packages/deces-dataprep recipe-run`
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 1
   - [ ] UAT
     - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test `tools` + `deces-dataprep`
@@ -58,9 +59,10 @@
     - [x] Integrer le commit `5894a91` de `packages/deces-backend` (`Merge pull request #502 ... send-email-ratelimit`)
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-backend`
   - [ ] Tests
-    - [ ] Valider le demarrage local cible de `packages/deces-backend`
-    - [ ] Valider les tests et smoke checks backend cibles
-    - [ ] Verifier explicitement les comportements touches par le rattrapage backend
+    - [ ] Ne compter comme validation du lot 2 que des executions via cibles `make`
+    - [ ] Valider le demarrage local cible de `packages/deces-backend` via `make backend-dev`
+    - [ ] Valider les tests et smoke checks backend cibles via `make backend-test-vitest` puis `make backend-dev-test`
+    - [ ] Verifier explicitement les comportements touches par le rattrapage backend a travers les cibles `make` precedentes
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 2
   - [ ] UAT
     - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test backend
