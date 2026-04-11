@@ -43,6 +43,7 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 - retirer le `git clone backend` dans `packages/deces-dataprep/Makefile`
 - remplacer les chemins `backend/tools` par `packages/tools`
 - remplacer les hypothèses multi-repos par des chemins monorepo explicites
+- faire réutiliser à `deces-dataprep` les prérequis mutualisés déjà présents dans le monorepo (`config`, `network`, `vm_max`) avant de supprimer complètement le backend historique
 
 ### B. Supprimer les duplications
 
@@ -66,6 +67,8 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 
 - déplacer Redis et SMTP vers `deces-infra`
 - réduire le rôle de `deces-backend` à l'API et ses assets runtime
+- mutualiser `network`, `vm_max`, `elasticsearch-start`, `elasticsearch-check` et `elasticsearch-stop` autour de la racine et de `deces-infra`
+- faire consommer à `deces-dataprep` les cibles Elasticsearch mutualisées quand l'infra monorepo couvre déjà le besoin
 
 ## Critères d'acceptation
 

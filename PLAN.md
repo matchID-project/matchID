@@ -33,9 +33,10 @@
     - [x] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
     - [x] Corriger en commit separe l'usage local inutile de `sudo` dans `packages/tools` (`config-proxy` et `docker-config-proxy`) pour respecter les regles du monorepo et debloquer les validations `make`
+    - [ ] Faire reutiliser a `packages/deces-dataprep` les prerequis mutualises du monorepo pour `config`, `network` et `vm_max` afin de debloquer les gates `make` du lot 1 sans rouvrir le lot 4
   - [ ] Tests
     - [ ] Ne compter comme validation du lot 1 que des executions via cibles `make`
-    - [ ] Valider les commandes `tools` via `make -C packages/tools catalog-tag` et la ou les cibles `make` appelees par `deces-dataprep` et le deploiement
+    - [ ] Valider le calcul canonique du tag de donnees via `make .data.sha1` a la racine et `make -C packages/deces-dataprep data-tag`
     - [ ] Valider le lancement local cible de `packages/deces-dataprep` via `make -C packages/deces-dataprep dev`
     - [ ] Valider un run minimal de dataprep en environnement de dev via `make -C packages/deces-dataprep recipe-run`
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 1
@@ -110,6 +111,8 @@
     - [ ] Supprimer le `git clone backend` dans `packages/deces-dataprep/Makefile`
     - [ ] Remplacer dans `packages/deces-dataprep` les appels `backend/tools` par `packages/tools`
     - [ ] Remplacer dans `packages/deces-dataprep` les chemins `backend/*` par des chemins monorepo explicites
+    - [ ] Mutualiser explicitement `network`, `vm_max`, `elasticsearch-start`, `elasticsearch-check` et `elasticsearch-stop` entre la racine et `deces-infra`
+    - [ ] Faire consommer a `packages/deces-dataprep` les cibles Elasticsearch mutualisees au lieu du backend clone quand le monorepo fournit deja l'infra cible
     - [ ] Retirer ou neutraliser le doublon `packages/deces-backend/tools`
     - [ ] Definir le contrat des variables exportees par la racine
     - [ ] Definir le contrat des variables propres aux packages
