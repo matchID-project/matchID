@@ -85,6 +85,7 @@ SHAs importés de référence:
 - écarts résiduels actuellement conservés après rattrapage upstream:
   - le rattrapage upstream de `FILES_TO_PROCESS` a été importé `as is`, puis harmonisé dans un commit monorepo séparé vers une forme POSIX-compatible (`[0-9]`) pour rester cohérent entre shell et Python
   - les dépendances implicites du package à la structure historique multi-repos restent hors périmètre du lot 1 et seront traitées dans [SPEC_EVOL_002](SPEC_EVOL_002_NORMALISATION_RUNTIME_MONOREPO.md)
+  - le `frontend` historique utilisé par `deces-dataprep` est lancé en dev local avec `NPM_AUDIT_IGNORE=true` pour éviter qu'un audit npm bloque la validation `make` du lot 1
 
 ### `deces-backend`
 
@@ -105,6 +106,25 @@ SHAs importés de référence:
 - chaque package cible est ramené à la référence upstream choisie
 - les écarts résiduels sont exclusivement des adaptations monorepo documentées
 - les composants continuent de builder ou de démarrer selon leur niveau de maturité cible
+
+## Validation lot 1
+
+Commandes exécutées uniquement via `make`:
+
+- `make data-version`
+  - succès
+  - retourne la version de données courante (`c88006ac` lors de la validation)
+  - émet encore `cat: tagfiles.version: No such file or directory`, sujet déjà classé pour le lot 4
+- `make -C packages/deces-dataprep data-tag`
+  - succès
+  - cible résolue sans erreur; pas de recalcul quand le fichier `data-tag` est déjà à jour
+- `make -C packages/deces-dataprep recipe-run`
+  - succès
+  - passe par l'Elasticsearch mutualisé du monorepo, puis lance correctement le run de recette
+- `make -C packages/deces-dataprep dev`
+  - succès
+  - passe par `config`, `network` et `vm_max` mutualisés
+  - démarre `deces-elasticsearch`, `matchid-backend`, `matchid-frontend-development` et `matchid-nginx-development`
 
 ## Dépendances
 

@@ -36,11 +36,11 @@
     - [x] Faire reutiliser a `packages/deces-dataprep` les prerequis mutualises du monorepo pour `config`, `network` et `vm_max` afin de debloquer les gates `make` du lot 1 sans rouvrir le lot 4
     - [x] Debloquer le `frontend` historique utilise par `packages/deces-dataprep` en neutralisant l'audit npm uniquement pour le `dev` local
   - [ ] Tests
-    - [ ] Ne compter comme validation du lot 1 que des executions via cibles `make`
+    - [x] Ne compter comme validation du lot 1 que des executions via cibles `make`
     - [x] Valider le calcul canonique du tag de donnees via `make data-version` a la racine et `make -C packages/deces-dataprep data-tag`
     - [x] Valider le lancement local cible de `packages/deces-dataprep` via `make -C packages/deces-dataprep dev`
     - [x] Valider un run minimal de dataprep en environnement de dev via `make -C packages/deces-dataprep recipe-run`
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 1
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 1
   - [ ] UAT
     - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test `tools` + `deces-dataprep`
     - [ ] Gate: tu valides que le lot 1 est termine et qu'on peut ouvrir le lot 2
