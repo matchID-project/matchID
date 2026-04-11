@@ -32,6 +32,7 @@
     - [x] Integrer le commit `e0489f1` de `packages/deces-dataprep` (`Merge pull request #158 ... year-2026`)
     - [x] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
+    - [x] Corriger en commit separe l'usage local inutile de `sudo` dans `packages/tools` (`config-proxy` et `docker-config-proxy`) pour respecter les regles du monorepo et debloquer les validations `make`
   - [ ] Tests
     - [ ] Ne compter comme validation du lot 1 que des executions via cibles `make`
     - [ ] Valider les commandes `tools` via `make -C packages/tools catalog-tag` et la ou les cibles `make` appelees par `deces-dataprep` et le deploiement

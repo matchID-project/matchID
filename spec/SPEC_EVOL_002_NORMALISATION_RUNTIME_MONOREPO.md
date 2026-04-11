@@ -32,6 +32,9 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
    - emplacement unique des fichiers versionnés et des états `.data.sha1` / `.dataprep.sha1` à la racine
 5. Configuration hors git:
    - les secrets restent hors git via `artifacts` racine et `packages/tools/artifacts.*`
+6. Politique de configuration locale:
+   - les cibles de configuration locale n'appellent `sudo` que lorsqu'un prérequis système manque réellement
+   - une configuration déjà satisfaite ne doit pas muter `/etc/environment` ni la configuration systemd Docker
 
 ## Travaux
 

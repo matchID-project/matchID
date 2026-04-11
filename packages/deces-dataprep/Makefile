@@ -58,14 +58,20 @@ export SCW_FLAVOR=PRO2-M
 export SCW_VOLUME_TYPE=sbs_15k
 export SCW_VOLUME_SIZE=50000000000
 export SCW_IMAGE_ID=8e7f9833-9787-4488-aea7-819183132acc
+export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
 
 dummy               := $(shell touch artifacts)
 include ./artifacts
 
 config: ${GIT_BACKEND}
 	@echo checking system prerequisites
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} config && \
-	echo "prerequisites installed" > config
+	@if [ -d "${MONOREPO_TOOLS_PATH}" ]; then\
+		${MAKE} -C ${MONOREPO_TOOLS_PATH} config ${MAKEOVERRIDES};\
+		cp artifacts ${GIT_BACKEND}/${GIT_TOOLS}/;\
+		touch ${GIT_BACKEND}/config;\
+	else\
+		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} config ${MAKEOVERRIDES};\
+	fi && echo "prerequisites installed" > config
 
 datagouv-to-storage: config
 	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} datagouv-to-storage \

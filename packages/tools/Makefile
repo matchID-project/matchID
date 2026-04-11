@@ -171,21 +171,38 @@ ${CONFIG_FILE}: ${CONFIG_INIT_FILE} ${CONFIG_NEXT_FILE}
 config: ${CONFIG_FILE}
 
 config-proxy:
-	@if [ ! -z "${http_proxy}" ];then\
-		if [ -z "$(grep http_proxy /etc/environment)"]; then\
-			(echo "http_proxy=${http_proxy}" | sudo tee -a /etc/environment);\
-		fi;\
-	fi;
-	@if [ ! -z "${https_proxy}" ];then\
-		if [ -z "$(grep https_proxy /etc/environment)"]; then\
-			(echo "https_proxy=${https_proxy}" | sudo tee -a /etc/environment);\
-		fi;\
-	fi;
-	@if [ ! -z "${no_proxy}" ];then\
-		if [ -z "$(grep no_proxy /etc/environment)"]; then\
-			(echo "no_proxy=${no_proxy}" | sudo tee -a /etc/environment);\
-		fi;\
-	fi;
+	@need_proxy_config=0; \
+	if [ ! -f "/usr/bin/curl" ] || [ ! -f "/usr/bin/jq" ] || \
+	   { [ ! -f "/usr/bin/docker" ] && [ ! -f "/usr/local/bin/docker" ]; }; then \
+		need_proxy_config=1; \
+	fi; \
+	if [ "$$need_proxy_config" -ne 1 ]; then \
+		exit 0; \
+	fi; \
+	update_env() { \
+		key="$$1"; \
+		value="$$2"; \
+		[ -n "$$value" ] || return 0; \
+		if grep -Fqx "$$key=$$value" /etc/environment 2>/dev/null; then \
+			return 0; \
+		fi; \
+		tmp_file=$$(mktemp); \
+		grep -Ev "^$$key=" /etc/environment 2>/dev/null > "$$tmp_file" || true; \
+		printf '%s=%s\n' "$$key" "$$value" >> "$$tmp_file"; \
+		if [ -w /etc/environment ]; then \
+			cat "$$tmp_file" > /etc/environment; \
+		elif command -v sudo >/dev/null 2>&1; then \
+			sudo tee /etc/environment > /dev/null < "$$tmp_file"; \
+		else \
+			echo "missing permissions to update /etc/environment for $$key" >&2; \
+			rm -f "$$tmp_file"; \
+			exit 1; \
+		fi; \
+		rm -f "$$tmp_file"; \
+	}; \
+	update_env http_proxy "${http_proxy}"; \
+	update_env https_proxy "${https_proxy}"; \
+	update_env no_proxy "${no_proxy}";
 
 # system tools, widely used in matchID projects
 
@@ -203,13 +220,29 @@ tools-install:
 docker-install: ${CONFIG_DOCKER_FILE} docker-config-proxy
 
 docker-config-proxy:
-	@if [ ! -z "${http_proxy}" ];then\
+	@if [ ! -z "${http_proxy}" ] && [ ! -f "/usr/bin/docker" ] && [ ! -f "/usr/local/bin/docker" ];then\
 		if [ ! -f "/etc/systemd/system/docker.service.d/http-proxy.conf" ]; then\
-			sudo mkdir -p /etc/systemd/system/docker.service.d/;\
-			(echo '[Service]' | sudo tee -a /etc/systemd/system/docker.service.d/http-proxy.conf);\
-			(echo 'Environment="HTTPS_PROXY=${http_proxy}" "HTTP_PROXY=${https_proxy}"' | sudo tee -a /etc/systemd/system/docker.service.d/http-proxy.conf);\
-			sudo systemctl daemon-reload;\
-			sudo systemctl restart docker;\
+			target_dir=/etc/systemd/system/docker.service.d; \
+			target_file=$$target_dir/http-proxy.conf; \
+			http_proxy_value="${http_proxy}"; \
+			https_proxy_value="${https_proxy}"; \
+			if [ -z "$$https_proxy_value" ]; then https_proxy_value="$$http_proxy_value"; fi; \
+			if [ -w "$$(dirname "$$target_dir")" ]; then \
+				mkdir -p "$$target_dir"; \
+				printf '%s\n' '[Service]' > "$$target_file"; \
+				printf 'Environment="HTTP_PROXY=%s" "HTTPS_PROXY=%s"\n' "$$http_proxy_value" "$$https_proxy_value" >> "$$target_file"; \
+				systemctl daemon-reload; \
+				systemctl restart docker; \
+			elif command -v sudo >/dev/null 2>&1; then \
+				sudo mkdir -p "$$target_dir"; \
+				printf '%s\n' '[Service]' | sudo tee "$$target_file" > /dev/null; \
+				printf 'Environment="HTTP_PROXY=%s" "HTTPS_PROXY=%s"\n' "$$http_proxy_value" "$$https_proxy_value" | sudo tee -a "$$target_file" > /dev/null; \
+				sudo systemctl daemon-reload; \
+				sudo systemctl restart docker; \
+			else \
+				echo "missing permissions to configure Docker proxy" >&2; \
+				exit 1; \
+			fi; \
 		fi;\
 	fi
 
