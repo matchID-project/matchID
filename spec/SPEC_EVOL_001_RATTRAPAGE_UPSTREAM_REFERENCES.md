@@ -73,12 +73,18 @@ SHAs importés de référence:
 
 - impact direct sur Data.gouv et opérations de catalogue/checksum
 - effet de bord potentiel sur `deces-dataprep` et `deces-backend`
+- écarts résiduels actuellement conservés après rattrapage upstream:
+  - aucun écart fonctionnel volontaire conservé dans `packages/tools` après reprise des 2 commits upstream du lot 1
+  - les sujets de normalisation d'exécution monorepo qui consomment `tools` restent traités hors de ce lot, dans [SPEC_EVOL_002](SPEC_EVOL_002_NORMALISATION_RUNTIME_MONOREPO.md)
 
 ### `deces-dataprep`
 
 - impact direct sur `FILES_TO_PROCESS`
 - sensible à l'année courante et aux règles de rafraîchissement mensuel
 - dépendance structurelle à la normalisation runtime du monorepo
+- écarts résiduels actuellement conservés après rattrapage upstream:
+  - le rattrapage upstream de `FILES_TO_PROCESS` a été importé `as is`, puis harmonisé dans un commit monorepo séparé vers une forme POSIX-compatible (`[0-9]`) pour rester cohérent entre shell et Python
+  - les dépendances implicites du package à la structure historique multi-repos restent hors périmètre du lot 1 et seront traitées dans [SPEC_EVOL_002](SPEC_EVOL_002_NORMALISATION_RUNTIME_MONOREPO.md)
 
 ### `deces-backend`
 
@@ -86,8 +92,7 @@ SHAs importés de référence:
 - impact fonctionnel direct sur les flux OTP / bulk / validation
 - écarts résiduels actuellement conservés après rattrapage upstream:
   - modification locale utilisateur dans `packages/deces-backend/src/controllers/auth.controller.ts` laissée hors périmètre du sync upstream
-  - validation locale complète `npm run build` bloquée par des fichiers `packages/deces-backend/dist/*` possédés par `root`
-  - validation comportementale OTP couverte localement par `tsc --noEmit` et par un test runtime temporaire ciblé, sans recette backend complète à ce stade
+  - les validations make-only du lot 2 restent à exécuter avant toute entrée en UAT backend
 
 ### `deces-ui`
 

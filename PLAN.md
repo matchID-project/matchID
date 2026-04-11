@@ -26,12 +26,12 @@
     - [x] Relever precisement les 2 commits upstream manquants de `packages/tools`
     - [x] Integrer le commit `19bdb29` de `packages/tools` (`checksums changed their address in datagouv`)
     - [x] Integrer le commit `3797919` de `packages/tools` (`lets fix again : no more checksum in datagouv ...`)
-    - [ ] Documenter les ecarts residuels conserves pour `packages/tools`
+    - [x] Documenter les ecarts residuels conserves pour `packages/tools`
     - [x] Relever precisement les 2 commits upstream manquants de `packages/deces-dataprep`
     - [x] Integrer le commit `d12b125` de `packages/deces-dataprep` (`feat: update FILES_TO_PROCESS regex for year 2026`)
     - [x] Integrer le commit `e0489f1` de `packages/deces-dataprep` (`Merge pull request #158 ... year-2026`)
     - [x] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
-    - [ ] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
+    - [x] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
   - [ ] Tests
     - [ ] Ne compter comme validation du lot 1 que des executions via cibles `make`
     - [ ] Valider les commandes `tools` via `make -C packages/tools catalog-tag` et la ou les cibles `make` appelees par `deces-dataprep` et le deploiement
