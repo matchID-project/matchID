@@ -33,7 +33,7 @@
     - [x] Conserver l'import upstream `FILES_TO_PROCESS` as is dans son commit de rattrapage, sans melanger de correction monorepo
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-dataprep`
     - [x] Corriger en commit separe l'usage local inutile de `sudo` dans `packages/tools` (`config-proxy` et `docker-config-proxy`) pour respecter les regles du monorepo et debloquer les validations `make`
-    - [ ] Faire reutiliser a `packages/deces-dataprep` les prerequis mutualises du monorepo pour `config`, `network` et `vm_max` afin de debloquer les gates `make` du lot 1 sans rouvrir le lot 4
+    - [x] Faire reutiliser a `packages/deces-dataprep` les prerequis mutualises du monorepo pour `config`, `network` et `vm_max` afin de debloquer les gates `make` du lot 1 sans rouvrir le lot 4
   - [ ] Tests
     - [ ] Ne compter comme validation du lot 1 que des executions via cibles `make`
     - [ ] Valider le calcul canonique du tag de donnees via `make .data.sha1` a la racine et `make -C packages/deces-dataprep data-tag`

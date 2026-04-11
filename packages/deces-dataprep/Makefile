@@ -9,6 +9,8 @@ export GIT = $(shell which git)
 export GITROOT = https://github.com/matchid-project
 export GIT_BRANCH = master
 export GIT_BACKEND = backend
+export GIT_FRONTEND = frontend
+export GIT_FRONTEND_BRANCH = dev
 export GIT_TOOLS = tools
 export MAKEBIN = $(shell which make)
 export MAKE = ${MAKEBIN} --no-print-directory -s
@@ -59,6 +61,8 @@ export SCW_VOLUME_TYPE=sbs_15k
 export SCW_VOLUME_SIZE=50000000000
 export SCW_IMAGE_ID=8e7f9833-9787-4488-aea7-819183132acc
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
+export MONOREPO_ROOT=${APP_PATH}/../..
+export FRONTEND_PATH=${APP_PATH}/${GIT_FRONTEND}
 
 dummy               := $(shell touch artifacts)
 include ./artifacts
@@ -72,6 +76,27 @@ config: ${GIT_BACKEND}
 	else\
 		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} config ${MAKEOVERRIDES};\
 	fi && echo "prerequisites installed" > config
+
+monorepo-elasticsearch:
+	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
+		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-local ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
+	else\
+		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
+	fi
+
+monorepo-elasticsearch-stop:
+	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
+		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-stop ${MAKEOVERRIDES};\
+	else\
+		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-stop ${MAKEOVERRIDES};\
+	fi
+
+frontend-config:
+	@if [ ! -d "${FRONTEND_PATH}" ]; then\
+		${GIT} clone -q ${GITROOT}/${GIT_FRONTEND} ${FRONTEND_PATH};\
+		cd ${FRONTEND_PATH} && ${GIT} checkout "${GIT_FRONTEND_BRANCH}";\
+	fi
+	@ln -sfn ${MONOREPO_TOOLS_PATH} ${FRONTEND_PATH}/${GIT_TOOLS}
 
 datagouv-to-storage: config
 	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} datagouv-to-storage \
@@ -151,22 +176,25 @@ ${GIT_BACKEND}:
 	@sed -i -E "s/export ADMIN_PASSWORD:=(.*)/export ADMIN_PASSWORD:=1234ABC/"  backend/Makefile
 	@sed -i -E "s/id(.*):=(.*)/id:=myid/"  backend/Makefile
 
-dev: config
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch backend frontend &&\
+dev: config monorepo-elasticsearch frontend-config
+	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend ${MAKEOVERRIDES} &&\
+	${MAKE} -C ${FRONTEND_PATH} frontend-dev GIT_BRANCH=${GIT_FRONTEND_BRANCH} ${MAKEOVERRIDES} &&\
 		echo matchID started, go to http://localhost:8081
 
 dev-stop:
 	@if [ -f config ]; then\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} frontend-stop backend-stop elasticsearch-stop;\
+		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
+		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend-stop ${MAKEOVERRIDES};\
+		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
 up:
 	@unset APP;unset APP_VERSION;\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch backend && echo matchID backend services started
+	${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES};\
+	${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend ${MAKEOVERRIDES} && echo matchID backend services started
 
-recipe-run: data-tag
+recipe-run: data-tag monorepo-elasticsearch
 	@if [ ! -f recipe-run ];then\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
 		echo running recipe on data FILES_TO_PROCESS="${FILES_TO_PROCESS}" $$(cat ${DATA_TAG}), dataprep ${DATAPREP_VERSION};\
 		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} version;\
 		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} recipe-run \
