@@ -178,7 +178,7 @@ ${GIT_BACKEND}:
 
 dev: config monorepo-elasticsearch frontend-config
 	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend ${MAKEOVERRIDES} &&\
-	${MAKE} -C ${FRONTEND_PATH} frontend-dev GIT_BRANCH=${GIT_FRONTEND_BRANCH} ${MAKEOVERRIDES} &&\
+	${MAKE} -C ${FRONTEND_PATH} frontend-dev GIT_BRANCH=${GIT_FRONTEND_BRANCH} NPM_AUDIT_IGNORE=true ${MAKEOVERRIDES} &&\
 		echo matchID started, go to http://localhost:8081
 
 dev-stop:
