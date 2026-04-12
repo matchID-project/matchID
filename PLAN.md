@@ -105,9 +105,10 @@
     - [ ] Integrer le commit `82ba880` de `packages/deces-ui` (`Merge pull request #995 ... desactivate-google-analytics`)
     - [ ] Documenter les ecarts residuels conserves pour `packages/deces-ui`
   - [ ] Tests
-    - [ ] Valider le demarrage local cible de `packages/deces-ui`
-    - [ ] Valider les tests et smoke checks UI cibles
-    - [ ] Verifier explicitement les comportements touches par le rattrapage UI
+    - [ ] Ne compter comme validation du lot 3 que des executions via cibles `make`
+    - [ ] Valider le demarrage local cible de `packages/deces-ui` via `make frontend-dev`
+    - [ ] Valider les tests et smoke checks UI cibles via `make frontend-test`
+    - [ ] Verifier explicitement les comportements touches par le rattrapage UI a travers les cibles `make` precedentes
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 3
   - [ ] UAT
     - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test UI
