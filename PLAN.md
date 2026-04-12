@@ -70,7 +70,7 @@
     - [x] Assurer la presence du fixture `clients_test.csv` au chemin attendu par `server.spec.ts`
     - [x] Isoler `bulk.spec.ts` pour qu'il ne lance pas de vrais jobs et ne pollue pas la suite backend
     - [x] Garantir un singleton des workers bulk `processStream` pendant la suite backend pour eviter les collisions entre fichiers de tests
-    - [ ] Attendre explicitement le readiness check dans `make backend-dev` avant de considerer le backend dev demarre
+    - [x] Attendre explicitement le readiness check dans `make backend-dev` avant de considerer le backend dev demarre
     - [x] Serialiser l'execution inter-fichiers de Vitest pour `packages/deces-backend` afin d'eviter les collisions Redis/filesystem
     - [ ] Reinitialiser Redis backend et les fichiers `.enc` transitoires avant `make backend-test-vitest`
     - [ ] Arreter le backend dev resident avant `make backend-test-vitest` pour eviter deux workers backend concurrents sur Redis
