@@ -87,8 +87,8 @@
     - [x] Relever precisement tous les commits upstream manquants de `packages/deces-ui`
     - [x] Integrer le commit `31b8079` de `packages/deces-ui` (`art 85`)
     - [x] Integrer le commit `073cf2d` de `packages/deces-ui` (`Merge pull request #976 ... art-85`)
-    - [ ] Integrer le commit `cc72ff0` de `packages/deces-ui` (`art 85`)
-    - [ ] Integrer le commit `0ba3431` de `packages/deces-ui` (`Merge pull request #979 ... art-85`)
+    - [x] Integrer le commit `cc72ff0` de `packages/deces-ui` (`art 85`)
+    - [x] Integrer le commit `0ba3431` de `packages/deces-ui` (`Merge pull request #979 ... art-85`)
     - [ ] Integrer le commit `47bcb86` de `packages/deces-ui` (`move contact mail to contact@matchid.io`)
     - [ ] Integrer le commit `b828650` de `packages/deces-ui` (`Merge pull request #981 ... new-contact-mail`)
     - [ ] Integrer le commit `7875bc3` de `packages/deces-ui` (`avoid resetting token if there is an atypical network error`)
