@@ -72,7 +72,7 @@
     - [x] Garantir un singleton des workers bulk `processStream` pendant la suite backend pour eviter les collisions entre fichiers de tests
     - [x] Attendre explicitement le readiness check dans `make backend-dev` avant de considerer le backend dev demarre
     - [x] Serialiser l'execution inter-fichiers de Vitest pour `packages/deces-backend` afin d'eviter les collisions Redis/filesystem
-    - [ ] Reinitialiser Redis backend et les fichiers `.enc` transitoires avant `make backend-test-vitest`
+    - [x] Reinitialiser Redis backend et les fichiers `.enc` transitoires avant `make backend-test-vitest`
     - [ ] Arreter le backend dev resident avant `make backend-test-vitest` pour eviter deux workers backend concurrents sur Redis
     - [ ] Valider les tests et smoke checks backend cibles via `make backend-test-vitest` puis `make backend-dev-test`
     - [ ] Verifier explicitement les comportements touches par le rattrapage backend a travers les cibles `make` precedentes
