@@ -93,7 +93,6 @@ SHAs importés de référence:
 - impact fonctionnel direct sur les flux OTP / bulk / validation
 - écarts résiduels actuellement conservés après rattrapage upstream:
   - modification locale utilisateur dans `packages/deces-backend/src/controllers/auth.controller.ts` laissée hors périmètre du sync upstream
-  - les validations make-only du lot 2 restent à exécuter avant toute entrée en UAT backend
 
 ### `deces-ui`
 
@@ -125,6 +124,25 @@ Commandes exécutées uniquement via `make`:
   - succès
   - passe par `config`, `network` et `vm_max` mutualisés
   - démarre `deces-elasticsearch`, `matchid-backend`, `matchid-frontend-development` et `matchid-nginx-development`
+
+## Validation lot 2
+
+Commandes exécutées uniquement via `make`:
+
+- `MAILDEV_UI_PORT=37343 make backend-test-vitest`
+  - succès
+  - `9` fichiers de tests passés, `164` tests passés
+  - exécute désormais `backend-test-reset` avant Vitest pour purger Redis, supprimer les `.enc` transitoires et arrêter un éventuel `backend-dev` résident
+  - couvre explicitement les comportements bulk, OTP/mail et score touchés par le rattrapage upstream
+- `MAILDEV_UI_PORT=37343 make backend-dev-test`
+  - succès
+  - `backend-dev` attend désormais une vraie disponibilité côté hôte sur une requête `search`, pas seulement une réponse intra-conteneur
+  - le smoke shell GET/POST passe intégralement
+  - le contrôle `fuzzy=false` ne dépend plus d'un total figé de dataset; il est vérifié via deux assertions JSON supplémentaires sur GET et POST
+  - l'exécution racine consomme bien `packages/tools` et non un repo externe `../tools`
+- bruit non bloquant encore observé pendant les validations:
+  - `cat: tagfiles.version: No such file or directory`
+  - sujet déjà classé hors lot 2, à reprendre au lot 4
 
 ## Dépendances
 
