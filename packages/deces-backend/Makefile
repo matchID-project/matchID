@@ -38,7 +38,7 @@ export NPM_REGISTRY = $(shell echo $$NPM_REGISTRY )
 export NPM_VERBOSE ?= 1
 export REDIS_DATA=${DATA_DIR}/redisdata
 export BULK_TIMEOUT = 600
-export BACKEND_TIMEOUT ?= 60
+export BACKEND_TIMEOUT ?= 90
 export BACKEND_JOB_CONCURRENCY = 6
 export BACKEND_CHUNK_CONCURRENCY = 3
 export BACKEND_TMP_MAX = 150 # number of requests before ban
@@ -225,6 +225,12 @@ backend-dev: ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${DB_JSON} ${
 
 backend-dev-stop:
 	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml down
+
+backend-dev-ps:
+	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml ps
+
+backend-dev-logs:
+	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml logs --tail=200 backend
 
 backend-dev-test: backend-dev
 	@echo Testing API parameters
