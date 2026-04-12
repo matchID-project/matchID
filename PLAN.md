@@ -62,7 +62,7 @@
     - [x] Integrer le commit `5894a91` de `packages/deces-backend` (`Merge pull request #502 ... send-email-ratelimit`)
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-backend`
     - [x] Rendre le port Maildev local parametrable pour eviter les collisions et garder `make backend-dev` testable
-  - [ ] Tests
+  - [x] Tests
     - [x] Ne compter comme validation du lot 2 que des executions via cibles `make`
     - [x] Valider le demarrage local cible de `packages/deces-backend` via `make backend-dev`
     - [x] Preparer l'index Elasticsearch de reference requis par les tests backend via `make elasticsearch`
