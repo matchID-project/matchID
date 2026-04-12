@@ -83,7 +83,7 @@
     - [x] Gate: tu valides que le lot 2 est termine et qu'on peut ouvrir le lot 3
 
 - [ ] Lot 3 - Rattrapage upstream de `deces-ui`
-  - [ ] Exec
+  - [x] Exec
     - [x] Relever precisement tous les commits upstream manquants de `packages/deces-ui`
     - [x] Integrer le commit `31b8079` de `packages/deces-ui` (`art 85`)
     - [x] Integrer le commit `073cf2d` de `packages/deces-ui` (`Merge pull request #976 ... art-85`)
@@ -103,7 +103,7 @@
     - [x] Integrer le commit `43bd91a` de `packages/deces-ui` (`Merge pull request #993 ... 2026`)
     - [x] Integrer le commit `08e33bb` de `packages/deces-ui` (`desactivate google analytics`)
     - [x] Integrer le commit `82ba880` de `packages/deces-ui` (`Merge pull request #995 ... desactivate-google-analytics`)
-    - [ ] Documenter les ecarts residuels conserves pour `packages/deces-ui`
+    - [x] Documenter les ecarts residuels conserves pour `packages/deces-ui`
   - [ ] Tests
     - [ ] Ne compter comme validation du lot 3 que des executions via cibles `make`
     - [ ] Valider le demarrage local cible de `packages/deces-ui` via `make frontend-dev`

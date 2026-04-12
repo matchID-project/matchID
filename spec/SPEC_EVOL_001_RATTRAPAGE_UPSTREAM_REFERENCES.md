@@ -99,6 +99,10 @@ SHAs importés de référence:
 - changements visibles utilisateur
 - dépendance aux comportements backend actualisés
 - risque de divergence fonctionnelle si UI sync sans backend sync
+- écarts résiduels actuellement conservés après rattrapage upstream:
+  - aucun écart fonctionnel volontaire conservé dans `packages/deces-ui` après exécution du lot 3
+  - les changements upstream `deces-ui` qui ciblaient le `Makefile` racine du dépôt source ont été transposés vers le `Makefile` racine du monorepo, car les variables correspondantes n'existent plus dans `packages/deces-ui/Makefile`
+  - le support `year 2026` a été transposé dans la racine avec une forme monorepo compatible avec le filtre shell déjà utilisé (`deces-([0-9]{4}|202[56]-m[0-9]{2}).txt.gz`)
 
 ## Critères d'acceptation
 
