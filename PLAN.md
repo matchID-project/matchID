@@ -99,8 +99,8 @@
     - [x] Integrer le commit `8a53d7e` de `packages/deces-ui` (`Merge pull request #986 ... art-85`)
     - [x] Integrer le commit `f182d28` de `packages/deces-ui` (`art 85`)
     - [x] Integrer le commit `da04697` de `packages/deces-ui` (`Merge pull request #988 ... art-85`)
-    - [ ] Integrer le commit `69713ba` de `packages/deces-ui` (`year 2026`)
-    - [ ] Integrer le commit `43bd91a` de `packages/deces-ui` (`Merge pull request #993 ... 2026`)
+    - [x] Integrer le commit `69713ba` de `packages/deces-ui` (`year 2026`)
+    - [x] Integrer le commit `43bd91a` de `packages/deces-ui` (`Merge pull request #993 ... 2026`)
     - [ ] Integrer le commit `08e33bb` de `packages/deces-ui` (`desactivate google analytics`)
     - [ ] Integrer le commit `82ba880` de `packages/deces-ui` (`Merge pull request #995 ... desactivate-google-analytics`)
     - [ ] Documenter les ecarts residuels conserves pour `packages/deces-ui`
