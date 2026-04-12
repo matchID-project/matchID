@@ -46,7 +46,7 @@
     - [x] Gate: tu valides que le lot 1 est termine et qu'on peut ouvrir le lot 2
 
 - [ ] Lot 2 - Rattrapage upstream de `deces-backend`
-  - [ ] Exec
+  - [x] Exec
     - [x] Relever precisement tous les commits upstream manquants de `packages/deces-backend`
     - [x] Integrer le commit `b3a91cc` de `packages/deces-backend` (`Update score.ts`)
     - [x] Integrer le commit `8a38acd` de `packages/deces-backend` (`Merge pull request #491 ... Update score.ts`)
