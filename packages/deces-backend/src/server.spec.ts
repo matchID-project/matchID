@@ -71,6 +71,35 @@ const expectParsedCsv = async (
   });
 }
 
+const waitForQueueToDrain = async (
+  queueName: string,
+  token: string,
+  timeoutMs = 5000,
+  pollIntervalMs = 100,
+) => {
+  const deadline = Date.now() + timeoutMs;
+  let lastBody: Record<string, number> = {};
+
+  while (Date.now() <= deadline) {
+    const res = await server
+      .get(`${process.env.BACKEND_PROXY_PATH}/queue?name=${queueName}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    lastBody = res.body;
+
+    if (Object.values(lastBody).every(jobType => jobType === 0)) {
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+  }
+
+  Object.values(lastBody).forEach(jobType => {
+    expect(jobType).toEqual(0);
+  });
+}
+
 describe('server.ts - Express application', () => {
   let totalPersons: number;
   const apiPath = (api: string): string => {
@@ -513,12 +542,7 @@ describe('server.ts - Express application', () => {
         });
 
       // verify that chunks info has been deleted
-      res = await server
-        .get(apiPath('queue?name=chunks'))
-        .set('Authorization', `Bearer ${token.body.access_token as string}`)
-      Object.values(res.body).forEach(jobType => {
-        expect(jobType).toEqual(0);
-      })
+      await waitForQueueToDrain('chunks', token.body.access_token as string);
 
       // verify that crypted files are deleted ater timeout
       await new Promise(resolve => setTimeout(resolve, Number(process.env.BACKEND_TMPFILE_PERSISTENCE || "3000")));
