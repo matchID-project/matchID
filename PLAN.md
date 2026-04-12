@@ -84,7 +84,7 @@
 
 - [ ] Lot 3 - Rattrapage upstream de `deces-ui`
   - [ ] Exec
-    - [ ] Relever precisement tous les commits upstream manquants de `packages/deces-ui`
+    - [x] Relever precisement tous les commits upstream manquants de `packages/deces-ui`
     - [ ] Integrer le commit `31b8079` de `packages/deces-ui` (`art 85`)
     - [ ] Integrer le commit `073cf2d` de `packages/deces-ui` (`Merge pull request #976 ... art-85`)
     - [ ] Integrer le commit `cc72ff0` de `packages/deces-ui` (`art 85`)
