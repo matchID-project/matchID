@@ -45,7 +45,7 @@
     - [x] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test `tools` + `deces-dataprep`
     - [x] Gate: tu valides que le lot 1 est termine et qu'on peut ouvrir le lot 2
 
-- [ ] Lot 2 - Rattrapage upstream de `deces-backend`
+- [x] Lot 2 - Rattrapage upstream de `deces-backend`
   - [x] Exec
     - [x] Relever precisement tous les commits upstream manquants de `packages/deces-backend`
     - [x] Integrer le commit `b3a91cc` de `packages/deces-backend` (`Update score.ts`)
@@ -77,10 +77,10 @@
     - [x] Valider les tests et smoke checks backend cibles via `make backend-test-vitest` puis `make backend-dev-test`
     - [x] Verifier explicitement les comportements touches par le rattrapage backend a travers les cibles `make` precedentes
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 2
-  - [ ] UAT
-    - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test backend
-    - [ ] Gate: tu valides que le rattrapage backend reste bien limite au perimetre attendu
-    - [ ] Gate: tu valides que le lot 2 est termine et qu'on peut ouvrir le lot 3
+  - [x] UAT
+    - [x] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test backend
+    - [x] Gate: tu valides que le rattrapage backend reste bien limite au perimetre attendu
+    - [x] Gate: tu valides que le lot 2 est termine et qu'on peut ouvrir le lot 3
 
 - [ ] Lot 3 - Rattrapage upstream de `deces-ui`
   - [ ] Exec

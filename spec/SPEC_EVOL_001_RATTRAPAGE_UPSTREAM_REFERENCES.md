@@ -92,7 +92,7 @@ SHAs importés de référence:
 - changements concentrés sur mail, score, lockfile et Makefile
 - impact fonctionnel direct sur les flux OTP / bulk / validation
 - écarts résiduels actuellement conservés après rattrapage upstream:
-  - modification locale utilisateur dans `packages/deces-backend/src/controllers/auth.controller.ts` laissée hors périmètre du sync upstream
+  - aucun écart fonctionnel volontaire conservé dans `packages/deces-backend` après clôture du lot 2
 
 ### `deces-ui`
 
@@ -143,6 +143,10 @@ Commandes exécutées uniquement via `make`:
 - bruit non bloquant encore observé pendant les validations:
   - `cat: tagfiles.version: No such file or directory`
   - sujet déjà classé hors lot 2, à reprendre au lot 4
+- revalidation finale d'entrée en UAT:
+  - rejouée sur un worktree backend propre
+  - `auth.controller.ts` a été écarté du worktree actif pour ne pas biaiser la validation
+  - l'autofix ESLint déclenché par `make backend-dev` sur `processStream.ts` a été intégré en source, puis `make backend-dev-test` a été rejoué avec succès sans réintroduire de diff backend actif
 
 ## Dépendances
 
