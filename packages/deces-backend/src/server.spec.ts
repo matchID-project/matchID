@@ -28,6 +28,49 @@ const csv2Buffer = async (filePath: string, nrows: number) => {
   return Buffer.from(data.split('\n').slice(0, nrows).join('\n'), 'utf8');
 }
 
+const expectParsedCsv = async (
+  text: string,
+  options: Record<string, any>,
+  onData: (row: any) => void,
+  onEnd?: (rowCount: number) => void,
+) => {
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finishWith = (handler: () => void) => {
+      if (settled) return;
+      settled = true;
+      try {
+        handler();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    parseString(text, options)
+      .on('error', (error: any) => {
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
+      })
+      .on('data', (row: any) => {
+        if (settled) return;
+        try {
+          onData(row);
+        } catch (error) {
+          settled = true;
+          reject(error);
+        }
+      })
+      .on('end', (rowCount: number) => finishWith(() => {
+        if (onEnd) {
+          onEnd(rowCount);
+        }
+      }));
+  });
+}
+
 describe('server.ts - Express application', () => {
   let totalPersons: number;
   const apiPath = (api: string): string => {
@@ -363,12 +406,10 @@ describe('server.ts - Express application', () => {
       expect(res.status).toBe(200);
       expect(res.text.split('\n')[0]).to.not.include('scores');
       // remove header and last line
-      parseString(res.text, { headers: true, delimiter: ','})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true, delimiter: ','}, (row: any) => {
           expect(row).to.include.all.keys('name last', 'name first', 'birth city', 'birth code');
           expect(row['birth date']).to.match(/\d{2}\/\d{2}\/\d{4}/);
-        })
-        .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
           expect(rowCount).to.eql(totalPersons);
         });
     });
@@ -379,8 +420,7 @@ describe('server.ts - Express application', () => {
         .set('Accept', 'text/csv')
         .send({ firstName: 'Alban', headerLang: 'french' })
       expect(res.status).toBe(200);
-      parseString(res.text, { headers: true, delimiter: ','})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true, delimiter: ','}, (row: any) => {
           expect(row).to.include.all.keys(
             'nom', 'prénoms', 'sexe', 'date_naissance', 'commune_naissance',
             'code_INSEE_naissance', 'département_naissance', 'pays_naissance',
@@ -390,8 +430,7 @@ describe('server.ts - Express application', () => {
             'pays_ISO_décès', 'latitude_décès', 'longitude_décès', 'source_INSEE'
           );
           expect(row.date_naissance).to.match(/\d{2}\/\d{2}\/\d{4}/);
-        })
-        .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
           expect(rowCount).to.eql(totalPersons);
         });
     });
@@ -467,11 +506,9 @@ describe('server.ts - Express application', () => {
       res = await server
         .get(apiPath(`search/csv/${jobId}`))
         .set('Authorization', `Bearer ${token.body.access_token as string}`)
-      parseString(res.text, { headers: true, delimiter: ';'})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true, delimiter: ';'}, (row: any) => {
           expect(row).to.include.all.keys('Prenom', 'name.first', 'Nom', 'name.last');
-        })
-        .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
           expect(rowCount).to.eql(nrows - 1);
         });
 
@@ -522,11 +559,9 @@ describe('server.ts - Express application', () => {
           .set('Authorization', `Bearer ${token.body.access_token as string}`)
         }
       expect(res.status).toBe(200);
-      parseString(res.text, { headers: true})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true}, (row: any) => {
           expect(Object.keys(row).slice(0,8)).to.have.ordered.members(['name.first', 'Prenom', 'name.last', 'Nom', 'birth.date', 'Date', 'sex', 'Sex']);
-        })
-        .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
           expect(rowCount).to.eql(inputArray.length - 1);
         });
     });
@@ -561,11 +596,9 @@ describe('server.ts - Express application', () => {
           .set('Authorization', `Bearer ${token.body.access_token as string}`)
         }
       expect(res.status).toBe(200);
-      parseString(res.text, { headers: true})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true}, (row: any) => {
           expect(Object.keys(row).slice(0,8)).to.have.ordered.members(['Prenom', 'Nom', 'Date', 'Sex', 'sourceLineNumber', 'score', 'scores', 'source']);
-        })
-        .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
           expect(rowCount).to.eql(inputArray.length - 1);
         });
     });
@@ -629,8 +662,7 @@ describe('server.ts - Express application', () => {
           .set('Authorization', `Bearer ${token.body.access_token as string}`)
         }
       expect(res.status).toBe(200);
-      parseString(res.text, { headers: true})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true}, (row: any) => {
           expect(row).to.have.property('Sexe', 'M');
           if (row.score && row.score.length > 0) {
             expect(row).to.have.property('sex', 'M');
@@ -639,8 +671,7 @@ describe('server.ts - Express application', () => {
             expect(row).to.have.property('birth.date', '');
             expect(row).to.have.property('name.last', '');
           }
-        })
-        .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
           expect(rowCount).to.eql(inputArray.length - 1);
         });
     }, 5000);
@@ -781,11 +812,9 @@ describe('server.ts - Express application', () => {
           .set('Authorization', `Bearer ${token.body.access_token as string}`)
         }
       expect(res.status).toBe(200);
-      parseString(res.text, { headers: true})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true}, (row: any) => {
           expect(row).to.have.property('birth.city', 'Elbeuf');
-        })
-        .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
           expect(rowCount).to.eql(inputArray.length - 1);
         });
     }, 5000);
@@ -815,11 +844,9 @@ describe('server.ts - Express application', () => {
           .set('Authorization', `Bearer ${token.body.access_token as string}`)
         }
       expect(res.status).toBe(200);
-      parseString(res.text, { headers: true, delimiter: ";"})
-        .on('data', (row: any) => {
+      await expectParsedCsv(res.text, { headers: true, delimiter: ";"}, (row: any) => {
           expect(Object.keys(row).slice(0,4)).to.have.ordered.members(['name.last', 'name.first', 'Nom', 'Prenoms']);
-        })
-         .on('end', (rowCount: number) => {
+        }, (rowCount: number) => {
            expect(rowCount).to.eql(3);
          });
     });
@@ -900,27 +927,23 @@ describe('server.ts - Express application', () => {
     {fieldName: 'deathCountry', expected: 'france'},
     {fieldName: 'deathAge', expected: 64},
     {accept: 'text/csv', fieldName: 'birthDate',
-      testFunc: (res: any) => {
+      testFunc: async (res: any) => {
         expect(res.status).toBe(200);
-        parseString(res.text, { headers: true, delimiter: ','})
-          .on('data', (row: any) => {
+        await expectParsedCsv(res.text, { headers: true, delimiter: ','}, (row: any) => {
             expect(row).to.include.all.keys('key_as_string');
             expect(row.key_as_string).to.match(/\d{8}/);
-          })
-          .on('end', (rowCount: number) => {
+          }, (rowCount: number) => {
             const total = +res.headers['total-results-birthdate']
             expect(rowCount).to.eql(total);
           });
       }},
     {params: {deathDate: 2020, sex: 'M', aggs: "birthDate"}, accept: 'text/csv', fieldName: 'birthDate',
-      testFunc: (res: any) => {
+      testFunc: async (res: any) => {
         expect(res.status).toBe(200);
-        parseString(res.text, { headers: true, delimiter: ','})
-          .on('data', (row: any) => {
+        await expectParsedCsv(res.text, { headers: true, delimiter: ','}, (row: any) => {
             expect(row).to.include.all.keys('key_as_string');
             expect(row.key_as_string).to.match(/\d{8}/);
-          })
-          .on('end', (rowCount: number) => {
+          }, (rowCount: number) => {
             const total = +res.headers['total-results-birthdate']
             expect(rowCount).to.eql(total);
           });
@@ -943,7 +966,7 @@ describe('server.ts - Express application', () => {
           .set('Accept', testFixture.accept ? testFixture.accept : 'application/json')
           .query(testFixture.params ? testFixture.params : harryRequest(testFixture.fieldName))
         if (testFixture.testFunc) {
-          testFixture.testFunc(res)
+          await testFixture.testFunc(res)
         } else {
           expect(res.status).toBe(200);
           expect(res.body.response.aggregations.length).to.above(0);
@@ -965,7 +988,7 @@ describe('server.ts - Express application', () => {
           .set('Accept', testFixture.accept ? testFixture.accept : 'application/json')
           .send({deathDate: 2020, firstName: 'Harry', aggs: [testFixture.fieldName]})
         if (testFixture.testFunc) {
-          testFixture.testFunc(res)
+          await testFixture.testFunc(res)
         } else {
           expect(res.status).toBe(200);
           expect(res.body.response.aggregations.length).to.above(0);

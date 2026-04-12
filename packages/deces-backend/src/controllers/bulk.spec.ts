@@ -1,10 +1,20 @@
 import { BulkController } from './bulk.controller'
 import { writeToBuffer } from '@fast-csv/format';
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import express from 'express';
+import * as processStream from '../processStream';
 
 describe('bulk.controller.ts', () => {
   const controller = new BulkController()
+
+  beforeEach(() => {
+    vi.spyOn(controller as any, 'handleFile').mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('no files attached', async () => {
     const req = {
       headers: {},
@@ -23,25 +33,15 @@ describe('bulk.controller.ts', () => {
      ['georges', 'michel', '12/03/1939', 'M']
    ]
    const buf: any = await writeToBuffer(inputArray)
+   vi.spyOn(processStream, 'csvHandle').mockResolvedValue({ msg: 'started' } as any);
    const req = {
      headers: {},
      body: {},
-     files: buf
+     files: [{ buffer: buf }],
+     user: { user: 'tester' }
    } as express.Request
    const res = await controller.uploadCsv(req)
    expect(res.msg).to.equal('started');
-   // const { id: jobId }: { id: string } = res
-   // await controller.downloadResults({res: {send: (x) => res = x, status: (x) => console.log(x)}} as express.Request, 'csv', jobId)
-   // console.log(res);
-   // await new Promise(r => setTimeout(r, 2000));
-   // console.log("finish sleep");
-   // while (res.status === 'created' || res.status === 'wait' || res.status === 'active') {
-   //   const response: any = {res: {send: (x) => res = x, status: (_) => {
-   //     return {send: (x) => res = x}}
-   //   }} as express.Request
-   //   await controller.downloadResults(response, 'csv', jobId)
-   //   console.log(res);
-   // }
-   // console.log(res);
+   expect(processStream.csvHandle).toHaveBeenCalled();
  });
 })
