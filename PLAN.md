@@ -61,9 +61,15 @@
     - [x] Integrer le commit `b5dba5a` de `packages/deces-backend` (`fix: exp backoff; refine display; fix OTP delay`)
     - [x] Integrer le commit `5894a91` de `packages/deces-backend` (`Merge pull request #502 ... send-email-ratelimit`)
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-backend`
+    - [x] Rendre le port Maildev local parametrable pour eviter les collisions et garder `make backend-dev` testable
   - [ ] Tests
-    - [ ] Ne compter comme validation du lot 2 que des executions via cibles `make`
-    - [ ] Valider le demarrage local cible de `packages/deces-backend` via `make backend-dev`
+    - [x] Ne compter comme validation du lot 2 que des executions via cibles `make`
+    - [x] Valider le demarrage local cible de `packages/deces-backend` via `make backend-dev`
+    - [x] Preparer l'index Elasticsearch de reference requis par les tests backend via `make elasticsearch`
+    - [x] Rendre `make backend-dev-test` compatible avec l'image Alpine utilisee par le backend
+    - [x] Assurer la presence du fixture `clients_test.csv` au chemin attendu par `server.spec.ts`
+    - [x] Isoler `bulk.spec.ts` pour qu'il ne lance pas de vrais jobs et ne pollue pas la suite backend
+    - [x] Garantir un singleton des workers bulk `processStream` pendant la suite backend pour eviter les collisions entre fichiers de tests
     - [ ] Valider les tests et smoke checks backend cibles via `make backend-test-vitest` puis `make backend-dev-test`
     - [ ] Verifier explicitement les comportements touches par le rattrapage backend a travers les cibles `make` precedentes
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 2

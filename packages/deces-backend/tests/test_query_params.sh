@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 echo "GET--->"
 if curl -s -XGET http://localhost:${BACKEND_PORT}/deces/api/v1/search?deathDate=2020\&firstName=Harry | grep -q 'name":{"first":\["Harry'; then
     echo "firstName: OK"

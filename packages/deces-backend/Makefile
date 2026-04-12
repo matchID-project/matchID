@@ -47,6 +47,8 @@ export BACKEND_TMPFILE_PERSISTENCE = 3600000
 #export SMTP_TLS_SELFSIGNED=true #if SMTP SSL & self signed
 export SMTP_HOST?=smtp
 export SMTP_PORT?=1025
+export MAILDEV_UI_PORT?=1080
+export BACKEND_TEST_SCRIPT?=test
 export SMTP_USER?=${API_EMAIL}
 export SMTP_PWD?=$(shell echo $$RANDOM )
 
@@ -162,16 +164,16 @@ backend-test:
 db-json-fake:
 	echo '{"user1@gmail.com": "7cd61af92058569476e9d91fea601ba85fa02258b6263cfa188c15957f4752f3"}' > ${DB_JSON}
 
-backend-test-vitest: db-json-fake smtp
+backend-test-vitest: db-json-fake smtp ${BACKEND_PATH}/tests/clients_test.csv
 	@echo Testing API with vitest tests
 	@if [ ! -f "${BACKEND_PATH}/src/routes/routes.ts" ]; then export EXEC_ENV=development; \
 		export BACKEND_LOG_LEVEL=error; \
 		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml run --rm backend npm run tsoa --verbose;fi
 	@export EXEC_ENV=development; export BACKEND_LOG_LEVEL=error; \
-		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml run --rm backend npm run test --verbose
+		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml run --rm backend npm run ${BACKEND_TEST_SCRIPT} --verbose
 
-backend/tests/clients_test.csv:
-	curl -L https://github.com/matchID-project/examples/raw/master/data/clients_test.csv -o backend/tests/clients_test.csv
+${BACKEND_PATH}/tests/clients_test.csv:
+	curl -L https://github.com/matchID-project/examples/raw/master/data/clients_test.csv -o ${BACKEND_PATH}/tests/clients_test.csv
 
 # test artillery
 test-perf-v1:
@@ -209,7 +211,7 @@ backend-dev-stop:
 
 backend-dev-test:
 	@echo Testing API parameters
-	@docker exec -i ${USE_TTY} ${APP_BACKEND}-development bash /deces-backend/tests/test_query_params.sh
+	@docker exec -i ${USE_TTY} ${APP_BACKEND}-development sh /deces-backend/tests/test_query_params.sh
 
 
 # download wikidata test data
