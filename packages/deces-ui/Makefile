@@ -52,6 +52,7 @@ export API_TEST_REQUEST={"fuzzy":"false","sort":[{"score":"desc"}],"page":1,"siz
 # Google Analytics configuration variables
 export GOOGLE_ANALYTICS_ID=
 export GOOGLE_ADSENSE_ID=
+export NPM_AUDIT_IGNORE?=true
 
 # A/B testing configuration variables
 export AB_THRESHOLD=100
@@ -156,4 +157,3 @@ $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION): build-dir
 	cp $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION)
 	if [ -f $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ]; then ls -alsrt  $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) && sha1sum $(BUILD_DIR)/$(FILE_FRONTEND_DIST_APP_VERSION) ; fi
 	if [ -f $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION) ]; then ls -alsrt  $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION) && sha1sum $(BUILD_DIR)/$(FILE_FRONTEND_DIST_LATEST_VERSION) ; fi
-

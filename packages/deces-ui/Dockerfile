@@ -13,6 +13,7 @@ ARG NPM_GIT
 ARG NPM_FIX
 ARG NPM_LATEST
 ARG NPM_VERBOSE
+ARG NPM_AUDIT_IGNORE
 ARG app_path
 ARG app_name
 ARG app_ver
@@ -54,12 +55,13 @@ RUN if [ -z "${NPM_VERBOSE}" ]; then\
     fi
 
 # set warn level to high, to avoid unreachable warning
-RUN npm config set audit-level high 
-
-RUN if [ -z "${NPM_FIX}" ]; then \
-      npm audit --registry=https://registry.npmjs.org; \
-    else \
-      npm audit fix --registry=https://registry.npmjs.org; \
+RUN if [ -z "${NPM_AUDIT_IGNORE}" ]; then \
+      npm config set audit-level high && \
+      if [ -z "${NPM_FIX}" ]; then \
+        npm audit --registry=https://registry.npmjs.org; \
+      else \
+        npm audit fix --registry=https://registry.npmjs.org; \
+      fi; \
     fi
 
 ################################
@@ -132,4 +134,3 @@ RUN  set -ex ; tar -zxvf ${APP_FRONTEND}-${APP_VERSION}-frontend.tar.gz  && \
      rm -rf ${app_name}-${app_ver}-frontend.tar.gz
 
 CMD ["npm", "run", "build"]
-

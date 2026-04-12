@@ -104,6 +104,7 @@
     - [x] Integrer le commit `08e33bb` de `packages/deces-ui` (`desactivate google analytics`)
     - [x] Integrer le commit `82ba880` de `packages/deces-ui` (`Merge pull request #995 ... desactivate-google-analytics`)
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-ui`
+    - [x] Debloquer `make frontend-dev` en neutralisant l'audit npm uniquement pour le dev UI local
   - [ ] Tests
     - [ ] Ne compter comme validation du lot 3 que des executions via cibles `make`
     - [ ] Valider le demarrage local cible de `packages/deces-ui` via `make frontend-dev`
