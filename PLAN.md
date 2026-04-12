@@ -94,7 +94,7 @@
     - [x] Integrer le commit `7875bc3` de `packages/deces-ui` (`avoid resetting token if there is an atypical network error`)
     - [x] Integrer le commit `c51de22` de `packages/deces-ui` (`Merge pull request #983 ... reset-token`)
     - [x] Integrer le commit `d0e25ab` de `packages/deces-ui` (`fix vulns in package-lock`)
-    - [ ] Integrer le commit `12d50e1` de `packages/deces-ui` (`art 85`)
+    - [x] Integrer le commit `12d50e1` de `packages/deces-ui` (`art 85`)
     - [ ] Integrer le commit `f50aa3c` de `packages/deces-ui` (`enable test to be flexible to validation code duration`)
     - [ ] Integrer le commit `8a53d7e` de `packages/deces-ui` (`Merge pull request #986 ... art-85`)
     - [ ] Integrer le commit `f182d28` de `packages/deces-ui` (`art 85`)
