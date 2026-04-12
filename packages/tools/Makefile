@@ -1173,9 +1173,9 @@ local-test-api:
 		(\
 			((\
 				if [ -z "${API_TEST_DATA}" ];then\
-					curl --noproxy '*' -s --fail localhost:${PORT}/${API_TEST_PATH};\
+					curl --noproxy '*' -s --fail "http://localhost:${PORT}/${API_TEST_PATH}";\
 				else\
-					echo '${API_TEST_DATA}' | curl --noproxy '*' -s -XPOST --fail ${CURL_OPTS} localhost:${PORT}/${API_TEST_PATH} -H 'Content-Type: application/json' -d @-;\
+					echo '${API_TEST_DATA}' | curl --noproxy '*' -s -XPOST --fail ${CURL_OPTS} "http://localhost:${PORT}/${API_TEST_PATH}" -H 'Content-Type: application/json' -d @-;\
 				fi;\
 			) || (echo "api test on localhost:${PORT}/${API_TEST_PATH} : ko" && exit 1))\
 			|\
@@ -1198,9 +1198,9 @@ remote-test-api:
 			(\
 				((\
 					if [ -z "${API_TEST_DATA}" ];then\
-						curl -s --fail ${CURL_OPTS} https://${APP_DNS}/${API_TEST_PATH};\
+						curl -s --fail ${CURL_OPTS} "https://${APP_DNS}/${API_TEST_PATH}";\
 					else\
-						echo '${API_TEST_DATA}' | curl -s -XPOST --fail ${CURL_OPTS} https://${APP_DNS}/${API_TEST_PATH} -H 'Content-Type: application/json' -d @-;\
+						echo '${API_TEST_DATA}' | curl -s -XPOST --fail ${CURL_OPTS} "https://${APP_DNS}/${API_TEST_PATH}" -H 'Content-Type: application/json' -d @-;\
 					fi;\
 				) || (echo "api test on https://${APP_DNS}/${API_TEST_PATH} : ko" && exit 1))\
 				|\

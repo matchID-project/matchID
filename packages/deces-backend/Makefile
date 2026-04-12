@@ -2,8 +2,9 @@ SHELL := /bin/bash
 
 export APP = deces-backend
 export APP_GROUP = matchID
-export APP_PATH := $(shell pwd)
-export TOOLS_PATH := $(shell pwd)/../tools
+export APP_PATH ?= $(shell pwd)
+export BACKEND_PATH ?= ${APP_PATH}
+export TOOLS_PATH ?= $(abspath ${BACKEND_PATH}/../tools)
 export APP_DNS?=deces.matchid.io
 export APP_VERSION	:= $(shell git describe --tags )
 export USE_TTY := $(shell test -t 1 && USE_TTY="-t")
@@ -37,7 +38,7 @@ export NPM_REGISTRY = $(shell echo $$NPM_REGISTRY )
 export NPM_VERBOSE ?= 1
 export REDIS_DATA=${DATA_DIR}/redisdata
 export BULK_TIMEOUT = 600
-export BACKEND_TIMEOUT = 30
+export BACKEND_TIMEOUT ?= 60
 export BACKEND_JOB_CONCURRENCY = 6
 export BACKEND_CHUNK_CONCURRENCY = 3
 export BACKEND_TMP_MAX = 150 # number of requests before ban
@@ -164,7 +165,13 @@ backend-test:
 db-json-fake:
 	echo '{"user1@gmail.com": "7cd61af92058569476e9d91fea601ba85fa02258b6263cfa188c15957f4752f3"}' > ${DB_JSON}
 
-backend-test-vitest: db-json-fake smtp ${BACKEND_PATH}/tests/clients_test.csv
+backend-test-reset: ${JOBS}
+	@find ${JOBS} -type f -name '*.enc' -delete
+	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml stop backend > /dev/null 2>&1 || true
+	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml up -d redis > /dev/null
+	@docker exec -i ${USE_TTY} ${APP}-redis redis-cli FLUSHALL > /dev/null
+
+backend-test-vitest: db-json-fake smtp backend-test-reset ${BACKEND_PATH}/tests/clients_test.csv
 	@echo Testing API with vitest tests
 	@if [ ! -f "${BACKEND_PATH}/src/routes/routes.ts" ]; then export EXEC_ENV=development; \
 		export BACKEND_LOG_LEVEL=error; \
@@ -205,13 +212,25 @@ backend-dev: ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${DB_JSON} ${
 	@echo docker-compose up backend for dev
 	@export EXEC_ENV=development;\
 		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml up --build -d --force-recreate 2>&1 | grep -v orphan
+	@timeout=${BACKEND_TIMEOUT} ; ret=1 ;\
+		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
+			(curl --noproxy '*' -s --fail -X GET "http://localhost:${BACKEND_PORT}/deces/api/v1/search?deathDate=2020&firstName=Harry" > /dev/null) ;\
+			ret=$$? ;\
+			if [ "$$ret" -ne "0" ] ; then\
+				echo -e "try still $$timeout seconds to start backend-dev before timeout" ;\
+			fi ;\
+			((timeout--)); sleep 1 ;\
+		done ;\
+	echo -e "backend-dev started in $$((BACKEND_TIMEOUT - timeout)) seconds"; exit $$ret
 
 backend-dev-stop:
 	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml down
 
-backend-dev-test:
+backend-dev-test: backend-dev
 	@echo Testing API parameters
-	@docker exec -i ${USE_TTY} ${APP_BACKEND}-development sh /deces-backend/tests/test_query_params.sh
+	@docker exec -i ${USE_TTY} ${APP_BACKEND}-development sh -c "SKIP_FUZZY_CHECK=1 sh /deces-backend/tests/test_query_params.sh"
+	@${MAKE} -C ${TOOLS_PATH} local-test-api PORT=${BACKEND_PORT} API_TEST_PATH='deces/api/v1/search?deathDate=2020&firstName=Ana&fuzzy=false' API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Ana")] | all)'
+	@${MAKE} -C ${TOOLS_PATH} local-test-api PORT=${BACKEND_PORT} API_TEST_PATH='deces/api/v1/search' API_TEST_DATA='{"deathDate":"2020","firstName":"Ana","fuzzy":"false"}' API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Ana")] | all)'
 
 
 # download wikidata test data
