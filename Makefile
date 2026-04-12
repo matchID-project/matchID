@@ -167,11 +167,36 @@ network-stop:
 network: config
 	@docker network create ${DC_NETWORK_OPT} ${DC_NETWORK} 2> /dev/null; true
 
+# backend-dev:
+# 	@echo docker-compose up backend dev
+# 	@${MAKE} -C ${BACKEND_PATH} backend-dev TOOLS_PATH=${TOOLS_PATH} DATA_DIR=${DATA_DIR} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}\
+# 		APP_URL=http://localhost:${PORT} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
+
+# backend-dev-stop:
+# 	@${MAKE} -C ${BACKEND_PATH} dev-stop TOOLS_PATH=${TOOLS_PATH} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}
+
+
+# backend-docker-check:
+# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+# 	${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
+
+# backend: backend-docker-check proofs-mount elasticsearch-index-readiness
+# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+# 	${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}\
+# 		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
+
+# backend-stop:
+# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+# 	${MAKE} -C ${BACKEND_PATH} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
+# 	@make proofs-umount
+
+# Frontend targets are now defined in packages/deces-ui/Makefile
+
 dev: network frontend-stop elasticsearch backend-dev frontend-dev
 
 dev-stop: frontend-dev-stop backend-dev-stop elasticsearch-stop smtp-stop
 
-build: clean-frontend frontend-build nginx-build backend-build
+build: clean-frontend frontend-build nginx-build
 
 # Frontend and nginx targets are now defined in packages/deces-ui/Makefile
 
@@ -221,6 +246,15 @@ show-env:
 	env | egrep 'STORAGE|BUCKET'
 
 deploy-local: config show-env stats-background elasticsearch-restore-async docker-check up local-test-api
+
+# smtp:
+# 	@${MAKE} -C ${BACKEND_PATH} smtp DC_NETWORK=${DC_NETWORK}
+
+# smtp-stop:
+# 	@${MAKE} -C ${BACKEND_PATH} smtp-stop
+
+# backend-test:
+# 	@${MAKE} -C ${BACKEND_PATH} backend-test
 
 local-test-api:
 	@timeout=${API_TIMEOUT} ;\
@@ -437,3 +471,6 @@ stats-catalog: ${STATS}
 
 stats-background:
 	@((sleep 180;while (true); do make stats-live;sleep 300;done) > .stats-live 2>&1 &)
+
+# ${PROOFS}:
+# 	@mkdir -p ${PROOFS}
