@@ -76,7 +76,7 @@
     - [x] Arreter le backend dev resident avant `make backend-test-vitest` pour eviter deux workers backend concurrents sur Redis
     - [x] Valider les tests et smoke checks backend cibles via `make backend-test-vitest` puis `make backend-dev-test`
     - [x] Verifier explicitement les comportements touches par le rattrapage backend a travers les cibles `make` precedentes
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 2
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 2
   - [ ] UAT
     - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test backend
     - [ ] Gate: tu valides que le rattrapage backend reste bien limite au perimetre attendu
