@@ -98,7 +98,7 @@ Point restant ouvert:
 
 - démontrer que l'indexation produite par le `deces-dataprep` monorepo reste sémantiquement identique au comportement de référence sur un jeu de données de test
 
-## Résultat provisoire du test de parité au 13 avril 2026
+## Résultat du test de parité au 13 avril 2026
 
 Le protocole de comparaison a été rejoué via `make` uniquement:
 
@@ -111,17 +111,19 @@ Le harness a été recadré pour que:
 - le run `monorepo` utilise bien [packages/dataprep-backend](/home/antoinefa/src/matchID/matchID/packages/dataprep-backend) et une image locale rebuildée depuis le code courant
 - chaque run utilise un `ES_DATA` isolé sous `/tmp` pour éviter les effets de bord du backend legacy
 
-Résultat observé:
+Un premier passage a exposé un faux écart de protocole: l'export lisait l'index sans `/_refresh`, ce qui sous-estimait le volume réellement visible côté référence historique.
 
-- `original.count = 602691`
+Le protocole final force désormais `/_refresh` avant export. Avec ce protocole stabilisé, le résultat observé est:
+
+- `original.count = 679573`
 - `monorepo.count = 679573`
-- l'échantillon déterministe de `1000` documents diffère aussi
+- l'échantillon déterministe de `1000` documents est strictement identique
 
 Conclusion au 13 avril 2026:
 
 - le protocole de parité est maintenant en place et exécutable via `make`
-- la parité n'est pas atteinte
-- le gate du lot 5 reste ouvert tant que l'écart d'indexation n'est pas expliqué puis résorbé
+- la parité d'indexation `original` vs `monorepo` est démontrée sur le jeu de référence
+- le gate de parité du lot 5 peut être considéré comme fermé
 
 ## Protocole de comparaison d'indexation
 

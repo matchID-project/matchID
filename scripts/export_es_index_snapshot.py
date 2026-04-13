@@ -111,6 +111,7 @@ def main() -> None:
     parser.add_argument("--page-size", type=int, default=1000)
     args = parser.parse_args()
 
+    run_curl(args.container, "POST", f"/{args.index}/_refresh")
     reported_count = run_curl(args.container, "GET", f"/{args.index}/_count").get("count", 0)
     docs = normalize_docs(args.container, args.index, args.page_size)
 
