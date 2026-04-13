@@ -4,6 +4,7 @@ export APP = deces-backend
 export APP_GROUP = matchID
 export APP_PATH ?= $(shell pwd)
 export BACKEND_PATH ?= ${APP_PATH}
+# Canonical tools live in the sibling monorepo package, not in a local backend/tools clone.
 export TOOLS_PATH ?= $(abspath ${BACKEND_PATH}/../tools)
 export APP_DNS?=deces.matchid.io
 export APP_VERSION	:= $(shell git describe --tags )

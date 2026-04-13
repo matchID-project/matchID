@@ -4,6 +4,7 @@ src/api
 artifacts
 aws
 config
+# Legacy local tools clones stay ignored; the canonical path is ../tools.
 tools
 deces-dataprep
 .data.sha1
