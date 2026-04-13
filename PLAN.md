@@ -148,8 +148,10 @@
 - [ ] Lot 5 - Chaine dev complete validee
   - [ ] Exec
     - [ ] Definir la commande canonique de bootstrap dev depuis la racine
+    - [ ] Definir explicitement quelle image `backend` est la source canonique pour `deces-dataprep` en dev, en test et pour le deploiement
     - [ ] Definir la procedure canonique de restore snapshot
     - [ ] Definir la procedure canonique de run dataprep
+    - [ ] Definir le protocole canonique de comparaison d'indexation entre le `deces-dataprep` original et le `deces-dataprep` monorepo sur un jeu de donnees de reference
     - [ ] Rendre `make dev` racine reproductible
     - [ ] Documenter la procedure de bootstrap dev
   - [ ] Tests
@@ -164,10 +166,13 @@
     - [ ] Valider la recuperation de `wikidata`
     - [ ] Valider la recuperation de `disposable-mail`
     - [ ] Valider la recuperation des sources Data.gouv
+    - [ ] Rejouer une indexation de reference avec le `deces-dataprep` original et avec le `deces-dataprep` monorepo via des cibles `make`
+    - [ ] Valider l'egalite exacte du nombre de documents indexes entre les deux runs de reference
+    - [ ] Valider l'egalite de 1000 documents echantillonnes de maniere deterministe entre les deux runs de reference
     - [ ] Valider la compatibilite dataprep -> index -> backend -> ui
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 5
   - [ ] UAT
-    - [ ] Gate: je te presente la procedure dev canonique et les preuves de fonctionnement bout en bout en local
+    - [ ] Gate: je te presente la procedure dev canonique, la source canonique de l'image `backend` pour `deces-dataprep`, la preuve de parite d'indexation et les preuves de fonctionnement bout en bout en local
     - [ ] Gate: tu valides que la chaine dev complete est acceptable et qu'on peut ouvrir le lot 6
 
 - [ ] Lot 6 - CI monorepo et non-regression validees

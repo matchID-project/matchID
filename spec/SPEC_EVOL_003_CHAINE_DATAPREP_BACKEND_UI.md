@@ -64,8 +64,23 @@ Obtenir un run bout-en-bout reproductible en développement.
 ### D. Définir les preuves de compatibilité
 
 - version dataprep compatible avec backend
+- source canonique de l'image `backend` consommée par `deces-dataprep` selon les contextes `dev`, `test` et `deploy`
 - index attendu par backend
 - routes et comportements attendus par UI
+- preuve de parité d'indexation entre le `deces-dataprep` original et le `deces-dataprep` monorepo sur un jeu de données de référence
+  - égalité exacte du nombre de documents indexés
+  - égalité d'un échantillon déterministe de 1000 documents normalisés
+
+## Point d'attention ouvert en entree de lot 5
+
+Au 13 avril 2026, le chemin canonique `make -C packages/deces-dataprep dev` délègue encore au target `backend` de `packages/dataprep-backend`, qui vérifie d'abord la présence locale de l'image `matchid/matchid-backend:${APP_VERSION}` puis tente de la tirer du registre si elle n'est pas présente localement.
+
+Le chemin `backend-dev`, qui construit localement l'image depuis le monorepo, a bien été validé au lot 4, mais il n'est pas encore la dépendance canonique de `packages/deces-dataprep`.
+
+Le lot 5 doit donc:
+
+- figer la source canonique de cette image `backend`
+- démontrer que l'indexation produite par le `deces-dataprep` monorepo reste sémantiquement identique au comportement de référence sur un jeu de données de test
 
 ## Critères d'acceptation
 
