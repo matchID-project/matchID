@@ -6,6 +6,7 @@ export APP_GROUP = matchID
 export APP_PATH ?= $(shell pwd)
 export BACKEND_PATH ?= ${APP_PATH}
 export INFRA_PATH ?= $(abspath ${BACKEND_PATH}/../deces-infra)
+export MONOREPO_ROOT ?= $(abspath ${BACKEND_PATH}/../..)
 # Canonical tools live in the sibling monorepo package, not in a local backend/tools clone.
 export TOOLS_PATH ?= $(abspath ${BACKEND_PATH}/../tools)
 export APP_DNS?=deces.matchid.io
@@ -76,7 +77,7 @@ export DATASET=fichier-des-personnes-decedees
 export STORAGE_BUCKET=${DATASET}
 export AWS=${APP_PATH}/aws
 
-export DATA_DIR ?= ${BACKEND_PATH}/data
+export DATA_DIR ?= $(if $(wildcard ${MONOREPO_ROOT}/packages/deces-backend),${MONOREPO_ROOT}/data,${BACKEND_PATH}/data)
 export COMMUNES_JSON=${DATA_DIR}/communes.json
 export DISPOSABLE_MAIL=${DATA_DIR}/disposable-mail.txt
 export DB_JSON=${DATA_DIR}/userDB.json
