@@ -32,7 +32,9 @@ export DATAGOUV_CONNECTOR = s3
 export STORAGE_BUCKET=${DATAGOUV_DATASET}
 export REPOSITORY_BUCKET=${DATAGOUV_DATASET}-elasticsearch
 export DATA_DIR=${PWD}/data
-export BACKUP_DIR = ${PWD}/${GIT_BACKEND}/backup
+export DATAPREP_BACKEND_PATH=${APP_PATH}/${GIT_BACKEND}
+export DATAPREP_FRONTEND_PATH=${APP_PATH}/${GIT_FRONTEND}
+export BACKUP_DIR = ${DATAPREP_BACKEND_PATH}/backup
 export DATA_TAG=${PWD}/data-tag
 export BACKUP_METHOD=repository
 export BACKUP_CHECK=${PWD}/backup-check
@@ -62,44 +64,50 @@ export SCW_VOLUME_SIZE=50000000000
 export SCW_IMAGE_ID=8e7f9833-9787-4488-aea7-819183132acc
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
 export MONOREPO_ROOT=${APP_PATH}/../..
-export FRONTEND_PATH=${APP_PATH}/${GIT_FRONTEND}
+export FRONTEND_PATH=${DATAPREP_FRONTEND_PATH}
 
 dummy               := $(shell touch artifacts)
 include ./artifacts
 
-config: ${GIT_BACKEND}
+dataprep-backend-check:
+	@if [ ! -d "${DATAPREP_BACKEND_PATH}" ]; then\
+		echo "missing dataprep backend at ${DATAPREP_BACKEND_PATH}";\
+		exit 1;\
+	fi
+
+dataprep-frontend-check:
+	@if [ ! -d "${DATAPREP_FRONTEND_PATH}" ]; then\
+		echo "missing dataprep frontend at ${DATAPREP_FRONTEND_PATH}";\
+		exit 1;\
+	fi
+
+config: dataprep-backend-check
 	@echo checking system prerequisites
-	@if [ -d "${MONOREPO_TOOLS_PATH}" ]; then\
-		${MAKE} -C ${MONOREPO_TOOLS_PATH} config ${MAKEOVERRIDES};\
-		cp artifacts ${GIT_BACKEND}/${GIT_TOOLS}/;\
-		touch ${GIT_BACKEND}/config;\
-	else\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} config ${MAKEOVERRIDES};\
-	fi && echo "prerequisites installed" > config
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} config ${MAKEOVERRIDES};\
+	cp artifacts ${DATAPREP_BACKEND_PATH}/artifacts;\
+	cp docker-compose-local.yml ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml;\
+	touch ${DATAPREP_BACKEND_PATH}/config;\
+	echo "prerequisites installed" > config
 
 monorepo-elasticsearch:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
 		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-local ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
 	fi
 
 monorepo-elasticsearch-stop:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
 		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-stop ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-stop ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
-frontend-config:
-	@if [ ! -d "${FRONTEND_PATH}" ]; then\
-		${GIT} clone -q ${GITROOT}/${GIT_FRONTEND} ${FRONTEND_PATH};\
-		cd ${FRONTEND_PATH} && ${GIT} checkout "${GIT_FRONTEND_BRANCH}";\
-	fi
+frontend-config: dataprep-frontend-check
 	@ln -sfn ${MONOREPO_TOOLS_PATH} ${FRONTEND_PATH}/${GIT_TOOLS}
 
 datagouv-to-storage: config
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} datagouv-to-storage \
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} datagouv-to-storage \
 		DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
 		FILES_PATTERN='${FILES_TO_SYNC}' FILES_PATTERN_FORCE='${FILES_TO_SYNC_FORCE}' &&\
 	touch datagouv-to-storage
@@ -108,13 +116,13 @@ datagouv-to-s3: datagouv-to-storage
 	touch datagouv-to-s3
 
 datagouv-to-upload:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} datagouv-get-files \
-		DATAGOUV_DATASET=${DATAGOUV_DATASET} DATA_DIR=${APP_PATH}/${GIT_BACKEND}/upload\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} datagouv-get-files \
+		DATAGOUV_DATASET=${DATAGOUV_DATASET} DATA_DIR=${DATAPREP_BACKEND_PATH}/upload\
 		FILES_PATTERN='${FILES_TO_SYNC}' FILES_PATTERN_FORCE='${FILES_TO_SYNC_FORCE}' &&\
 	touch datagouv-to-upload
 
 ${DATA_TAG}: config
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} catalog-tag CATALOG_TAG=${DATA_TAG}\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} catalog-tag CATALOG_TAG=${DATA_TAG}\
 		DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
 		FILES_PATTERN='${FILES_TO_PROCESS}' > /dev/null 2>&1
 
@@ -124,7 +132,7 @@ dataprep-version:
 	@echo ${DATAPREP_VERSION}
 
 ${BACKUP_CHECK}: data-tag
-	${MAKE} -s -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} get-catalog CATALOG=${BACKUP_CHECK}\
+	${MAKE} -s -C ${MONOREPO_TOOLS_PATH} get-catalog CATALOG=${BACKUP_CHECK}\
 		DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
 		FILES_PATTERN=esdata_${DATAPREP_VERSION}_$$(cat ${PWD}/data-tag).tar &&\
 	if [ -s "${BACKUP_CHECK}" ]; then\
@@ -137,13 +145,13 @@ ${BACKUP_CHECK}: data-tag
 backup-check: ${BACKUP_CHECK}
 
 repository-config: config
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-repository-config\
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-config\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		${MAKEOVERRIDES} && touch repository-config
 
 ${REPOSITORY_CHECK}: repository-config data-tag
 	@ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-repository-check\
+	${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-check\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		${MAKEOVERRIDES} ES_BACKUP_NAME=$${ES_BACKUP_NAME} \
 		| egrep -q "^snapshot found"\
@@ -159,50 +167,38 @@ check-upload:
 	@touch check-upload
 
 backup-pull: data-tag
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} storage-pull\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} storage-pull\
 		STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		FILE=esdata_${DATAPREP_VERSION}_$$(cat data.tag).tar &&\
 	touch backup-pull
 
-${GIT_BACKEND}:
-	@echo configuring matchID
-	@${GIT} clone -q ${GITROOT}/${GIT_BACKEND}
-	@cp artifacts ${GIT_BACKEND}/artifacts
-	@cp docker-compose-local.yml ${GIT_BACKEND}/docker-compose-local.yml
-	@echo "export ES_NODES=${ES_NODES}" >> ${GIT_BACKEND}/artifacts
-	@echo "export PROJECTS=${PWD}/projects" >> ${GIT_BACKEND}/artifacts
-	@echo "export STORAGE_BUCKET=${STORAGE_BUCKET}" >> ${GIT_BACKEND}/artifacts
-	@sed -i -E "s/export API_SECRET_KEY:=(.*)/export API_SECRET_KEY:=1234/"  backend/Makefile
-	@sed -i -E "s/export ADMIN_PASSWORD:=(.*)/export ADMIN_PASSWORD:=1234ABC/"  backend/Makefile
-	@sed -i -E "s/id(.*):=(.*)/id:=myid/"  backend/Makefile
-
 dev: config monorepo-elasticsearch frontend-config
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend ${MAKEOVERRIDES} &&\
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} backend ${MAKEOVERRIDES} &&\
 	${MAKE} -C ${FRONTEND_PATH} frontend-dev GIT_BRANCH=${GIT_FRONTEND_BRANCH} NPM_AUDIT_IGNORE=true ${MAKEOVERRIDES} &&\
 		echo matchID started, go to http://localhost:8081
 
 dev-stop:
 	@if [ -f config ]; then\
 		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend-stop ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-stop ${MAKEOVERRIDES};\
 		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
 up:
 	@unset APP;unset APP_VERSION;\
 	${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES};\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend ${MAKEOVERRIDES} && echo matchID backend services started
+	${MAKE} -C ${DATAPREP_BACKEND_PATH} backend ${MAKEOVERRIDES} && echo matchID backend services started
 
 recipe-run: data-tag monorepo-elasticsearch
 	@if [ ! -f recipe-run ];then\
 		echo running recipe on data FILES_TO_PROCESS="${FILES_TO_PROCESS}" $$(cat ${DATA_TAG}), dataprep ${DATAPREP_VERSION};\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} version;\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} recipe-run \
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} version;\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} recipe-run \
 			CHUNK_SIZE=${CHUNK_SIZE} RECIPE=${RECIPE} RECIPE_THREADS=${RECIPE_THREADS} RECIPE_QUEUE=${RECIPE_QUEUE} \
 			ES_PRELOAD='${ES_PRELOAD}' ES_THREADS=${ES_THREADS} \
 			STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			${MAKEOVERRIDES} \
-			APP=backend APP_VERSION=$(shell cd ${APP_PATH}/${GIT_BACKEND} && make version | awk '{print $$NF}') \
+			APP=backend APP_VERSION=$(shell cd ${DATAPREP_BACKEND_PATH} && make version | awk '{print $$NF}') \
 			&&\
 		touch recipe-run s3-pull &&\
 		(echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar > elasticsearch-restore);\
@@ -220,10 +216,10 @@ full: full-check recipe-run
 
 
 backend-clean-logs:
-	rm -f ${PWD}/${GIT_BACKEND}/log/*${RECIPE}*log
+	rm -f ${DATAPREP_BACKEND_PATH}/log/*${RECIPE}*log
 
 watch-run:
-	@LOG_FILE=$(shell find ${GIT_BACKEND}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
+	@LOG_FILE=$(shell find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
 	timeout=${TIMEOUT} ; ret=1 ; \
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do \
 			((tail $$LOG_FILE | grep "end of all" > /dev/null) || exit 1) ; \
@@ -233,19 +229,19 @@ watch-run:
 				grep -i Ooops $$LOG_FILE | wc -l | awk '($$1>${ERR_MAX}){exit 1}' || exit 0;\
 				sleep 10 ;\
 			fi ; ((timeout--)); done ;
-	@LOG_FILE=$(shell find ${GIT_BACKEND}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
+	@LOG_FILE=$(shell find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
 	((egrep -i 'end : run|Ooops' $$LOG_FILE | tail -5) && exit 1) || \
 	egrep 'end : run.*successfully' $$LOG_FILE
 
 backup-restore: backup-pull
 	@if [ ! -f "elasticsearch-restore" ];then\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-restore ES_BACKUP_FILE=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar \
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-restore ES_BACKUP_FILE=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar \
 			&& (echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar > elasticsearch-restore);\
 	fi
 
 repository-restore: repository-check
 	@if [ ! -f "elasticsearch-restore" ];then\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-repository-restore\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-restore\
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG})\
 			&& (echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}) > elasticsearch-restore);\
@@ -261,7 +257,7 @@ backup: data-tag
 		ES_BACKUP_FILE=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar;\
 		ES_BACKUP_FILE_SNAR=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).snar;\
 		if [ ! -f "${BACKUP_DIR}/$$ES_BACKUP_FILE" ];then\
-			${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-backup \
+			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-backup \
 				ES_BACKUP_FILE=$$ES_BACKUP_FILE\
 				ES_BACKUP_FILE_SNAR=$$ES_BACKUP_FILE_SNAR;\
 		fi;\
@@ -271,7 +267,7 @@ backup: data-tag
 backup-push: data-tag backup
 	@if [ ! -f backup-push ];then\
 		ES_BACKUP_FILE_ROOT=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-storage-push\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-storage-push\
 			STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_BACKUP_FILE=$$ES_BACKUP_FILE_ROOT.tar\
 			ES_BACKUP_FILE_SNAR=$$ES_BACKUP_FILE_ROOT.snar &&\
@@ -282,34 +278,36 @@ backup-push: data-tag backup
 
 repository-push: data-tag
 	@if [ ! -f repository-push ];then\
-		${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-repository-backup\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup\
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}) && touch repository-push;\
 		fi
 
 repository-backup-tmp: data-tag
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-repository-backup-async\
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup-async\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_tmp_${DATAPREP_VERSION}_$$(cat ${DATA_TAG})
 
 respository-cleanse:
-	@(${MAKE} -C ${APP_PATH}/${GIT_BACKEND} elasticsearch-repository-delete\
+	@(${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-delete\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_tmp_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}) > /dev/null 2>&1) || exit 0
 
 down:
 	@if [ -f config ]; then\
-		(${MAKE} -C ${APP_PATH}/${GIT_BACKEND} backend-stop elasticsearch-stop frontend-stop || true);\
+		(${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-stop elasticsearch-stop frontend-stop || true);\
 	fi
 
 clean: down
-	@sudo rm -rf ${GIT_BACKEND} frontend ${DATA_DIR} data-tag config \
+	@rm -rf ${DATA_DIR} data-tag config \
 		recipe-run backup-check datagouv-to-* check-* elasticsearch-restore watch-run full\
-		backup backup-pull backup-push repository-push repository-config repository-check no-remote
+		backup backup-pull backup-push repository-push repository-config repository-check no-remote \
+		${DATAPREP_BACKEND_PATH}/config ${DATAPREP_BACKEND_PATH}/artifacts ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml \
+		${DATAPREP_FRONTEND_PATH}/artifacts
 
 # launch all locally
 # configure
-all-step0: ${GIT_BACKEND} config
+all-step0: config
 
 # first step should be 1h30 to 10 hours if not already runned (can't be travis-ed)
 all-step1: full
@@ -323,20 +321,20 @@ all: all-step0 all-step1 watch-run all-step2
 # launch remote
 
 remote-config: config data-tag
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-config\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-config\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION}\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
         SCW_IMAGE_ID=${SCW_IMAGE_ID} SCW_FLAVOR=${SCW_FLAVOR} SCW_VOLUME_SIZE=${SCW_VOLUME_SIZE} SCW_VOLUME_TYPE=${SCW_VOLUME_TYPE} \
 		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}
 
 remote-deploy:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-deploy\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-deploy\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		${MAKEOVERRIDES}
 
 remote-step1:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-actions\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		ACTIONS="all-step1"\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
@@ -344,23 +342,23 @@ remote-step1:
 		BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
 
 remote-watch:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-actions\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		ACTIONS="watch-run"\
 		${MAKEOVERRIDES}
 
 remote-step2:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-actions\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		ACTIONS="all-step2"\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
 
 remote-clean:
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-clean\
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-clean\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		${MAKEOVERRIDES}
-	@rm ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS}/configured/*.deployed > /dev/null 2>&1
+	@rm ${MONOREPO_TOOLS_PATH}/configured/*.deployed > /dev/null 2>&1
 
 remote-all:
 	@if [ ! -f "no-remote" ];then\
@@ -370,23 +368,23 @@ remote-all:
 
 # optimize delays
 remote-docker-pull-base: config remote-config remote-deploy
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-docker-pull DOCKER_IMAGE=python:3.9-slim-bullseye
-	@${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=python:3.9-slim-bullseye
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
 
 update-base-image: config remote-config remote-deploy remote-docker-pull-base
 	@\
-	APP_VERSION=$$(cd ${APP_PATH}/${GIT_BACKEND} && make version | awk '{print $$NF}');\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-cmd REMOTE_CMD="sudo apt upgrade -y"; \
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-cmd REMOTE_CMD="sync"; \
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	APP_VERSION=$$(cd ${DATAPREP_BACKEND_PATH} && make version | awk '{print $$NF}');\
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sudo apt upgrade -y"; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
 	sleep 5;\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} SCW-instance-snapshot \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=$${APP_VERSION} CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION}\
 		CLOUD_APP=deces-dataprep;\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} SCW-instance-image \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-image \
 		CLOUD_APP=deces-dataprep;\
-	SCW_IMAGE_ID=$$(cat ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS}/cloud/SCW.image.id)/;\
+	SCW_IMAGE_ID=$$(cat ${MONOREPO_TOOLS_PATH}/cloud/SCW.image.id)/;\
 	cat ${APP_PATH}/Makefile | sed "s/^export SCW_IMAGE_ID=.*/export SCW_IMAGE_ID=$${SCW_IMAGE_ID}" \
 		> ${APP_PATH}/Makefile.tmp && mv ${APP_PATH}/Makefile.tmp ${APP_PATH}/Makefile;\
-	${MAKE} -C ${APP_PATH}/${GIT_BACKEND}/${GIT_TOOLS} remote-clean;\
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-clean;\
 	git add Makefile && git commit -m '⬆️  update SCW_IMAGE_ID'
