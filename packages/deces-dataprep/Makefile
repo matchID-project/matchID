@@ -296,12 +296,14 @@ respository-cleanse:
 
 down:
 	@if [ -f config ]; then\
-		(${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-stop elasticsearch-stop frontend-stop || true);\
+		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} ${MAKEOVERRIDES};\
+		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
 clean: down
 	@rm -rf ${DATA_DIR} data-tag config \
-		recipe-run backup-check datagouv-to-* check-* elasticsearch-restore watch-run full\
+		recipe-run s3-pull backup-check datagouv-to-* check-* elasticsearch-restore watch-run full\
 		backup backup-pull backup-push repository-push repository-config repository-check no-remote \
 		${DATAPREP_BACKEND_PATH}/config ${DATAPREP_BACKEND_PATH}/artifacts ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml \
 		${DATAPREP_FRONTEND_PATH}/artifacts

@@ -47,6 +47,8 @@ export STATS = ${FRONTEND_PATH}/stats/public
 # Backend configuration variables are now defined in packages/deces-backend/Makefile
 # SMTP configuration variables are now defined in packages/deces-backend/Makefile
 export API_TIMEOUT = 45
+export MAILDEV_UI_PORT ?= 37343
+export BACKEND_TIMEOUT ?= 180
 
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
@@ -190,9 +192,21 @@ network: config
 
 # Frontend targets are now defined in packages/deces-ui/Makefile
 
-dev: network frontend-stop elasticsearch backend-dev frontend-dev
+dev: network frontend-stop elasticsearch-local backend-dev frontend-dev
 
 dev-stop: frontend-dev-stop backend-dev-stop smtp-stop redis-stop elasticsearch-stop
+
+dataprep-dev:
+	@${MAKE} -C ${DATAPREP_PATH} dev ${MAKEOVERRIDES}
+
+dataprep-dev-stop:
+	@${MAKE} -C ${DATAPREP_PATH} dev-stop ${MAKEOVERRIDES}
+
+dataprep-run:
+	@${MAKE} -C ${DATAPREP_PATH} recipe-run ${MAKEOVERRIDES}
+
+dataprep-data-tag:
+	@${MAKE} -C ${DATAPREP_PATH} data-tag ${MAKEOVERRIDES}
 
 build: clean-frontend frontend-build nginx-build
 

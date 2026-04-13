@@ -215,7 +215,7 @@ backend-dev: ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${DB_JSON} ${
 		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml up --build -d --force-recreate 2>&1 | grep -v orphan
 	@timeout=${BACKEND_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			(curl --noproxy '*' -s --fail -X GET "http://localhost:${BACKEND_PORT}/deces/api/v1/search?deathDate=2020&firstName=Harry" > /dev/null) ;\
+			(curl --noproxy '*' -s --fail -X GET "http://localhost:${BACKEND_PORT}/deces/api/v1/version" > /dev/null) ;\
 			ret=$$? ;\
 			if [ "$$ret" -ne "0" ] ; then\
 				echo -e "try still $$timeout seconds to start backend-dev before timeout" ;\
