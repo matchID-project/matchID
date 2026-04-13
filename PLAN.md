@@ -118,7 +118,7 @@
     - [x] Gate: tu valides que le lot 3 est termine et qu'on peut ouvrir le lot 4
 
 - [ ] Lot 4 - Runtime monorepo stabilise
-  - [ ] Exec
+  - [x] Exec
     - [x] Verifier que `packages/dataprep-backend` reste aligne sur `matchID-project/backend:dev`
     - [x] Verifier que `packages/dataprep-frontend` reste aligne sur `matchID-project/frontend:dev`
     - [x] Corriger la dependance racine a `tagfiles.version`
@@ -133,14 +133,14 @@
     - [x] Stabiliser la source de verite de `.data.sha1`
     - [x] Stabiliser la source de verite de `.dataprep.sha1`
     - [x] Traiter en commit separe l'harmonisation du moteur regex shell/Python autour de `FILES_TO_PROCESS` en forme POSIX-compatible (`[0-9]` plutot que `\d`) si l'ecart reste utile a corriger
-    - [ ] Deplacer Redis de `deces-backend` vers `deces-infra`
-    - [ ] Deplacer SMTP de `deces-backend` vers `deces-infra`
-    - [ ] Clarifier la responsabilite des snapshots et restores entre `deces-infra`, `deces-dataprep` et `tools`
-  - [ ] Tests
-    - [ ] Valider le fonctionnement local cible de `packages/dataprep-backend`
-    - [ ] Valider le fonctionnement local cible de `packages/dataprep-frontend`
-    - [ ] Valider que chaque package peut etre execute sans dependance implicite a un clone externe
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 4
+    - [x] Deplacer Redis de `deces-backend` vers `deces-infra`
+    - [x] Deplacer SMTP de `deces-backend` vers `deces-infra`
+    - [x] Clarifier la responsabilite des snapshots et restores entre `deces-infra`, `deces-dataprep` et `tools`
+  - [x] Tests
+    - [x] Valider le fonctionnement local cible de `packages/dataprep-backend`
+    - [x] Valider le fonctionnement local cible de `packages/dataprep-frontend`
+    - [x] Valider que chaque package peut etre execute sans dependance implicite a un clone externe
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 4
   - [ ] UAT
     - [ ] Gate: je te presente le runtime cible du monorepo, les contrats retenus et les preuves de test de non-regression structurelle
     - [ ] Gate: tu valides que le lot 4 est termine et qu'on peut ouvrir le lot 5

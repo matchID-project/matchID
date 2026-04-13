@@ -25,16 +25,30 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
    - la référence d'exécution du service décès est la racine du monorepo
    - les commandes package-level restent des aides locales et non le contrat principal de déploiement
 2. Ownership de l'infra:
-   - `deces-infra` porte Elasticsearch, Redis, SMTP et les opérations de repository/snapshot Elasticsearch
+   - `deces-infra` porte Elasticsearch, Redis, SMTP et les operations de repository/snapshot Elasticsearch
 3. Ownership des opérations cloud:
-   - `tools` reste central pour le stockage, le catalogue, les opérations cloud et `deploy-remote`
+   - `tools` reste central pour le stockage, le catalogue, les operations cloud et `deploy-remote`
 4. Ownership des données:
-   - emplacement unique des fichiers versionnés et des états `.data.sha1` / `.dataprep.sha1` à la racine
+   - emplacement unique des fichiers versionnes et des etats `.data.sha1` / `.dataprep.sha1` a la racine
+   - `deces-dataprep` porte la decision de versionner, produire et publier le snapshot `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
 5. Configuration hors git:
    - les secrets restent hors git via `artifacts` racine et `packages/tools/artifacts.*`
 6. Politique de configuration locale:
    - les cibles de configuration locale n'appellent `sudo` que lorsqu'un prérequis système manque réellement
    - une configuration déjà satisfaite ne doit pas muter `/etc/environment` ni la configuration systemd Docker
+
+## Repartition des responsabilites runtime
+
+- `deces-infra`:
+  - porte les services locaux mutualises `elasticsearch`, `redis` et `smtp`
+  - porte les operations Elasticsearch de creation de repository, verification et restauration de snapshots
+- `deces-dataprep`:
+  - porte le calcul de `DATAPREP_VERSION`
+  - porte le calcul de `DATA_VERSION` via la source canonique racine
+  - porte la decision de produire, verifier et publier le snapshot `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+- `tools`:
+  - porte les transports storage/cloud, le catalogue et le plumbing `deploy-remote`
+  - ne porte pas la semantique Elasticsearch de repository/snapshot
 
 ## Travaux
 
@@ -91,7 +105,6 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 
 - `deces-backend`:
   - variables d'API et de jobing `BACKEND_*`
-  - variables SMTP tant que SMTP n'est pas sorti vers `deces-infra`
 - `deces-ui`:
   - variables frontend/nginx `FRONTEND_*`, `NGINX_*`, `GOOGLE_*`, limites API exposées au reverse proxy
 - `deces-dataprep`:
@@ -130,6 +143,7 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 - `packages/deces-dataprep/Makefile` consomme désormais `packages/tools` pour le stockage, le catalogue et le remote
 - `packages/deces-dataprep/Makefile` pointe explicitement sur ses chemins backend/frontend internes au monorepo
 - `packages/deces-dataprep` réutilise les cibles Elasticsearch mutualisées exposées par la racine et `deces-infra`
+- Redis et SMTP sont maintenant portés par `deces-infra`; `packages/deces-backend` les consomme comme dépendances runtime externes
 - `.dataprep.sha1` est désormais recalculé depuis des dépendances explicites à la racine
 - `.data.sha1` est désormais recalculé explicitement à chaque `make data-version` pour éviter les états obsolètes
 - `packages/deces-dataprep` délègue `data-tag` à la racine et lit désormais la même source de vérité que `deploy-remote`
@@ -157,6 +171,36 @@ Commandes exécutées uniquement via `make`:
 - `make -C packages/deces-dataprep dev`
   - succès
   - démarre le backend et le frontend dataprep sans clone externe, avec `packages/tools` comme source commune
+- `MAILDEV_UI_PORT=37343 make backend-test-vitest`
+  - succes
+  - `deces-backend` consomme Redis et SMTP via `deces-infra`
+  - `9` fichiers et `164` tests passes lors de la validation lot 4
+- `MAILDEV_UI_PORT=37343 make backend-dev-test`
+  - succes
+  - smoke GET/POST vert avec le backend demarre sur l'infra mutualisee
+- `make dev-stop`
+  - succes
+  - la racine stoppe maintenant aussi Redis et SMTP via `deces-infra`
+- `make -C packages/dataprep-backend elasticsearch TOOLS_PATH=/home/antoinefa/src/matchID/matchID/packages/tools FRONTEND=/home/antoinefa/src/matchID/matchID/packages/dataprep-frontend vm_max_count=true ES_NODES=1 ES_DATA=/tmp/matchid-dataprep-backend-es DC_NETWORK=matchid-dataprep-lot4`
+  - succes
+  - valide le demarrage package-level d'Elasticsearch sans clone externe
+- `make -C packages/dataprep-backend backend-dev TOOLS_PATH=/home/antoinefa/src/matchID/matchID/packages/tools FRONTEND=/home/antoinefa/src/matchID/matchID/packages/dataprep-frontend UPLOAD=/tmp/matchid-dataprep-backend-upload PROJECTS=/tmp/matchid-dataprep-backend-projects MODELS=/tmp/matchid-dataprep-backend-models ES_DATA=/tmp/matchid-dataprep-backend-es DC_NETWORK=matchid-dataprep-lot4`
+  - succes
+  - valide le run local cible de `packages/dataprep-backend` avec chemins monorepo explicites
+- `make -C packages/dataprep-frontend config TOOLS_PATH=/home/antoinefa/src/matchID/matchID/packages/tools`
+  - succes
+  - valide que `packages/dataprep-frontend` peut se configurer sans clone externe
+- `NPM_AUDIT_IGNORE=true make -C packages/dataprep-frontend frontend-dev DC_NETWORK=matchid-dataprep-lot4 DC_PREFIX=matchid-dp4 PORT=8082`
+  - succes
+  - valide le run local cible de `packages/dataprep-frontend` sans clone externe
+
+### Caveats de validation package-level
+
+- `make -C packages/dataprep-backend dev` n'est pas un gate fiable a ce stade:
+  - la cible historique masque encore des echecs internes avec des `|| echo ... failed`
+  - la validation lot 4 repose donc sur les cibles explicites `elasticsearch` puis `backend-dev`
+- `make -C packages/dataprep-frontend frontend-dev` peut entrer en collision avec un ancien prefixe de containers
+  - la validation lot 4 utilise donc un `DC_PREFIX` dedie pour eviter de patcher l'upstream
 
 ## Critères d'acceptation
 
