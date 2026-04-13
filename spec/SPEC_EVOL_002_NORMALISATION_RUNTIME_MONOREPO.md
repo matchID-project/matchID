@@ -57,6 +57,56 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 - variables infra communes
 - stratégie de surcharge locale hors git
 
+### Contrat retenu
+
+#### Variables portées par la racine
+
+- chemins inter-packages:
+  - `FRONTEND_PATH`
+  - `BACKEND_PATH`
+  - `TOOLS_PATH`
+  - `DATAPREP_PATH`
+  - `INFRA_PATH`
+- runtime monorepo commun:
+  - `DC`
+  - `DC_NETWORK`
+  - `MAKE`
+  - `USE_TTY`
+  - `PORT`
+  - `APP_DNS`
+  - `APP_URL`
+  - `API_SSL`
+- données et versions canoniques:
+  - `DATASET`
+  - `DATA_DIR`
+  - `FILES_TO_PROCESS`
+  - `DATAPREP_VERSION_FILE`
+  - `DATA_VERSION_FILE`
+- buckets et repository partagés:
+  - `STORAGE_BUCKET`
+  - `REPOSITORY_BUCKET`
+  - `REPOSITORY_BUCKET_DEV`
+
+#### Variables portées par les packages
+
+- `deces-backend`:
+  - variables d'API et de jobing `BACKEND_*`
+  - variables SMTP tant que SMTP n'est pas sorti vers `deces-infra`
+- `deces-ui`:
+  - variables frontend/nginx `FRONTEND_*`, `NGINX_*`, `GOOGLE_*`, limites API exposées au reverse proxy
+- `deces-dataprep`:
+  - variables de recette et de backup `RECIPE_*`, `CHUNK_SIZE`, `BACKUP_METHOD`
+  - chemins internes explicites `DATAPREP_BACKEND_PATH`, `DATAPREP_FRONTEND_PATH`
+- `deces-infra`:
+  - variables Elasticsearch `ES_*`
+  - variables d'infra mutualisées appelées depuis la racine
+
+#### Règles
+
+- un package ne doit pas redéfinir un chemin inter-package canonique de la racine vers un clone externe
+- les secrets restent hors git via `artifacts` racine et `packages/tools/artifacts.*`
+- une variable de package peut surcharger un défaut local, mais pas déplacer la source de vérité hors du monorepo
+
 ### D. Stabiliser les fichiers d'état et de version
 
 - décider du rôle de `tagfiles.version` à la racine

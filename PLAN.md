@@ -127,9 +127,9 @@
     - [x] Remplacer dans `packages/deces-dataprep` les chemins `backend/*` par des chemins monorepo explicites
     - [x] Mutualiser explicitement `network`, `vm_max`, `elasticsearch-start`, `elasticsearch-check` et `elasticsearch-stop` entre la racine et `deces-infra`
     - [x] Faire consommer a `packages/deces-dataprep` les cibles Elasticsearch mutualisees au lieu du backend clone quand le monorepo fournit deja l'infra cible
-    - [ ] Retirer ou neutraliser le doublon `packages/deces-backend/tools`
-    - [ ] Definir le contrat des variables exportees par la racine
-    - [ ] Definir le contrat des variables propres aux packages
+    - [x] Retirer ou neutraliser le doublon `packages/deces-backend/tools`
+    - [x] Definir le contrat des variables exportees par la racine
+    - [x] Definir le contrat des variables propres aux packages
     - [x] Stabiliser la source de verite de `.data.sha1`
     - [x] Stabiliser la source de verite de `.dataprep.sha1`
     - [x] Traiter en commit separe l'harmonisation du moteur regex shell/Python autour de `FILES_TO_PROCESS` en forme POSIX-compatible (`[0-9]` plutot que `\d`) si l'ecart reste utile a corriger
