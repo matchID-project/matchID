@@ -169,8 +169,8 @@
     - [x] Rejouer une indexation de reference avec le `deces-dataprep` original et avec le `deces-dataprep` monorepo via des cibles `make`
     - [x] Valider l'egalite exacte du nombre de documents indexes entre les deux runs de reference
     - [x] Valider l'egalite de 1000 documents echantillonnes de maniere deterministe entre les deux runs de reference
-    - [ ] Valider la compatibilite dataprep -> index -> backend -> ui
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 5
+    - [x] Valider la compatibilite dataprep -> index -> backend -> ui
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 5
   - [ ] UAT
     - [ ] Gate: je te presente la procedure dev canonique, la source canonique de l'image `backend` pour `deces-dataprep`, la preuve de parite d'indexation et les preuves de fonctionnement bout en bout en local
     - [ ] Gate: tu valides que la chaine dev complete est acceptable et qu'on peut ouvrir le lot 6

@@ -86,7 +86,7 @@ La source `backend` observée au lot 5 est maintenant clarifiée ainsi:
 - candidat monorepo: image locale issue de [packages/dataprep-backend](/home/antoinefa/src/matchID/matchID/packages/dataprep-backend), version `0.4.0-4fe0da`, utilisée via `make -C packages/deces-dataprep parity-run-monorepo`
 - cible de déploiement visée: artefact `image backend` versionné produit depuis `packages/dataprep-backend`
 
-La source canonique de déploiement reste donc le backend du monorepo, mais le gate de parité avec la référence historique n'est pas encore validé.
+La source canonique de déploiement reste donc le backend du monorepo.
 
 Le bootstrap racine `make dev` ne restaure plus implicitement de snapshot. Il démarre maintenant la stack locale sur `elasticsearch-local`. La restauration de snapshot devient une procédure explicite distincte, ce qui rend la sémantique du lot 5 cohérente:
 
@@ -94,9 +94,7 @@ Le bootstrap racine `make dev` ne restaure plus implicitement de snapshot. Il d�
 - scénario `avec snapshot`: `make elasticsearch-restore` puis `make dev`
 - scénario `avec dataprep`: `make dataprep-run` puis `make dev`
 
-Point restant ouvert:
-
-- démontrer que l'indexation produite par le `deces-dataprep` monorepo reste sémantiquement identique au comportement de référence sur un jeu de données de test
+Au 13 avril 2026, le point restant ouvert du lot 5 n'est plus la parité d'indexation, mais uniquement la présentation des preuves d'exécution locales en UAT.
 
 ## Résultat du test de parité au 13 avril 2026
 
@@ -141,10 +139,12 @@ Le protocole cible est le suivant:
 
 - `make dataprep-data-tag`
 - `make dataprep-dev`
-- `make dataprep-run`
+- `make dataprep-run FILES_TO_PROCESS=deces-2020-m01.txt.gz`
 - `make dev`
 - `make -C packages/deces-dataprep parity-run-original`
 - `make -C packages/deces-dataprep parity-run-monorepo`
+- `MAILDEV_UI_PORT=37343 make backend-dev-test`
+- `MAILDEV_UI_PORT=37343 make frontend-test`
 
 Ces preuves couvrent déjà:
 
@@ -157,6 +157,32 @@ Ces preuves couvrent déjà:
 - la récupération de `disposable-mail`
 - la récupération des sources Data.gouv
 - l'exécution effective du protocole de parité d'indexation
+- la chaîne complète `dataprep -> index -> backend -> ui` sur le jeu de référence `deces-2020-m01.txt.gz`
+
+## Résultat bout-en-bout au 13 avril 2026
+
+Le scénario de référence a été rejoué via `make` uniquement dans cet ordre:
+
+1. `make dataprep-run FILES_TO_PROCESS=deces-2020-m01.txt.gz`
+2. `make dev`
+3. `MAILDEV_UI_PORT=37343 make backend-dev-test`
+4. `MAILDEV_UI_PORT=37343 make frontend-test`
+
+Résultats observés:
+
+- le dataprep de référence se termine avec `60584 lines processed` et `60557 lines written`
+- l'API locale remonte ensuite `uniqRecordsCount = 60557`, `lastDataset = 2020-m01`, `lastRecordDate = 30/01/2020`
+- `make backend-dev-test` passe
+- `make frontend-test` passe avec `3` tests réussis sur `3`
+- le scénario UI couvre:
+  - recherche simple
+  - recherche avancée avec `fuzzy=false`
+  - appariement Wikidata jusqu'au résultat attendu `Costes`
+
+Le durcissement nécessaire pour rendre ce scénario stable en `dev` a consisté à:
+
+- rendre les appels UI `register`, `auth`, `search/csv` et le poll du job tolérants à des `502/503/504` transitoires en environnement local
+- rendre le test Wikidata déterministe en utilisant un email unique par run et l'API MailDev, au lieu du scraping de l'interface MailDev
 
 ## Critères d'acceptation
 
