@@ -192,13 +192,13 @@ network: config
 
 dev: network frontend-stop elasticsearch backend-dev frontend-dev
 
-dev-stop: frontend-dev-stop backend-dev-stop elasticsearch-stop smtp-stop
+dev-stop: frontend-dev-stop backend-dev-stop smtp-stop redis-stop elasticsearch-stop
 
 build: clean-frontend frontend-build nginx-build
 
 # Frontend and nginx targets are now defined in packages/deces-ui/Makefile
 
-stop: frontend-stop backend-stop elasticsearch-stop
+stop: frontend-stop backend-stop smtp-stop redis-stop elasticsearch-stop
 	@echo all components stopped
 
 start: elasticsearch backend frontend

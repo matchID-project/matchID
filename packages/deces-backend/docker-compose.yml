@@ -63,18 +63,6 @@ services:
       - ${PROOFS}:/${DATA_DIR}/proofs
       - ${JOBS}:/${DATA_DIR}/jobs
     restart: always
-    depends_on:
-      - "redis"
-  redis:
-    image: redis:alpine
-    container_name: ${APP}-redis
-    volumes:
-      - ${REDIS_DATA}:/data
-    healthcheck:
-      test: ["CMD-SHELL", "(redis-cli --raw incr ping) && (redis-cli ping | grep -q PONG)"]
-      interval: 1m
-      timeout: 10s
-      retries: 3
 
 
 networks:

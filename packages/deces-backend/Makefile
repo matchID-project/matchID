@@ -1,9 +1,11 @@
 SHELL := /bin/bash
 
 export APP = deces-backend
+export APP_BACKEND ?= ${APP}
 export APP_GROUP = matchID
 export APP_PATH ?= $(shell pwd)
 export BACKEND_PATH ?= ${APP_PATH}
+export INFRA_PATH ?= $(abspath ${BACKEND_PATH}/../deces-infra)
 # Canonical tools live in the sibling monorepo package, not in a local backend/tools clone.
 export TOOLS_PATH ?= $(abspath ${BACKEND_PATH}/../tools)
 export APP_DNS?=deces.matchid.io
@@ -19,7 +21,6 @@ export DC_FILE=${BACKEND_PATH}/docker-compose
 export DC_BACKEND=${DC} -f $(DC_FILE).yml
 export DC_PREFIX := $(shell echo ${APP_BACKEND} | tr '[:upper:]' '[:lower:]' | tr '_' '-')
 export DC_NETWORK := $(shell echo ${APP_BACKEND} | tr '[:upper:]' '[:lower:]')
-export DC_SMTP=${DC} -f ${BACKEND_PATH}/docker-compose-smtp.yml
 
 # elasticsearch defaut configuration
 export API_PATH = deces
@@ -141,7 +142,7 @@ backend-build-image: ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${DB_
 backend-build-all: network backend-build-image
 
 # production mode
-backend-start:
+backend-start: backend-redis backend-smtp
 	@echo docker-compose up backend for production ${VERSION}
 	@export EXEC_ENV=production; ${DC_BACKEND} up -d 2>&1 | grep -v orphan
 	@timeout=${BACKEND_TIMEOUT} ; ret=1 ;\
@@ -166,13 +167,12 @@ backend-test:
 db-json-fake:
 	echo '{"user1@gmail.com": "7cd61af92058569476e9d91fea601ba85fa02258b6263cfa188c15957f4752f3"}' > ${DB_JSON}
 
-backend-test-reset: ${JOBS}
+backend-test-reset: backend-redis ${JOBS}
 	@find ${JOBS} -type f -name '*.enc' -delete
 	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml stop backend > /dev/null 2>&1 || true
-	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml up -d redis > /dev/null
 	@docker exec -i ${USE_TTY} ${APP}-redis redis-cli FLUSHALL > /dev/null
 
-backend-test-vitest: db-json-fake smtp backend-test-reset ${BACKEND_PATH}/tests/clients_test.csv
+backend-test-vitest: db-json-fake backend-smtp backend-test-reset ${BACKEND_PATH}/tests/clients_test.csv
 	@echo Testing API with vitest tests
 	@if [ ! -f "${BACKEND_PATH}/src/routes/routes.ts" ]; then export EXEC_ENV=development; \
 		export BACKEND_LOG_LEVEL=error; \
@@ -209,7 +209,7 @@ backend-perf-clinic-stop:
 	@ls -R ${BACKEND_PATH}/clinic
 
 # development mode
-backend-dev: ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${DB_JSON} ${PROOFS} ${JOBS} smtp
+backend-dev: ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${DB_JSON} ${PROOFS} ${JOBS} backend-redis backend-smtp
 	@echo docker-compose up backend for dev
 	@export EXEC_ENV=development;\
 		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml up --build -d --force-recreate 2>&1 | grep -v orphan
@@ -348,8 +348,14 @@ ${DB_JSON}:
 
 db-json: ${DB_JSON}
 
-smtp:
-	${DC_SMTP} up -d
+backend-redis:
+	@${MAKE} -C ${INFRA_PATH} redis
 
-smtp-stop:
-	${DC_SMTP} down
+backend-redis-stop:
+	@${MAKE} -C ${INFRA_PATH} redis-stop
+
+backend-smtp:
+	@${MAKE} -C ${INFRA_PATH} smtp
+
+backend-smtp-stop:
+	@${MAKE} -C ${INFRA_PATH} smtp-stop

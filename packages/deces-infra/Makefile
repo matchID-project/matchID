@@ -2,7 +2,11 @@
 # Infrastructure services management (elasticsearch, redis, etc.)
 
 # Infrastructure-specific variables
-# INFRA_PATH is defined in the main Makefile
+export INFRA_PATH ?= $(shell pwd)
+export DC ?= docker compose
+export DC_NETWORK ?= matchid
+export APP_BACKEND ?= deces-backend
+export DATA_DIR ?= $(abspath ${INFRA_PATH}/../../data)
 
 # Elasticsearch configuration variables
 export ES_HOST = elasticsearch
@@ -18,6 +22,8 @@ export ES_JAVA_OPTS=-Xms${ES_MEM} -Xmx${ES_MEM}
 export ES_VERSION = 8.6.1
 export ES_BACKUP_BASENAME := esdata
 export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
+export REDIS_DATA ?= ${DATA_DIR}/redisdata
+export MAILDEV_UI_PORT ?= 1080
 
 # Elasticsearch targets
 elasticsearch-stop:
@@ -73,7 +79,7 @@ elasticsearch-restore-async: elasticsearch-repository-config ${DATAPREP_VERSION_
 elasticsearch-clean: elasticsearch-stop
 	@rm -rf elasticsearch-repository-* ${ES_DATA} > /dev/null 2>&1 || true
 
-elasticsearch-start: network vm_max
+elasticsearch-start: infra-network vm_max
 	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
 	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod 2775 ${ES_DATA}/node1/. ; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. ; fi)
 	${DC} -f ${INFRA_PATH}/docker-compose-elasticsearch.yml up -d
@@ -92,3 +98,27 @@ elasticsearch-index-readiness:
 # Utility targets
 vm_max:
 	@sysctl vm.max_map_count | awk '($$NF >= 262144){print "ok"}' | grep -q 'ok' ||  sudo sysctl -w vm.max_map_count=262144
+
+infra-network:
+	@docker network create ${DC_NETWORK_OPT} ${DC_NETWORK} 2> /dev/null; true
+
+redis-stop:
+	@echo docker-compose down matchID redis
+	@if [ -f "${INFRA_PATH}/docker-compose-redis.yml" ]; then ${DC} -f ${INFRA_PATH}/docker-compose-redis.yml down;fi
+	@docker rm -f ${APP_BACKEND}-redis > /dev/null 2>&1 || true
+
+redis: infra-network
+	@echo docker-compose up matchID redis
+	@mkdir -p ${REDIS_DATA}
+	@docker rm -f ${APP_BACKEND}-redis > /dev/null 2>&1 || true
+	${DC} -f ${INFRA_PATH}/docker-compose-redis.yml up -d
+
+smtp-stop:
+	@echo docker-compose down matchID smtp
+	@if [ -f "${INFRA_PATH}/docker-compose-smtp.yml" ]; then ${DC} -f ${INFRA_PATH}/docker-compose-smtp.yml down;fi
+	@docker rm -f deces-smtp-fake > /dev/null 2>&1 || true
+
+smtp: infra-network
+	@echo docker-compose up matchID smtp
+	@docker rm -f deces-smtp-fake > /dev/null 2>&1 || true
+	${DC} -f ${INFRA_PATH}/docker-compose-smtp.yml up -d
