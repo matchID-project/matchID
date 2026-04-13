@@ -101,14 +101,12 @@ include ./artifacts
 export STORAGE_ACCESS_KEY_B64:=$(shell echo -n ${STORAGE_ACCESS_KEY} | openssl base64)
 export STORAGE_SECRET_KEY_B64:=$(shell echo -n ${STORAGE_SECRET_KEY} | openssl base64)
 
-export VERSION := $(shell cat tagfiles.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
-
 commit              := $(shell git describe --tags || cat VERSION )
 tag                 := $(shell git describe --tags | sed 's/-.*//')
 lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 
-export APP_VERSION :=  ${tag}-${VERSION}
+export APP_VERSION := $(shell git describe --tags)
 
 
 export DOCKER_USERNAME=matchid
