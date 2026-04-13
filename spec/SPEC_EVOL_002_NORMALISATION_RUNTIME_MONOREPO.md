@@ -70,6 +70,33 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 - mutualiser `network`, `vm_max`, `elasticsearch-start`, `elasticsearch-check` et `elasticsearch-stop` autour de la racine et de `deces-infra`
 - faire consommer à `deces-dataprep` les cibles Elasticsearch mutualisées quand l'infra monorepo couvre déjà le besoin
 
+## État courant lot 4
+
+- `packages/dataprep-backend` est aligné byte-à-byte avec `matchID-project/backend:dev` au 12 avril 2026
+- `packages/dataprep-frontend` est aligné avec `matchID-project/frontend:dev` au 12 avril 2026, à un seul écart monorepo près:
+  - `docker-compose-build.yml` expose en plus `DATA_DIR` comme build arg
+- la racine ne dépend plus de `tagfiles.version` pour calculer sa version; `make version` s'appuie désormais directement sur `git describe --tags`
+- `packages/deces-dataprep/Makefile` ne clone plus `backend` à l'exécution
+- `packages/deces-dataprep/Makefile` consomme désormais `packages/tools` pour le stockage, le catalogue et le remote
+- `packages/deces-dataprep/Makefile` pointe explicitement sur ses chemins backend/frontend internes au monorepo
+- `packages/deces-dataprep` réutilise les cibles Elasticsearch mutualisées exposées par la racine et `deces-infra`
+
+## Preuves de validation intermédiaire
+
+Commandes exécutées uniquement via `make`:
+
+- `make version`
+  - succès
+  - plus aucun bruit `tagfiles.version` à la racine
+- `make -C packages/deces-dataprep data-tag`
+  - succès
+- `make -C packages/deces-dataprep recipe-run`
+  - succès
+  - passe par `elasticsearch-local` via la racine quand `deces-infra` est présent
+- `make -C packages/deces-dataprep dev`
+  - succès
+  - démarre le backend et le frontend dataprep sans clone externe, avec `packages/tools` comme source commune
+
 ## Critères d'acceptation
 
 - aucun package ne clone un dépôt externe pour fonctionner en dev
