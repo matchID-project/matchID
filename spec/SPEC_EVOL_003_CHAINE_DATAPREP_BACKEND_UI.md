@@ -71,16 +71,57 @@ Obtenir un run bout-en-bout reproductible en développement.
   - égalité exacte du nombre de documents indexés
   - égalité d'un échantillon déterministe de 1000 documents normalisés
 
-## Point d'attention ouvert en entree de lot 5
+## Etat du lot 5 au 13 avril 2026
 
-Au 13 avril 2026, le chemin canonique `make -C packages/deces-dataprep dev` délègue encore au target `backend` de `packages/dataprep-backend`, qui vérifie d'abord la présence locale de l'image `matchid/matchid-backend:${APP_VERSION}` puis tente de la tirer du registre si elle n'est pas présente localement.
+Le contrat local est maintenant le suivant:
 
-Le chemin `backend-dev`, qui construit localement l'image depuis le monorepo, a bien été validé au lot 4, mais il n'est pas encore la dépendance canonique de `packages/deces-dataprep`.
+- bootstrap applicatif local depuis la racine: `make dev`
+- restore explicite d'un snapshot local: `make elasticsearch-restore`, puis `make dev`
+- bootstrap dataprep local depuis la racine: `make dataprep-dev`
+- run dataprep local depuis la racine: `make dataprep-run`
 
-Le lot 5 doit donc:
+La source canonique de `backend` pour `deces-dataprep` est désormais figée ainsi:
 
-- figer la source canonique de cette image `backend`
+- `dev`: build local du monorepo via `packages/dataprep-backend`, cible `backend-dev`
+- `test`: même source canonique que `dev`, via les cibles racine `make dataprep-dev` et `make dataprep-run`
+- `deploy`: artefact `image backend` versionné, consommé par la cible `backend` de `packages/dataprep-backend`
+
+Le bootstrap racine `make dev` ne restaure plus implicitement de snapshot. Il démarre maintenant la stack locale sur `elasticsearch-local`. La restauration de snapshot devient une procédure explicite distincte, ce qui rend la sémantique du lot 5 cohérente:
+
+- scénario `bootstrap local`: `make dev`
+- scénario `avec snapshot`: `make elasticsearch-restore` puis `make dev`
+- scénario `avec dataprep`: `make dataprep-run` puis `make dev`
+
+Point restant ouvert:
+
 - démontrer que l'indexation produite par le `deces-dataprep` monorepo reste sémantiquement identique au comportement de référence sur un jeu de données de test
+
+## Protocole de comparaison d'indexation
+
+Le protocole cible est le suivant:
+
+1. fixer un jeu de référence déterministe, en pratique `FILES_TO_PROCESS=${FILES_TO_PROCESS_TEST}` sauf décision contraire documentée
+2. exécuter le `deces-dataprep` original via ses cibles `make` sur un Elasticsearch isolé
+3. exécuter le `deces-dataprep` monorepo via ses cibles `make` sur un Elasticsearch isolé
+4. comparer le nombre exact de documents indexés
+5. extraire un échantillon déterministe de 1000 documents, triés par `_id`
+6. normaliser la représentation JSON comparée
+7. vérifier l'égalité stricte document par document
+
+## Preuves `make` déjà obtenues au lot 5
+
+- `make dataprep-data-tag`
+- `make dataprep-dev`
+- `make dataprep-run`
+- `make dev`
+
+Ces preuves couvrent déjà:
+
+- la commande canonique de bootstrap local racine
+- la source canonique `backend` pour le dataprep en `dev` et `test`
+- la séparation explicite entre bootstrap local, restore snapshot et run dataprep
+- la montée locale de `deces-infra`, `deces-backend`, `deces-ui` et `deces-dataprep`
+- la récupération de `communes`
 
 ## Critères d'acceptation
 

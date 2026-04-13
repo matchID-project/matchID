@@ -146,23 +146,23 @@
     - [x] Gate: tu valides que le lot 4 est termine et qu'on peut ouvrir le lot 5
 
 - [ ] Lot 5 - Chaine dev complete validee
-  - [ ] Exec
-    - [ ] Definir la commande canonique de bootstrap dev depuis la racine
-    - [ ] Definir explicitement quelle image `backend` est la source canonique pour `deces-dataprep` en dev, en test et pour le deploiement
-    - [ ] Definir la procedure canonique de restore snapshot
-    - [ ] Definir la procedure canonique de run dataprep
-    - [ ] Definir le protocole canonique de comparaison d'indexation entre le `deces-dataprep` original et le `deces-dataprep` monorepo sur un jeu de donnees de reference
-    - [ ] Rendre `make dev` racine reproductible
-    - [ ] Documenter la procedure de bootstrap dev
+  - [x] Exec
+    - [x] Definir la commande canonique de bootstrap dev depuis la racine
+    - [x] Definir explicitement quelle image `backend` est la source canonique pour `deces-dataprep` en dev, en test et pour le deploiement
+    - [x] Definir la procedure canonique de restore snapshot
+    - [x] Definir la procedure canonique de run dataprep
+    - [x] Definir le protocole canonique de comparaison d'indexation entre le `deces-dataprep` original et le `deces-dataprep` monorepo sur un jeu de donnees de reference
+    - [x] Rendre `make dev` racine reproductible
+    - [x] Documenter la procedure de bootstrap dev
   - [ ] Tests
-    - [ ] Valider `deces-infra` en local
-    - [ ] Valider Elasticsearch en local
-    - [ ] Valider Redis en local
-    - [ ] Valider SMTP en local
-    - [ ] Valider `deces-backend` en local
-    - [ ] Valider `deces-ui` en local
-    - [ ] Valider `deces-dataprep` en local
-    - [ ] Valider la recuperation de `communes`
+    - [x] Valider `deces-infra` en local
+    - [x] Valider Elasticsearch en local
+    - [x] Valider Redis en local
+    - [x] Valider SMTP en local
+    - [x] Valider `deces-backend` en local
+    - [x] Valider `deces-ui` en local
+    - [x] Valider `deces-dataprep` en local
+    - [x] Valider la recuperation de `communes`
     - [ ] Valider la recuperation de `wikidata`
     - [ ] Valider la recuperation de `disposable-mail`
     - [ ] Valider la recuperation des sources Data.gouv
