@@ -7,6 +7,43 @@ const tests = [
   { name: 'Appariement Wikidata', file: 'linkWikidata.js' }
 ];
 
+async function waitForWarmup() {
+  const port = process.env.PORT;
+  const host = process.env.TEST_HOST;
+  const versionUrl = `http://${host}:${port}/deces/api/v1/version`;
+  const searchUrl = `http://${host}:${port}/deces/api/v1/search?deathDate=2020&lastName=dupont&firstName=jean&deathDepartment=33&fuzzy=false`;
+  const timeoutMs = 90000;
+  const retryDelayMs = 1000;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const versionResponse = await fetch(versionUrl);
+      if (!versionResponse.ok) {
+        throw new Error(`version status ${versionResponse.status}`);
+      }
+
+      const searchResponse = await fetch(searchUrl);
+      if (!searchResponse.ok) {
+        throw new Error(`search status ${searchResponse.status}`);
+      }
+
+      const payload = await searchResponse.json();
+      if ((payload?.response?.total || 0) > 0) {
+        console.log('✅ Warm-up UI: backend et donnees de reference prets');
+        return;
+      }
+      throw new Error('reference search returned no result');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`⏳ Warm-up UI en attente: ${message}`);
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+    }
+  }
+
+  throw new Error(`Warm-up UI impossible apres ${timeoutMs / 1000} secondes`);
+}
+
 let results = {
   total: tests.length,
   success: 0,
@@ -64,6 +101,7 @@ async function runTest(test) {
 async function runAllTests() {
   console.log('🚀 Démarrage de la suite de tests');
   console.log('='.repeat(50));
+  await waitForWarmup();
 
   for (const test of tests) {
     await runTest(test);
