@@ -2,6 +2,7 @@
 # Frontend and nginx services management
 
 # Frontend basic configuration variables
+export FRONTEND = ${FRONTEND_PATH}
 export FRONTEND_DEV_HOST = frontend-development
 export FRONTEND_DEV_PORT = ${PORT}
 
@@ -13,6 +14,7 @@ export NGINX_CSP=default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-ev
 # Build files configuration variables
 export DC_BUILD_FRONTEND = ${FRONTEND_PATH}/docker-compose-build.yml
 export DC_RUN_NGINX_FRONTEND = ${FRONTEND_PATH}/docker-compose.yml
+export DC_TEST_FRONTEND = ${FRONTEND_PATH}/docker-compose-test.yml
 export BUILD_DIR=${APP_PATH}/${APP_FRONTEND}-build
 export FILE_FRONTEND_APP_VERSION = $(APP)-$(APP_VERSION)-frontend.tar.gz
 export FILE_FRONTEND_DIST_APP_VERSION = $(APP)-$(APP_VERSION)-frontend-dist.tar.gz
@@ -99,8 +101,9 @@ frontend:
 	${DC} -f ${DC_RUN_NGINX_FRONTEND} up -d
 	@timeout=${NGINX_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (curl -s --fail -XGET localhost:${PORT} > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo "waiting for nginx to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; exit $$ret
 
+frontend-test: export TEST_HOST=nginx-development
 frontend-test: smtp
-	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${DC_FILE}-test.yml run ui-test sh -c "yarn install && node runAllTests.js"
+	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${DC_TEST_FRONTEND} run ui-test sh -c "yarn install && node runAllTests.js"
 
 clean-frontend: rollup-clean build-dir-clean frontend-clean-dist frontend-clean-dist-archive
 
