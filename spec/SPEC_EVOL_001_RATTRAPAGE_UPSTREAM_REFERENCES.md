@@ -103,6 +103,7 @@ SHAs importés de référence:
   - aucun écart fonctionnel volontaire conservé dans `packages/deces-ui` après exécution du lot 3
   - les changements upstream `deces-ui` qui ciblaient le `Makefile` racine du dépôt source ont été transposés vers le `Makefile` racine du monorepo, car les variables correspondantes n'existent plus dans `packages/deces-ui/Makefile`
   - le support `year 2026` a été transposé dans la racine avec une forme monorepo compatible avec le filtre shell déjà utilisé (`deces-([0-9]{4}|202[56]-m[0-9]{2}).txt.gz`)
+  - la cible `make frontend-test` a été rendue compatible monorepo sans changer le périmètre fonctionnel UI: elle pointe explicitement sur `docker-compose-test.yml`, réexpose l'alias `FRONTEND` attendu par le compose de test et cible `nginx-development` pendant la validation locale du lot 3
 
 ## Critères d'acceptation
 
@@ -151,6 +152,30 @@ Commandes exécutées uniquement via `make`:
   - rejouée sur un worktree backend propre
   - `auth.controller.ts` a été écarté du worktree actif pour ne pas biaiser la validation
   - l'autofix ESLint déclenché par `make backend-dev` sur `processStream.ts` a été intégré en source, puis `make backend-dev-test` a été rejoué avec succès sans réintroduire de diff backend actif
+
+## Validation lot 3
+
+Commandes exécutées uniquement via `make`:
+
+- `make frontend-dev`
+  - succès
+  - l'audit npm n'est neutralisé que sur ce chemin de dev local UI
+  - démarre `deces-ui-frontend-development` et `deces-ui-nginx-development`
+- `MAILDEV_UI_PORT=37343 make frontend-test`
+  - succès
+  - exécute les trois scénarios Playwright via `docker-compose-test.yml`
+  - `Recherche Simple`: 8 étapes passées
+  - `Recherche Avancée`: 9 étapes passées
+  - `Appariement Wikidata`: 10 étapes passées
+  - bilan final: `3` tests réussis, `0` échec, `27` étapes passées
+- comportements explicitement couverts par ces validations:
+  - chargement et navigation UI sur la recherche simple
+  - recherche avancée avec `fuzzy=false`
+  - flux OTP UI complet jusqu'au lancement de l'appariement Wikidata
+  - présence du résultat attendu `Costes` après traitement
+- bruit non bloquant encore observé pendant les validations:
+  - `cat: tagfiles.version: No such file or directory`
+  - sujet déjà classé hors lot 3, à reprendre au lot 4
 
 ## Dépendances
 

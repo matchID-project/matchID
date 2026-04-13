@@ -105,12 +105,13 @@
     - [x] Integrer le commit `82ba880` de `packages/deces-ui` (`Merge pull request #995 ... desactivate-google-analytics`)
     - [x] Documenter les ecarts residuels conserves pour `packages/deces-ui`
     - [x] Debloquer `make frontend-dev` en neutralisant l'audit npm uniquement pour le dev UI local
+    - [x] Debloquer `make frontend-test` en rendant la cible UI compatible avec les variables et services du monorepo
   - [ ] Tests
-    - [ ] Ne compter comme validation du lot 3 que des executions via cibles `make`
-    - [ ] Valider le demarrage local cible de `packages/deces-ui` via `make frontend-dev`
-    - [ ] Valider les tests et smoke checks UI cibles via `make frontend-test`
-    - [ ] Verifier explicitement les comportements touches par le rattrapage UI a travers les cibles `make` precedentes
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 3
+    - [x] Ne compter comme validation du lot 3 que des executions via cibles `make`
+    - [x] Valider le demarrage local cible de `packages/deces-ui` via `make frontend-dev`
+    - [x] Valider les tests et smoke checks UI cibles via `MAILDEV_UI_PORT=37343 make frontend-test`
+    - [x] Verifier explicitement les comportements touches par le rattrapage UI a travers les cibles `make` precedentes
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 3
   - [ ] UAT
     - [ ] Gate: je te presente les commits rattrapes, les ecarts residuels et les preuves de test UI
     - [ ] Gate: tu valides que le rattrapage UI reste bien limite au perimetre attendu
