@@ -12,7 +12,7 @@ connectors:
     database: models/
   elasticsearch:
     type: elasticsearch
-    host: elasticsearch
+    host: !ENV ${ES_HOST}
     thread_count: !ENV ${ES_THREADS}
     chunk: !ENV ${ES_CHUNK}
     chunk_search: 20

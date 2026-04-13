@@ -163,10 +163,10 @@
     - [x] Valider `deces-ui` en local
     - [x] Valider `deces-dataprep` en local
     - [x] Valider la recuperation de `communes`
-    - [ ] Valider la recuperation de `wikidata`
-    - [ ] Valider la recuperation de `disposable-mail`
-    - [ ] Valider la recuperation des sources Data.gouv
-    - [ ] Rejouer une indexation de reference avec le `deces-dataprep` original et avec le `deces-dataprep` monorepo via des cibles `make`
+    - [x] Valider la recuperation de `wikidata`
+    - [x] Valider la recuperation de `disposable-mail`
+    - [x] Valider la recuperation des sources Data.gouv
+    - [x] Rejouer une indexation de reference avec le `deces-dataprep` original et avec le `deces-dataprep` monorepo via des cibles `make`
     - [ ] Valider l'egalite exacte du nombre de documents indexes entre les deux runs de reference
     - [ ] Valider l'egalite de 1000 documents echantillonnes de maniere deterministe entre les deux runs de reference
     - [ ] Valider la compatibilite dataprep -> index -> backend -> ui

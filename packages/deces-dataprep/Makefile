@@ -15,6 +15,7 @@ export GIT_TOOLS = tools
 export MAKEBIN = $(shell which make)
 export MAKE = ${MAKEBIN} --no-print-directory -s
 export ES_INDEX=deces
+export ES_HOST ?= deces-elasticsearch
 export ES_NODES=1
 export ES_MEM=1024m
 export ES_VERSION = 8.6.1
@@ -51,19 +52,25 @@ export DATAPREP_PROJECT_NAME ?= deces-dataprep
 export DATAPREP_PROJECTS_PATH ?= ${APP_PATH}/projects
 export DATAPREP_PROJECT_SOURCE_PATH ?= ${DATAPREP_PROJECTS_PATH}/${DATAPREP_PROJECT_NAME}
 export PARITY_DIR ?= /tmp/matchid-dataprep-parity
-export PARITY_FILES_TO_PROCESS ?= deces-2020-m01.txt.gz
+export PARITY_DATA_DIR ?= /tmp/matchid-datagouv-refresh
+export PARITY_ORIGINAL_ES_DATA ?= /tmp/matchid-original-esdata
+export PARITY_MONOREPO_ES_DATA ?= /tmp/matchid-monorepo-esdata
+export PARITY_FILES_TO_PROCESS ?= deces-2020.txt.gz
+export PARITY_DATAGOUV_CONNECTOR ?= upload
+export PARITY_ES_EXPORT_CONTAINER ?= matchid-elasticsearch
+export PARITY_ES_INDEX ?= deces
 export PARITY_SAMPLE_SIZE ?= 1000
 export PARITY_SAMPLE_SEED ?= 424242
-export PARITY_ORIGINAL_BACKEND_PATH ?= ${DATAPREP_BACKEND_PATH}
+export PARITY_ORIGINAL_BACKEND_PATH ?= ${APP_PATH}/${GIT_BACKEND}
 export PARITY_MONOREPO_BACKEND_PATH ?= ${DATAPREP_BACKEND_PATH}
+export PARITY_ORIGINAL_ES_HOST ?= elasticsearch
+export PARITY_MONOREPO_ES_HOST ?= elasticsearch
 export PARITY_ORIGINAL_BACKEND_TARGET ?= backend
 export PARITY_ORIGINAL_BACKEND_STOP_TARGET ?= backend-stop
-export PARITY_MONOREPO_BACKEND_TARGET ?= backend-dev
-export PARITY_MONOREPO_BACKEND_STOP_TARGET ?= backend-dev-stop
+export PARITY_MONOREPO_BACKEND_TARGET ?= backend
+export PARITY_MONOREPO_BACKEND_STOP_TARGET ?= backend-stop
 export PARITY_ORIGINAL_BACKEND_PORT ?= 8081
-export PARITY_MONOREPO_BACKEND_PORT ?= 8080
-export PARITY_ORIGINAL_INDEX ?= deces-parity-original
-export PARITY_MONOREPO_INDEX ?= deces-parity-monorepo
+export PARITY_MONOREPO_BACKEND_PORT ?= 8081
 export PARITY_ORIGINAL_COUNT_FILE ?= ${PARITY_DIR}/original.count
 export PARITY_MONOREPO_COUNT_FILE ?= ${PARITY_DIR}/monorepo.count
 export PARITY_ORIGINAL_SAMPLE_FILE ?= ${PARITY_DIR}/original.sample.json
@@ -119,11 +126,13 @@ dataprep-frontend-check:
 config: dataprep-backend-check dataprep-project-check
 	@echo checking system prerequisites
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} config ${MAKEOVERRIDES}
-	@cp artifacts ${DATAPREP_BACKEND_PATH}/artifacts
-	@cp docker-compose-local.yml ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml
-	@ln -sfn ${MONOREPO_TOOLS_PATH} ${DATAPREP_BACKEND_PATH}/${GIT_TOOLS}
-	@mkdir -p ${DATAPREP_BACKEND_PATH}/projects
-	@ln -sfn ${DATAPREP_PROJECT_SOURCE_PATH} ${DATAPREP_BACKEND_PATH}/projects/${DATAPREP_PROJECT_NAME}
+	@if [ "${DATAPREP_BACKEND_PATH}" = "${MONOREPO_ROOT}/packages/dataprep-backend" ]; then\
+		cp artifacts ${DATAPREP_BACKEND_PATH}/artifacts;\
+		cp docker-compose-local.yml ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml;\
+		ln -sfn ${MONOREPO_TOOLS_PATH} ${DATAPREP_BACKEND_PATH}/${GIT_TOOLS};\
+		mkdir -p ${DATAPREP_BACKEND_PATH}/projects;\
+		ln -sfn ${DATAPREP_PROJECT_SOURCE_PATH} ${DATAPREP_BACKEND_PATH}/projects/${DATAPREP_PROJECT_NAME};\
+	fi
 	@touch ${DATAPREP_BACKEND_PATH}/config
 	@echo "prerequisites installed" > config
 
@@ -254,7 +263,7 @@ dataprep-backend-recipe-run:
 			((timeout--)); sleep 1 ;\
 		done ; echo ;\
 		if [ "$$ret" -ne "0" ]; then exit $$ret; fi;\
-		docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/tmp/${RECIPE}.log 2>&1 &" \
+		docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && mkdir -p /${APP_GROUP}/log && PYTHONPATH=/${APP_GROUP}/code nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/${APP_GROUP}/log/${RECIPE}.log 2>&1 &" \
 			&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
 			&& echo ${RECIPE} run;\
 	fi
@@ -298,7 +307,15 @@ backend-clean-logs:
 	rm -f ${DATAPREP_BACKEND_PATH}/log/*${RECIPE}*log
 
 watch-run:
-	@LOG_FILE=$$(find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
+	@timeout=${TIMEOUT} ; LOG_FILE=""; \
+	until [ "$$timeout" -le 0 ] || [ -n "$$LOG_FILE" ]; do \
+		LOG_FILE=$$(find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1); \
+		if [ -z "$$LOG_FILE" ]; then \
+			echo -en "\rwaiting for dataprep log $$timeout"; \
+			((timeout--)); sleep 1; \
+		fi; \
+	done; \
+	echo; \
 	if [ -z "$$LOG_FILE" ]; then\
 		echo "no dataprep log found for ${RECIPE} in ${DATAPREP_BACKEND_PATH}/log";\
 		exit 1;\
@@ -391,27 +408,57 @@ parity-export:
 		echo "PARITY_INDEX, PARITY_COUNT_FILE and PARITY_SAMPLE_FILE are required";\
 		exit 1;\
 	fi
-	@${MAKE} -C ${MONOREPO_ROOT}/packages/deces-infra elasticsearch-index-export \
-		ES_INDEX=${PARITY_INDEX} \
-		ES_COUNT_FILE=${PARITY_COUNT_FILE} \
-		ES_SAMPLE_FILE=${PARITY_SAMPLE_FILE} \
-		ES_SAMPLE_SIZE=${PARITY_SAMPLE_SIZE} \
-		ES_SAMPLE_SEED=${PARITY_SAMPLE_SEED} \
+	@python3 ${MONOREPO_ROOT}/scripts/export_es_index_snapshot.py \
+		--container ${PARITY_ES_EXPORT_CONTAINER} \
+		--index ${PARITY_INDEX} \
+		--count-file ${PARITY_COUNT_FILE} \
+		--sample-file ${PARITY_SAMPLE_FILE} \
+		--sample-size ${PARITY_SAMPLE_SIZE} \
+		--seed ${PARITY_SAMPLE_SEED}
+
+parity-data-refresh:
+	@${MAKE} -C ${MONOREPO_ROOT}/packages/tools datagouv-get-files \
+		DATAGOUV_DATASET=${DATAGOUV_DATASET} \
+		DATA_DIR=${PARITY_DATA_DIR} \
+		FILES_PATTERN='fichier-opposition-deces-.*.csv(.gz)?|${PARITY_FILES_TO_PROCESS}' \
+		FILES_PATTERN_FORCE='fichier-opposition-deces-.*.csv(.gz)?' \
 		${MAKEOVERRIDES}
 
-parity-original-backend-image:
-	@APP_VERSION=$$(cd ${PARITY_ORIGINAL_BACKEND_PATH} && ${MAKE} version | awk '{print $$NF}');\
-	if docker image inspect matchid/matchid-backend:$$APP_VERSION > /dev/null 2>&1; then\
-		echo "original backend image already available locally: $$APP_VERSION";\
+parity-original-elasticsearch-start:
+	@mkdir -p ${PARITY_ORIGINAL_ES_DATA}/node1
+	@${MAKE} -C ${PARITY_ORIGINAL_BACKEND_PATH} elasticsearch vm_max_count=true ES_DATA=${PARITY_ORIGINAL_ES_DATA} ${MAKEOVERRIDES}
+
+parity-original-elasticsearch-stop:
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ES_DATA=${PARITY_ORIGINAL_ES_DATA} ${MAKEOVERRIDES}
+
+parity-monorepo-elasticsearch-start:
+	@mkdir -p ${PARITY_MONOREPO_ES_DATA}/node1
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch vm_max_count=true ES_DATA=${PARITY_MONOREPO_ES_DATA} ${MAKEOVERRIDES}
+
+parity-monorepo-elasticsearch-stop:
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ES_DATA=${PARITY_MONOREPO_ES_DATA} ${MAKEOVERRIDES}
+
+parity-elasticsearch-index-delete:
+	@STATUS=$$(docker exec -i ${USE_TTY} ${PARITY_ES_EXPORT_CONTAINER} curl -s -o /dev/null -w '%{http_code}' -XDELETE localhost:9200/${PARITY_ES_INDEX});\
+	if [ "$$STATUS" = "200" ] || [ "$$STATUS" = "404" ]; then\
+		echo "index ${PARITY_ES_INDEX} deleted or absent";\
 	else\
-		${MAKE} -C ${PARITY_ORIGINAL_BACKEND_PATH} backend-dev-refresh ${MAKEOVERRIDES};\
-		${MAKE} -C ${PARITY_ORIGINAL_BACKEND_PATH} backend-build ${MAKEOVERRIDES};\
+		echo "failed to delete index ${PARITY_ES_INDEX} (HTTP $$STATUS)";\
+		exit 1;\
 	fi
+
+parity-original-backend-image:
+	@${MAKE} -C ${PARITY_ORIGINAL_BACKEND_PATH} backend-docker-pull ${MAKEOVERRIDES}
+
+parity-monorepo-backend-image:
+	@${MAKE} -C ${PARITY_MONOREPO_BACKEND_PATH} backend-dev-refresh ${MAKEOVERRIDES}
+	@${MAKE} -C ${PARITY_MONOREPO_BACKEND_PATH} backend-build ${MAKEOVERRIDES}
 
 parity-run-original: parity-dir
 	@rm -f ${PARITY_ORIGINAL_COUNT_FILE} ${PARITY_ORIGINAL_SAMPLE_FILE} ${PARITY_DIR}/original.recipe-run ${PARITY_DIR}/original.s3-pull
-	@${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES}
-	@${MAKE} -C ${MONOREPO_ROOT}/packages/deces-infra elasticsearch-index-delete-local ES_INDEX=${PARITY_ORIGINAL_INDEX} ${MAKEOVERRIDES}
+	@${MAKE} parity-data-refresh ${MAKEOVERRIDES}
+	@${MAKE} parity-original-elasticsearch-start ${MAKEOVERRIDES}
+	@${MAKE} parity-elasticsearch-index-delete ${MAKEOVERRIDES}
 	@${MAKE} backend-clean-logs DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} ${MAKEOVERRIDES}
 	@${MAKE} parity-original-backend-image ${MAKEOVERRIDES}
 	@${MAKE} recipe-run-local \
@@ -419,41 +466,49 @@ parity-run-original: parity-dir
 		DATAPREP_BACKEND_LOCAL_TARGET=${PARITY_ORIGINAL_BACKEND_TARGET} \
 		DATAPREP_BACKEND_LOCAL_STOP_TARGET=${PARITY_ORIGINAL_BACKEND_STOP_TARGET} \
 		DATAPREP_BACKEND_PORT=${PARITY_ORIGINAL_BACKEND_PORT} \
+		DATAGOUV_CONNECTOR=${PARITY_DATAGOUV_CONNECTOR} \
 		FILES_TO_PROCESS='${PARITY_FILES_TO_PROCESS}' \
-		ES_INDEX=${PARITY_ORIGINAL_INDEX} \
+		ES_HOST=${PARITY_ORIGINAL_ES_HOST} \
+		UPLOAD=${PARITY_DATA_DIR} \
 		RECIPE_RUN_MARKER=${PARITY_DIR}/original.recipe-run \
 		S3_PULL_MARKER=${PARITY_DIR}/original.s3-pull \
 		${MAKEOVERRIDES}
 	@${MAKE} watch-run DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} ${MAKEOVERRIDES}
 	@${MAKE} parity-export \
-		PARITY_INDEX=${PARITY_ORIGINAL_INDEX} \
+		PARITY_INDEX=${PARITY_ES_INDEX} \
 		PARITY_COUNT_FILE=${PARITY_ORIGINAL_COUNT_FILE} \
 		PARITY_SAMPLE_FILE=${PARITY_ORIGINAL_SAMPLE_FILE} \
 		${MAKEOVERRIDES}
-	@${MAKE} down DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} parity-original-elasticsearch-stop ${MAKEOVERRIDES}
+	@${MAKE} -C ${PARITY_ORIGINAL_BACKEND_PATH} ${PARITY_ORIGINAL_BACKEND_STOP_TARGET} ${MAKEOVERRIDES}
 
 parity-run-monorepo: parity-dir
 	@rm -f ${PARITY_MONOREPO_COUNT_FILE} ${PARITY_MONOREPO_SAMPLE_FILE} ${PARITY_DIR}/monorepo.recipe-run ${PARITY_DIR}/monorepo.s3-pull
-	@${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES}
-	@${MAKE} -C ${MONOREPO_ROOT}/packages/deces-infra elasticsearch-index-delete-local ES_INDEX=${PARITY_MONOREPO_INDEX} ${MAKEOVERRIDES}
+	@${MAKE} parity-data-refresh ${MAKEOVERRIDES}
+	@${MAKE} parity-monorepo-elasticsearch-start ${MAKEOVERRIDES}
+	@${MAKE} parity-elasticsearch-index-delete ${MAKEOVERRIDES}
 	@${MAKE} backend-clean-logs DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} parity-monorepo-backend-image ${MAKEOVERRIDES}
 	@${MAKE} recipe-run-local \
 		DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} \
 		DATAPREP_BACKEND_LOCAL_TARGET=${PARITY_MONOREPO_BACKEND_TARGET} \
 		DATAPREP_BACKEND_LOCAL_STOP_TARGET=${PARITY_MONOREPO_BACKEND_STOP_TARGET} \
 		DATAPREP_BACKEND_PORT=${PARITY_MONOREPO_BACKEND_PORT} \
+		DATAGOUV_CONNECTOR=${PARITY_DATAGOUV_CONNECTOR} \
 		FILES_TO_PROCESS='${PARITY_FILES_TO_PROCESS}' \
-		ES_INDEX=${PARITY_MONOREPO_INDEX} \
+		ES_HOST=${PARITY_MONOREPO_ES_HOST} \
+		UPLOAD=${PARITY_DATA_DIR} \
 		RECIPE_RUN_MARKER=${PARITY_DIR}/monorepo.recipe-run \
 		S3_PULL_MARKER=${PARITY_DIR}/monorepo.s3-pull \
 		${MAKEOVERRIDES}
 	@${MAKE} watch-run DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} ${MAKEOVERRIDES}
 	@${MAKE} parity-export \
-		PARITY_INDEX=${PARITY_MONOREPO_INDEX} \
+		PARITY_INDEX=${PARITY_ES_INDEX} \
 		PARITY_COUNT_FILE=${PARITY_MONOREPO_COUNT_FILE} \
 		PARITY_SAMPLE_FILE=${PARITY_MONOREPO_SAMPLE_FILE} \
 		${MAKEOVERRIDES}
-	@${MAKE} down DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} parity-monorepo-elasticsearch-stop ${MAKEOVERRIDES}
+	@${MAKE} -C ${PARITY_MONOREPO_BACKEND_PATH} ${PARITY_MONOREPO_BACKEND_STOP_TARGET} ${MAKEOVERRIDES}
 
 parity-compare: parity-run-original parity-run-monorepo
 	@cmp -s ${PARITY_ORIGINAL_COUNT_FILE} ${PARITY_MONOREPO_COUNT_FILE} \

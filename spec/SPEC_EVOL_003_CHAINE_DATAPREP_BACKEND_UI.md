@@ -80,11 +80,13 @@ Le contrat local est maintenant le suivant:
 - bootstrap dataprep local depuis la racine: `make dataprep-dev`
 - run dataprep local depuis la racine: `make dataprep-run`
 
-La source canonique de `backend` pour `deces-dataprep` est désormais figée ainsi:
+La source `backend` observée au lot 5 est maintenant clarifiée ainsi:
 
-- `dev`: build local du monorepo via `packages/dataprep-backend`, cible `backend-dev`
-- `test`: même source canonique que `dev`, via les cibles racine `make dataprep-dev` et `make dataprep-run`
-- `deploy`: artefact `image backend` versionné, consommé par la cible `backend` de `packages/dataprep-backend`
+- référence historique `deces-dataprep`: image publiée issue de [packages/deces-dataprep/backend](/home/antoinefa/src/matchID/matchID/packages/deces-dataprep/backend), version `0.3.0-87fbbb`, utilisée via `make -C packages/deces-dataprep parity-run-original`
+- candidat monorepo: image locale issue de [packages/dataprep-backend](/home/antoinefa/src/matchID/matchID/packages/dataprep-backend), version `0.4.0-4fe0da`, utilisée via `make -C packages/deces-dataprep parity-run-monorepo`
+- cible de déploiement visée: artefact `image backend` versionné produit depuis `packages/dataprep-backend`
+
+La source canonique de déploiement reste donc le backend du monorepo, mais le gate de parité avec la référence historique n'est pas encore validé.
 
 Le bootstrap racine `make dev` ne restaure plus implicitement de snapshot. Il démarre maintenant la stack locale sur `elasticsearch-local`. La restauration de snapshot devient une procédure explicite distincte, ce qui rend la sémantique du lot 5 cohérente:
 
@@ -95,6 +97,31 @@ Le bootstrap racine `make dev` ne restaure plus implicitement de snapshot. Il d�
 Point restant ouvert:
 
 - démontrer que l'indexation produite par le `deces-dataprep` monorepo reste sémantiquement identique au comportement de référence sur un jeu de données de test
+
+## Résultat provisoire du test de parité au 13 avril 2026
+
+Le protocole de comparaison a été rejoué via `make` uniquement:
+
+- `make -C packages/deces-dataprep parity-run-original`
+- `make -C packages/deces-dataprep parity-run-monorepo`
+
+Le harness a été recadré pour que:
+
+- le run `original` utilise bien [packages/deces-dataprep/backend](/home/antoinefa/src/matchID/matchID/packages/deces-dataprep/backend) et son image publiée
+- le run `monorepo` utilise bien [packages/dataprep-backend](/home/antoinefa/src/matchID/matchID/packages/dataprep-backend) et une image locale rebuildée depuis le code courant
+- chaque run utilise un `ES_DATA` isolé sous `/tmp` pour éviter les effets de bord du backend legacy
+
+Résultat observé:
+
+- `original.count = 602691`
+- `monorepo.count = 679573`
+- l'échantillon déterministe de `1000` documents diffère aussi
+
+Conclusion au 13 avril 2026:
+
+- le protocole de parité est maintenant en place et exécutable via `make`
+- la parité n'est pas atteinte
+- le gate du lot 5 reste ouvert tant que l'écart d'indexation n'est pas expliqué puis résorbé
 
 ## Protocole de comparaison d'indexation
 
@@ -114,6 +141,8 @@ Le protocole cible est le suivant:
 - `make dataprep-dev`
 - `make dataprep-run`
 - `make dev`
+- `make -C packages/deces-dataprep parity-run-original`
+- `make -C packages/deces-dataprep parity-run-monorepo`
 
 Ces preuves couvrent déjà:
 
@@ -122,6 +151,10 @@ Ces preuves couvrent déjà:
 - la séparation explicite entre bootstrap local, restore snapshot et run dataprep
 - la montée locale de `deces-infra`, `deces-backend`, `deces-ui` et `deces-dataprep`
 - la récupération de `communes`
+- la récupération de `wikidata`
+- la récupération de `disposable-mail`
+- la récupération des sources Data.gouv
+- l'exécution effective du protocole de parité d'indexation
 
 ## Critères d'acceptation
 

@@ -83,6 +83,7 @@ export MATCHID_CONFIG_BUCKET=$(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower
 
 # elasticsearch defaut configuration
 export ES_INDEX=${APP_GROUP}
+export ES_HOST ?= elasticsearch
 export ES_NODES = 1		# elasticsearch number of nodes
 export ES_SWARM_NODE_NUMBER = 2		# elasticsearch number of nodes
 export ES_MEM := 1024m		# elasticsearch : memory of each node
@@ -188,11 +189,8 @@ elasticsearch-docker-check:
 
 elasticsearch-stop:
 	@echo docker-compose down matchID elasticsearch
-ifeq "$(ES_NODES)" "1"
-	@${DC} -f ${DC_FILE}-elasticsearch-phonetic.yml down
-else
-	@${DC} -f ${DC_FILE}-elasticsearch-huge.yml down
-endif
+	@(${DC} -f ${DC_FILE}-elasticsearch.yml down > /dev/null 2>&1 || true)
+	@(${DC} -f ${DC_FILE}-elasticsearch-huge.yml down > /dev/null 2>&1 || true)
 
 elasticsearch2-stop:
 	@${DC} -f ${DC_FILE}-elasticsearch-huge-remote.yml down
@@ -338,10 +336,10 @@ elasticsearch-dev: elasticsearch
 elasticsearch-cluster: network vm_max
 	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
 	@cat ${DC_FILE}-elasticsearch.yml > ${DC_FILE}-elasticsearch-huge.yml
-	@(if [ ! -d ${ES_DATA}/node1 ]; then sudo mkdir -p ${ES_DATA}/node1 ; sudo chmod g+rw ${ES_DATA}/node1/.; sudo chown 1000:1000 ${ES_DATA}/node1/.; fi)
+	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod g+rw ${ES_DATA}/node1/.; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. || true; fi)
 	@(i=$(ES_NODES); while [ $${i} -gt 1 ]; \
 		do \
-			if [ ! -d ${ES_DATA}/node$$i ]; then (echo ${ES_DATA}/node$$i && sudo mkdir -p ${ES_DATA}/node$$i && sudo chmod g+rw ${ES_DATA}/node$$i/. && sudo chown 1000:1000 ${ES_DATA}/node$$i/.); fi; \
+			if [ ! -d ${ES_DATA}/node$$i ]; then (echo ${ES_DATA}/node$$i && mkdir -p ${ES_DATA}/node$$i && chmod g+rw ${ES_DATA}/node$$i/. && chown $(shell id -u):$(shell id -g) ${ES_DATA}/node$$i/. || true); fi; \
 		cat ${DC_FILE}-elasticsearch-node.yml | sed "s/%N/$$i/g;s/%MM/${ES_MEM}/g;s/%M/${ES_MEM}/g" >> ${DC_FILE}-elasticsearch-huge.yml; \
 		i=`expr $$i - 1`; \
 	done;\
@@ -351,7 +349,7 @@ elasticsearch-cluster: network vm_max
 
 elasticsearch-start: network vm_max
 	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
-	@(if [ ! -d ${ES_DATA}/node1 ]; then sudo mkdir -p ${ES_DATA}/node1 ; sudo chmod g+rw ${ES_DATA}/node1/.; sudo chown 1000:1000 ${ES_DATA}/node1/.; fi)
+	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod g+rw ${ES_DATA}/node1/.; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. || true; fi)
 	${DC} -f ${DC_FILE}-elasticsearch.yml up -d
 
 elasticsearch: elasticsearch-start
