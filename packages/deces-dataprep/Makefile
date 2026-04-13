@@ -32,8 +32,11 @@ export DATAGOUV_CONNECTOR = s3
 export STORAGE_BUCKET=${DATAGOUV_DATASET}
 export REPOSITORY_BUCKET=${DATAGOUV_DATASET}-elasticsearch
 export DATA_DIR=${PWD}/data
-export DATAPREP_BACKEND_PATH=${APP_PATH}/${GIT_BACKEND}
-export DATAPREP_FRONTEND_PATH=${APP_PATH}/${GIT_FRONTEND}
+export DATAPREP_BACKEND_PATH=${MONOREPO_ROOT}/packages/dataprep-backend
+export DATAPREP_FRONTEND_PATH=${MONOREPO_ROOT}/packages/dataprep-frontend
+export DATAPREP_BACKEND_LOCAL_TARGET ?= backend-dev
+export DATAPREP_BACKEND_LOCAL_STOP_TARGET ?= backend-dev-stop
+export DATAPREP_BACKEND_DEPLOY_TARGET ?= backend
 export BACKUP_DIR = ${DATAPREP_BACKEND_PATH}/backup
 export DATA_TAG=${MONOREPO_ROOT}/.data.sha1
 export BACKUP_METHOD=repository
@@ -171,35 +174,35 @@ backup-pull: data-tag
 	touch backup-pull
 
 dev: config monorepo-elasticsearch frontend-config
-	@${MAKE} -C ${DATAPREP_BACKEND_PATH} backend ${MAKEOVERRIDES} &&\
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} ${MAKEOVERRIDES} &&\
 	${MAKE} -C ${FRONTEND_PATH} frontend-dev GIT_BRANCH=${GIT_FRONTEND_BRANCH} NPM_AUDIT_IGNORE=true ${MAKEOVERRIDES} &&\
 		echo matchID started, go to http://localhost:8081
 
 dev-stop:
 	@if [ -f config ]; then\
 		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-stop ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} ${MAKEOVERRIDES};\
 		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
 up:
 	@unset APP;unset APP_VERSION;\
 	${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES};\
-	${MAKE} -C ${DATAPREP_BACKEND_PATH} backend ${MAKEOVERRIDES} && echo matchID backend services started
+	${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_DEPLOY_TARGET} ${MAKEOVERRIDES} && echo matchID backend services started
 
 recipe-run: data-tag monorepo-elasticsearch
 	@if [ ! -f recipe-run ];then\
 		echo running recipe on data FILES_TO_PROCESS="${FILES_TO_PROCESS}" $$(cat ${DATA_TAG}), dataprep ${DATAPREP_VERSION};\
 		${MAKE} -C ${DATAPREP_BACKEND_PATH} version;\
 		${MAKE} -C ${DATAPREP_BACKEND_PATH} recipe-run \
+			BACKEND_RUN_TARGET=${DATAPREP_BACKEND_LOCAL_TARGET} \
 			CHUNK_SIZE=${CHUNK_SIZE} RECIPE=${RECIPE} RECIPE_THREADS=${RECIPE_THREADS} RECIPE_QUEUE=${RECIPE_QUEUE} \
 			ES_PRELOAD='${ES_PRELOAD}' ES_THREADS=${ES_THREADS} \
 			STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			${MAKEOVERRIDES} \
-			APP=backend APP_VERSION=$(shell cd ${DATAPREP_BACKEND_PATH} && make version | awk '{print $$NF}') \
 			&&\
 		touch recipe-run s3-pull &&\
-		(echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar > elasticsearch-restore);\
+			(echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar > elasticsearch-restore);\
 	fi
 
 full-check: datagouv-to-${DATAGOUV_CONNECTOR} check-${DATAGOUV_CONNECTOR}

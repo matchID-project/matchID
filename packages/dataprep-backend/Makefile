@@ -60,6 +60,8 @@ export GIT_FRONTEND_BRANCH:=$(shell [ "${GIT_BRANCH}" = "${GIT_BRANCH_MASTER}" ]
 
 export FRONTEND=${BACKEND}/../${GIT_FRONTEND}
 export FRONTEND_DC_IMAGE_NAME=${DC_PREFIX}-${GIT_FRONTEND}
+export BACKEND_RUN_TARGET ?= backend
+export BACKEND_RUN_CONTAINER ?=
 
 export API_SECRET_KEY:=$(shell openssl rand -base64 24)
 export ADMIN_PASSWORD:=$(shell openssl rand -base64 24)
@@ -409,13 +411,13 @@ backend-stop:
 
 backend-prep:
 ifeq ("$(wildcard ${UPLOAD})","")
-	@sudo mkdir -p ${UPLOAD}
+	@mkdir -p ${UPLOAD}
 endif
 ifeq ("$(wildcard ${PROJECTS})","")
-	@sudo mkdir -p ${PROJECTS}
+	@mkdir -p ${PROJECTS}
 endif
 ifeq ("$(wildcard ${MODELS})","")
-	@sudo mkdir -p ${PROJECTS}
+	@mkdir -p ${MODELS}
 endif
 
 backend-dev: network backend-prep
@@ -427,13 +429,17 @@ backend-dev: network backend-prep
 	export DC_POSTFIX="-dev";\
 	if [ "${commit}" != "${lastcommit}" ];then\
 		echo building matchID backend after new commit;\
-		${DC} build;\
+		${DC} build ${DC_BUILD_ARGS};\
 		echo "${commit}" > ${BACKEND}/.lastcommit;\
 	fi;\
-	${DC} -f docker-compose.yml -f docker-compose-dev.yml $$DC_LOCAL up -d
+	${DC} -f docker-compose.yml -f docker-compose-dev.yml $$DC_LOCAL up -d;\
+	timeout=${TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} ${DC_PREFIX}-backend-dev curl -s --noproxy "*" --fail -XGET localhost:${BACKEND_PORT}/matchID/api/v0/ > /dev/null) ; ret=$$? ; echo;if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for backend dev to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
 
 backend-dev-stop:
 	${DC} -f docker-compose.yml down
+
+backend-dev-refresh: backend-dev-stop
+	@rm -f ${BACKEND}/.lastcommit
 
 backend-check-build:
 	@if [ -f docker-compose-local.yml ];then\
@@ -641,6 +647,9 @@ depackage:
 logs: backend
 	@docker logs ${DC_PREFIX}-${APP}
 
+backend-dev-logs:
+	@docker logs ${DC_PREFIX}-${APP}-dev
+
 example-download:
 	@echo downloading example code
 	@mkdir -p ${EXAMPLES}
@@ -650,8 +659,18 @@ example-download:
 	@ln -s ${EXAMPLES}/projects ${BACKEND}/projects
 	@ln -s ${EXAMPLES}/data ${BACKEND}/upload
 
-recipe-run: backend
-	docker exec -i ${USE_TTY} ${DC_PREFIX}-backend curl -s -XPUT http://localhost:${PORT}/matchID/api/v0/recipes/${RECIPE}/run && echo ${RECIPE} run
+recipe-run: ${BACKEND_RUN_TARGET}
+	@BACKEND_CONTAINER="${BACKEND_RUN_CONTAINER}";\
+	if [ -z "$$BACKEND_CONTAINER" ]; then\
+		if [ "${BACKEND_RUN_TARGET}" = "backend-dev" ]; then\
+			BACKEND_CONTAINER="${DC_PREFIX}-backend-dev";\
+		else\
+			BACKEND_CONTAINER="${DC_PREFIX}-backend";\
+		fi;\
+	fi;\
+	docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/tmp/${RECIPE}.log 2>&1 &" \
+	&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
+	&& echo ${RECIPE} run
 
 deploy-local: config up local-test-api
 
