@@ -448,7 +448,7 @@ backend-check-build:
 	export BACKEND_ENV=production;\
 	if [ "${commit}" != "${lastcommit}" ];then\
 		echo building ${APP_GROUP} ${APP} for dev after new commit;\
-		${DC} build $$DC_LOCAL;\
+		${DC} -f docker-compose.yml $$DC_LOCAL build;\
 		echo "${commit}" > ${BACKEND}/.lastcommit;\
 	fi;\
 	${DC} -f docker-compose.yml $$DC_LOCAL config -q

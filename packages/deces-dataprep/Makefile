@@ -47,12 +47,15 @@ export BACKUP_CHECK=${PWD}/backup-check
 export REPOSITORY_CHECK=${PWD}/repository-check
 export RECIPE_RUN_MARKER ?= ${PWD}/recipe-run
 export S3_PULL_MARKER ?= ${PWD}/s3-pull
+export DATAPREP_PROJECT_NAME ?= deces-dataprep
+export DATAPREP_PROJECTS_PATH ?= ${APP_PATH}/projects
+export DATAPREP_PROJECT_SOURCE_PATH ?= ${DATAPREP_PROJECTS_PATH}/${DATAPREP_PROJECT_NAME}
 export PARITY_DIR ?= /tmp/matchid-dataprep-parity
 export PARITY_FILES_TO_PROCESS ?= deces-2020-m01.txt.gz
 export PARITY_SAMPLE_SIZE ?= 1000
 export PARITY_SAMPLE_SEED ?= 424242
-export PARITY_ORIGINAL_BACKEND_PATH ?= ${PWD}/backend
-export PARITY_MONOREPO_BACKEND_PATH ?= ${MONOREPO_ROOT}/packages/dataprep-backend
+export PARITY_ORIGINAL_BACKEND_PATH ?= ${DATAPREP_BACKEND_PATH}
+export PARITY_MONOREPO_BACKEND_PATH ?= ${DATAPREP_BACKEND_PATH}
 export PARITY_ORIGINAL_BACKEND_TARGET ?= backend
 export PARITY_ORIGINAL_BACKEND_STOP_TARGET ?= backend-stop
 export PARITY_MONOREPO_BACKEND_TARGET ?= backend-dev
@@ -101,19 +104,28 @@ dataprep-backend-check:
 		exit 1;\
 	fi
 
+dataprep-project-check:
+	@if [ ! -d "${DATAPREP_PROJECT_SOURCE_PATH}" ]; then\
+		echo "missing dataprep project at ${DATAPREP_PROJECT_SOURCE_PATH}";\
+		exit 1;\
+	fi
+
 dataprep-frontend-check:
 	@if [ ! -d "${DATAPREP_FRONTEND_PATH}" ]; then\
 		echo "missing dataprep frontend at ${DATAPREP_FRONTEND_PATH}";\
 		exit 1;\
 	fi
 
-config: dataprep-backend-check
+config: dataprep-backend-check dataprep-project-check
 	@echo checking system prerequisites
-	@${MAKE} -C ${MONOREPO_TOOLS_PATH} config ${MAKEOVERRIDES};\
-	cp artifacts ${DATAPREP_BACKEND_PATH}/artifacts;\
-	cp docker-compose-local.yml ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml;\
-	touch ${DATAPREP_BACKEND_PATH}/config;\
-	echo "prerequisites installed" > config
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} config ${MAKEOVERRIDES}
+	@cp artifacts ${DATAPREP_BACKEND_PATH}/artifacts
+	@cp docker-compose-local.yml ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml
+	@ln -sfn ${MONOREPO_TOOLS_PATH} ${DATAPREP_BACKEND_PATH}/${GIT_TOOLS}
+	@mkdir -p ${DATAPREP_BACKEND_PATH}/projects
+	@ln -sfn ${DATAPREP_PROJECT_SOURCE_PATH} ${DATAPREP_BACKEND_PATH}/projects/${DATAPREP_PROJECT_NAME}
+	@touch ${DATAPREP_BACKEND_PATH}/config
+	@echo "prerequisites installed" > config
 
 monorepo-elasticsearch:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
@@ -387,11 +399,21 @@ parity-export:
 		ES_SAMPLE_SEED=${PARITY_SAMPLE_SEED} \
 		${MAKEOVERRIDES}
 
+parity-original-backend-image:
+	@APP_VERSION=$$(cd ${PARITY_ORIGINAL_BACKEND_PATH} && ${MAKE} version | awk '{print $$NF}');\
+	if docker image inspect matchid/matchid-backend:$$APP_VERSION > /dev/null 2>&1; then\
+		echo "original backend image already available locally: $$APP_VERSION";\
+	else\
+		${MAKE} -C ${PARITY_ORIGINAL_BACKEND_PATH} backend-dev-refresh ${MAKEOVERRIDES};\
+		${MAKE} -C ${PARITY_ORIGINAL_BACKEND_PATH} backend-build ${MAKEOVERRIDES};\
+	fi
+
 parity-run-original: parity-dir
 	@rm -f ${PARITY_ORIGINAL_COUNT_FILE} ${PARITY_ORIGINAL_SAMPLE_FILE} ${PARITY_DIR}/original.recipe-run ${PARITY_DIR}/original.s3-pull
 	@${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES}
 	@${MAKE} -C ${MONOREPO_ROOT}/packages/deces-infra elasticsearch-index-delete-local ES_INDEX=${PARITY_ORIGINAL_INDEX} ${MAKEOVERRIDES}
 	@${MAKE} backend-clean-logs DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} parity-original-backend-image ${MAKEOVERRIDES}
 	@${MAKE} recipe-run-local \
 		DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} \
 		DATAPREP_BACKEND_LOCAL_TARGET=${PARITY_ORIGINAL_BACKEND_TARGET} \
