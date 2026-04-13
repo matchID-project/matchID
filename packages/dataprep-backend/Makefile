@@ -668,7 +668,7 @@ recipe-run: ${BACKEND_RUN_TARGET}
 			BACKEND_CONTAINER="${DC_PREFIX}-backend";\
 		fi;\
 	fi;\
-	docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/tmp/${RECIPE}.log 2>&1 &" \
+	docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && PYTHONPATH=/${APP_GROUP}/code nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/tmp/${RECIPE}.log 2>&1 &" \
 	&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
 	&& echo ${RECIPE} run
 
