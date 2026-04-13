@@ -5,8 +5,8 @@ const { chromium } = require('playwright');
   const port = process.env.PORT;
   const host = process.env.TEST_HOST;
   const frontendUrl = `http://${host}:${port}/link`;
-  const maildevUrl = 'http://smtp:1080';
-  const testEmail = 'bob.morane@contretout.chacal';
+  const maildevApiUrl = 'http://smtp:1080/email';
+  const testEmail = `bob.morane+${Date.now()}@contretout.chacal`;
   const testFile = './wikidata-deces-2020-m01.csv';
 
   // 1. Aller sur la page d'appariement et charger le fichier CSV
@@ -47,32 +47,35 @@ const { chromium } = require('playwright');
   console.log('✅ Email envoyé pour validation');
   await page.screenshot({ path: 'linkStep4.png' })
 
-  // 3. Aller sur MailDev et récupérer le code
+  // 3. Récupérer le code via l'API MailDev
   console.log('📝 Étape 4: Récupération du code de validation');
-  const mailPage = await context.newPage();
-  await mailPage.goto(maildevUrl);
-  // Attendre jusqu'à 15 s l'arrivée de l'email, avec rafraîchissement toutes les 5 s
-  const maxRetries = 3;
-  let found = false;
+  const maxRetries = 15;
+  let mailContent = '';
   for (let i = 0; i < maxRetries; i++) {
-    try {
-      await mailPage.waitForSelector('a[href^="#/email/"]', { timeout: 5000 });
-      found = true;
-      break;
-    } catch (_) {
-      // email pas encore présent, on rafraîchit la page MailDev et on ré-essaie
-      await mailPage.reload();
+    const response = await fetch(maildevApiUrl);
+    if (!response.ok) {
+      throw new Error(`MailDev API indisponible: ${response.status}`);
     }
+    const emails = await response.json();
+    const matchingEmail = emails
+      .filter(email => (email.to || []).some(recipient => recipient.address === testEmail))
+      .sort((left, right) => new Date(right.date) - new Date(left.date))[0];
+
+    if (matchingEmail?.text) {
+      mailContent = matchingEmail.text;
+      break;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
-  if (!found) {
+
+  if (!mailContent) {
     throw new Error('Email de validation non reçu dans MailDev après 15 secondes');
   }
-  await mailPage.click('a[href^="#/email/"]');
   console.log('✅ Email reçu dans MailDev');
-  await mailPage.screenshot({ path: 'linkStep5.png' })
-  
+  await page.screenshot({ path: 'linkStep5.png' })
+
   // Extraire le code à 6 chiffres
-  const mailContent = await mailPage.textContent('.email-content-view .plain-text');
   // Accepte "10 minutes", "6 heures", etc.
   const codeMatch = mailContent.match(/Votre code,\s*valide\s+\d+\s+\S+\s*:\s*(\d{6})/);
   if (!codeMatch) throw new Error('Code de validation non trouvé dans l\'email');
@@ -94,14 +97,24 @@ const { chromium } = require('playwright');
 
   // 5. Attendre la fin du traitement et vérifier la présence de "Costes" dans la table
   console.log('📝 Étape 6: Vérification des résultats');
-  await page.waitForTimeout(5000); // attendre quelques secondes
+  const maxResultRetries = 30;
+  let tableText = '';
+  for (let i = 0; i < maxResultRetries; i++) {
+    tableText = await page.textContent('body');
+    if (tableText.includes('Costes')) {
+      break;
+    }
+    if (tableText.includes('Le traitement a échoué')) {
+      await page.screenshot({ path: 'linkStep9.png' });
+      throw new Error(`Le traitement d'appariement a échoué: ${tableText}`);
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
   await page.screenshot({ path: 'linkStep9.png' })
-  const tableText = await page.textContent('body');
   if (!tableText.includes('Costes')) {
     throw new Error('Le nom "Costes" n\'a pas été trouvé dans la table des résultats');
-  } else {
-    console.log('✅ Test réussi : "Costes" trouvé dans la table des résultats');
   }
+  console.log('✅ Test réussi : "Costes" trouvé dans la table des résultats');
 
   console.log('✨ Test d\'appariement Wikidata terminé avec succès');
   await browser.close();
