@@ -37,11 +37,34 @@ export DATAPREP_FRONTEND_PATH=${MONOREPO_ROOT}/packages/dataprep-frontend
 export DATAPREP_BACKEND_LOCAL_TARGET ?= backend-dev
 export DATAPREP_BACKEND_LOCAL_STOP_TARGET ?= backend-dev-stop
 export DATAPREP_BACKEND_DEPLOY_TARGET ?= backend
+export DATAPREP_BACKEND_RUN_CONTAINER ?=
+export DATAPREP_BACKEND_PORT ?= 8080
+export DATAPREP_BACKEND_TIMEOUT ?= 60
 export BACKUP_DIR = ${DATAPREP_BACKEND_PATH}/backup
 export DATA_TAG=${MONOREPO_ROOT}/.data.sha1
 export BACKUP_METHOD=repository
 export BACKUP_CHECK=${PWD}/backup-check
 export REPOSITORY_CHECK=${PWD}/repository-check
+export RECIPE_RUN_MARKER ?= ${PWD}/recipe-run
+export S3_PULL_MARKER ?= ${PWD}/s3-pull
+export PARITY_DIR ?= /tmp/matchid-dataprep-parity
+export PARITY_FILES_TO_PROCESS ?= deces-2020-m01.txt.gz
+export PARITY_SAMPLE_SIZE ?= 1000
+export PARITY_SAMPLE_SEED ?= 424242
+export PARITY_ORIGINAL_BACKEND_PATH ?= ${PWD}/backend
+export PARITY_MONOREPO_BACKEND_PATH ?= ${MONOREPO_ROOT}/packages/dataprep-backend
+export PARITY_ORIGINAL_BACKEND_TARGET ?= backend
+export PARITY_ORIGINAL_BACKEND_STOP_TARGET ?= backend-stop
+export PARITY_MONOREPO_BACKEND_TARGET ?= backend-dev
+export PARITY_MONOREPO_BACKEND_STOP_TARGET ?= backend-dev-stop
+export PARITY_ORIGINAL_BACKEND_PORT ?= 8081
+export PARITY_MONOREPO_BACKEND_PORT ?= 8080
+export PARITY_ORIGINAL_INDEX ?= deces-parity-original
+export PARITY_MONOREPO_INDEX ?= deces-parity-monorepo
+export PARITY_ORIGINAL_COUNT_FILE ?= ${PARITY_DIR}/original.count
+export PARITY_MONOREPO_COUNT_FILE ?= ${PARITY_DIR}/monorepo.count
+export PARITY_ORIGINAL_SAMPLE_FILE ?= ${PARITY_DIR}/original.sample.json
+export PARITY_MONOREPO_SAMPLE_FILE ?= ${PARITY_DIR}/monorepo.sample.json
 # files to sync:
 export FILES_TO_SYNC=fichier-opposition-deces-.*.csv(.gz)?|deces-.*.txt(.gz)?
 export FILES_TO_SYNC_FORCE=fichier-opposition-deces-.*.csv(.gz)?
@@ -124,8 +147,10 @@ datagouv-to-upload:
 		FILES_PATTERN='${FILES_TO_SYNC}' FILES_PATTERN_FORCE='${FILES_TO_SYNC_FORCE}' &&\
 	touch datagouv-to-upload
 
-${DATA_TAG}: config
-	@${MAKE} -C ${MONOREPO_ROOT} data-version > /dev/null
+FORCE:
+
+${DATA_TAG}: FORCE config
+	@${MAKE} -C ${MONOREPO_ROOT} data-version ${MAKEOVERRIDES} > /dev/null
 
 data-tag: ${DATA_TAG}
 
@@ -190,25 +215,66 @@ up:
 	${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES};\
 	${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_DEPLOY_TARGET} ${MAKEOVERRIDES} && echo matchID backend services started
 
-recipe-run: data-tag monorepo-elasticsearch
-	@if [ ! -f recipe-run ];then\
-		echo running recipe on data FILES_TO_PROCESS="${FILES_TO_PROCESS}" $$(cat ${DATA_TAG}), dataprep ${DATAPREP_VERSION};\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} version;\
+dataprep-backend-recipe-run:
+	@if grep -q 'BACKEND_RUN_TARGET ?=' ${DATAPREP_BACKEND_PATH}/Makefile; then\
 		${MAKE} -C ${DATAPREP_BACKEND_PATH} recipe-run \
 			BACKEND_RUN_TARGET=${DATAPREP_BACKEND_LOCAL_TARGET} \
+			BACKEND_RUN_CONTAINER=${DATAPREP_BACKEND_RUN_CONTAINER} \
 			CHUNK_SIZE=${CHUNK_SIZE} RECIPE=${RECIPE} RECIPE_THREADS=${RECIPE_THREADS} RECIPE_QUEUE=${RECIPE_QUEUE} \
 			ES_PRELOAD='${ES_PRELOAD}' ES_THREADS=${ES_THREADS} \
 			STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-			${MAKEOVERRIDES} \
+			${MAKEOVERRIDES};\
+	else\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} ${MAKEOVERRIDES};\
+		BACKEND_CONTAINER="${DATAPREP_BACKEND_RUN_CONTAINER}";\
+		if [ -z "$$BACKEND_CONTAINER" ]; then\
+			if [ "${DATAPREP_BACKEND_LOCAL_TARGET}" = "backend-dev" ]; then\
+				BACKEND_CONTAINER="matchid-backend-dev";\
+			else\
+				BACKEND_CONTAINER="matchid-backend";\
+			fi;\
+		fi;\
+		timeout=${DATAPREP_BACKEND_TIMEOUT}; ret=1;\
+		until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ] ; do\
+			(docker exec -i ${USE_TTY} $$BACKEND_CONTAINER curl -s --noproxy "*" --fail -XGET localhost:${DATAPREP_BACKEND_PORT}/matchID/api/v0/ > /dev/null) ;\
+			ret=$$? ;\
+			if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for legacy dataprep backend to start $$timeout" ; fi ;\
+			((timeout--)); sleep 1 ;\
+		done ; echo ;\
+		if [ "$$ret" -ne "0" ]; then exit $$ret; fi;\
+		docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/tmp/${RECIPE}.log 2>&1 &" \
+			&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
+			&& echo ${RECIPE} run;\
+	fi
+
+dataprep-backend-logs:
+	@BACKEND_CONTAINER="${DATAPREP_BACKEND_RUN_CONTAINER}";\
+	if [ -z "$$BACKEND_CONTAINER" ]; then\
+		if [ "${DATAPREP_BACKEND_LOCAL_TARGET}" = "backend-dev" ]; then\
+			BACKEND_CONTAINER="matchid-backend-dev";\
+		else\
+			BACKEND_CONTAINER="matchid-backend";\
+		fi;\
+	fi;\
+	docker logs --tail=200 $$BACKEND_CONTAINER
+
+recipe-run-local: data-tag
+	@if [ ! -f "${RECIPE_RUN_MARKER}" ];then\
+		mkdir -p $$(dirname "${RECIPE_RUN_MARKER}") $$(dirname "${S3_PULL_MARKER}");\
+		echo running recipe on data FILES_TO_PROCESS="${FILES_TO_PROCESS}" $$(cat ${DATA_TAG}), dataprep ${DATAPREP_VERSION};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} version;\
+		${MAKE} dataprep-backend-recipe-run ${MAKEOVERRIDES} \
 			&&\
-		touch recipe-run s3-pull &&\
+		touch "${RECIPE_RUN_MARKER}" "${S3_PULL_MARKER}" &&\
 			(echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar > elasticsearch-restore);\
 	fi
+
+recipe-run: monorepo-elasticsearch recipe-run-local
 
 full-check: datagouv-to-${DATAGOUV_CONNECTOR} check-${DATAGOUV_CONNECTOR}
 	@if [ -s ${BACKUP_METHOD}-check -a -z "${NO_CHECK}"]; then\
 		echo recipe has already been runned on full and saved on remote storage;\
-		touch recipe-run watch-run backup backup-push repository-push no-remote;\
+		touch "${RECIPE_RUN_MARKER}" watch-run backup backup-push repository-push no-remote;\
 	fi
 
 full: full-check recipe-run
@@ -220,7 +286,11 @@ backend-clean-logs:
 	rm -f ${DATAPREP_BACKEND_PATH}/log/*${RECIPE}*log
 
 watch-run:
-	@LOG_FILE=$(shell find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
+	@LOG_FILE=$$(find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
+	if [ -z "$$LOG_FILE" ]; then\
+		echo "no dataprep log found for ${RECIPE} in ${DATAPREP_BACKEND_PATH}/log";\
+		exit 1;\
+	fi;\
 	timeout=${TIMEOUT} ; ret=1 ; \
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do \
 			((tail $$LOG_FILE | grep "end of all" > /dev/null) || exit 1) ; \
@@ -230,7 +300,7 @@ watch-run:
 				grep -i Ooops $$LOG_FILE | wc -l | awk '($$1>${ERR_MAX}){exit 1}' || exit 0;\
 				sleep 10 ;\
 			fi ; ((timeout--)); done ;
-	@LOG_FILE=$(shell find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
+	@LOG_FILE=$$(find ${DATAPREP_BACKEND_PATH}/log/ -iname '*${RECIPE}*' | sort | tail -1);\
 	((egrep -i 'end : run|Ooops' $$LOG_FILE | tail -5) && exit 1) || \
 	egrep 'end : run.*successfully' $$LOG_FILE
 
@@ -301,9 +371,81 @@ down:
 		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
+parity-dir:
+	@mkdir -p ${PARITY_DIR}
+
+parity-export:
+	@if [ -z "${PARITY_INDEX}" ] || [ -z "${PARITY_COUNT_FILE}" ] || [ -z "${PARITY_SAMPLE_FILE}" ]; then\
+		echo "PARITY_INDEX, PARITY_COUNT_FILE and PARITY_SAMPLE_FILE are required";\
+		exit 1;\
+	fi
+	@${MAKE} -C ${MONOREPO_ROOT}/packages/deces-infra elasticsearch-index-export \
+		ES_INDEX=${PARITY_INDEX} \
+		ES_COUNT_FILE=${PARITY_COUNT_FILE} \
+		ES_SAMPLE_FILE=${PARITY_SAMPLE_FILE} \
+		ES_SAMPLE_SIZE=${PARITY_SAMPLE_SIZE} \
+		ES_SAMPLE_SEED=${PARITY_SAMPLE_SEED} \
+		${MAKEOVERRIDES}
+
+parity-run-original: parity-dir
+	@rm -f ${PARITY_ORIGINAL_COUNT_FILE} ${PARITY_ORIGINAL_SAMPLE_FILE} ${PARITY_DIR}/original.recipe-run ${PARITY_DIR}/original.s3-pull
+	@${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES}
+	@${MAKE} -C ${MONOREPO_ROOT}/packages/deces-infra elasticsearch-index-delete-local ES_INDEX=${PARITY_ORIGINAL_INDEX} ${MAKEOVERRIDES}
+	@${MAKE} backend-clean-logs DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} recipe-run-local \
+		DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} \
+		DATAPREP_BACKEND_LOCAL_TARGET=${PARITY_ORIGINAL_BACKEND_TARGET} \
+		DATAPREP_BACKEND_LOCAL_STOP_TARGET=${PARITY_ORIGINAL_BACKEND_STOP_TARGET} \
+		DATAPREP_BACKEND_PORT=${PARITY_ORIGINAL_BACKEND_PORT} \
+		FILES_TO_PROCESS='${PARITY_FILES_TO_PROCESS}' \
+		ES_INDEX=${PARITY_ORIGINAL_INDEX} \
+		RECIPE_RUN_MARKER=${PARITY_DIR}/original.recipe-run \
+		S3_PULL_MARKER=${PARITY_DIR}/original.s3-pull \
+		${MAKEOVERRIDES}
+	@${MAKE} watch-run DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} parity-export \
+		PARITY_INDEX=${PARITY_ORIGINAL_INDEX} \
+		PARITY_COUNT_FILE=${PARITY_ORIGINAL_COUNT_FILE} \
+		PARITY_SAMPLE_FILE=${PARITY_ORIGINAL_SAMPLE_FILE} \
+		${MAKEOVERRIDES}
+	@${MAKE} down DATAPREP_BACKEND_PATH=${PARITY_ORIGINAL_BACKEND_PATH} ${MAKEOVERRIDES}
+
+parity-run-monorepo: parity-dir
+	@rm -f ${PARITY_MONOREPO_COUNT_FILE} ${PARITY_MONOREPO_SAMPLE_FILE} ${PARITY_DIR}/monorepo.recipe-run ${PARITY_DIR}/monorepo.s3-pull
+	@${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES}
+	@${MAKE} -C ${MONOREPO_ROOT}/packages/deces-infra elasticsearch-index-delete-local ES_INDEX=${PARITY_MONOREPO_INDEX} ${MAKEOVERRIDES}
+	@${MAKE} backend-clean-logs DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} recipe-run-local \
+		DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} \
+		DATAPREP_BACKEND_LOCAL_TARGET=${PARITY_MONOREPO_BACKEND_TARGET} \
+		DATAPREP_BACKEND_LOCAL_STOP_TARGET=${PARITY_MONOREPO_BACKEND_STOP_TARGET} \
+		DATAPREP_BACKEND_PORT=${PARITY_MONOREPO_BACKEND_PORT} \
+		FILES_TO_PROCESS='${PARITY_FILES_TO_PROCESS}' \
+		ES_INDEX=${PARITY_MONOREPO_INDEX} \
+		RECIPE_RUN_MARKER=${PARITY_DIR}/monorepo.recipe-run \
+		S3_PULL_MARKER=${PARITY_DIR}/monorepo.s3-pull \
+		${MAKEOVERRIDES}
+	@${MAKE} watch-run DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} ${MAKEOVERRIDES}
+	@${MAKE} parity-export \
+		PARITY_INDEX=${PARITY_MONOREPO_INDEX} \
+		PARITY_COUNT_FILE=${PARITY_MONOREPO_COUNT_FILE} \
+		PARITY_SAMPLE_FILE=${PARITY_MONOREPO_SAMPLE_FILE} \
+		${MAKEOVERRIDES}
+	@${MAKE} down DATAPREP_BACKEND_PATH=${PARITY_MONOREPO_BACKEND_PATH} ${MAKEOVERRIDES}
+
+parity-compare: parity-run-original parity-run-monorepo
+	@cmp -s ${PARITY_ORIGINAL_COUNT_FILE} ${PARITY_MONOREPO_COUNT_FILE} \
+		&& echo "doc count parity ok: $$(cat ${PARITY_ORIGINAL_COUNT_FILE})" \
+		|| (echo "doc count parity mismatch"; diff -u ${PARITY_ORIGINAL_COUNT_FILE} ${PARITY_MONOREPO_COUNT_FILE}; exit 1)
+	@cmp -s ${PARITY_ORIGINAL_SAMPLE_FILE} ${PARITY_MONOREPO_SAMPLE_FILE} \
+		&& echo "sample parity ok (${PARITY_SAMPLE_SIZE} docs, seed ${PARITY_SAMPLE_SEED})" \
+		|| (echo "sample parity mismatch"; diff -u ${PARITY_ORIGINAL_SAMPLE_FILE} ${PARITY_MONOREPO_SAMPLE_FILE}; exit 1)
+
+parity: parity-compare
+
 clean: down
 	@rm -rf ${DATA_DIR} data-tag config \
-		recipe-run s3-pull backup-check datagouv-to-* check-* elasticsearch-restore watch-run full\
+		${RECIPE_RUN_MARKER} ${S3_PULL_MARKER} backup-check datagouv-to-* check-* elasticsearch-restore watch-run full\
 		backup backup-pull backup-push repository-push repository-config repository-check no-remote \
 		${DATAPREP_BACKEND_PATH}/config ${DATAPREP_BACKEND_PATH}/artifacts ${DATAPREP_BACKEND_PATH}/docker-compose-local.yml \
 		${DATAPREP_FRONTEND_PATH}/artifacts

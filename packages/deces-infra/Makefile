@@ -1,8 +1,11 @@
 # Makefile for deces-infra
 # Infrastructure services management (elasticsearch, redis, etc.)
 
+SHELL=/bin/bash
+
 # Infrastructure-specific variables
 export INFRA_PATH ?= $(shell pwd)
+export MONOREPO_ROOT ?= $(abspath ${INFRA_PATH}/../..)
 export DC ?= docker compose
 export DC_NETWORK ?= matchid
 export APP_BACKEND ?= deces-backend
@@ -24,6 +27,11 @@ export ES_BACKUP_BASENAME := esdata
 export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
 export REDIS_DATA ?= ${DATA_DIR}/redisdata
 export MAILDEV_UI_PORT ?= 1080
+export ES_EXPORT_CONTAINER ?= deces-elasticsearch
+export ES_COUNT_FILE ?=
+export ES_SAMPLE_FILE ?=
+export ES_SAMPLE_SIZE ?= 1000
+export ES_SAMPLE_SEED ?= 424242
 
 # Elasticsearch targets
 elasticsearch-stop:
@@ -94,6 +102,37 @@ elasticsearch: elasticsearch-check
 
 elasticsearch-index-readiness:
 	@timeout=${ES_RESTORE_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/_cat/indices | grep -q green > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch index to be ready $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
+
+elasticsearch-index-delete: elasticsearch-local
+	@STATUS=$$(docker exec -i ${USE_TTY} deces-elasticsearch curl -s -o /dev/null -w '%{http_code}' -XDELETE localhost:9200/${ES_INDEX});\
+	if [ "$$STATUS" = "200" ] || [ "$$STATUS" = "404" ]; then\
+		echo "index ${ES_INDEX} deleted or absent";\
+	else\
+		echo "failed to delete index ${ES_INDEX} (HTTP $$STATUS)";\
+		exit 1;\
+	fi
+
+elasticsearch-index-delete-local:
+	@STATUS=$$(docker exec -i ${USE_TTY} deces-elasticsearch curl -s -o /dev/null -w '%{http_code}' -XDELETE localhost:9200/${ES_INDEX});\
+	if [ "$$STATUS" = "200" ] || [ "$$STATUS" = "404" ]; then\
+		echo "index ${ES_INDEX} deleted or absent";\
+	else\
+		echo "failed to delete index ${ES_INDEX} (HTTP $$STATUS)";\
+		exit 1;\
+	fi
+
+elasticsearch-index-export: elasticsearch-local
+	@if [ -z "${ES_COUNT_FILE}" ] || [ -z "${ES_SAMPLE_FILE}" ]; then\
+		echo "ES_COUNT_FILE and ES_SAMPLE_FILE are required";\
+		exit 1;\
+	fi
+	@python3 ${MONOREPO_ROOT}/scripts/export_es_index_snapshot.py \
+		--container ${ES_EXPORT_CONTAINER} \
+		--index ${ES_INDEX} \
+		--count-file ${ES_COUNT_FILE} \
+		--sample-file ${ES_SAMPLE_FILE} \
+		--sample-size ${ES_SAMPLE_SIZE} \
+		--seed ${ES_SAMPLE_SEED}
 
 # Utility targets
 vm_max:
