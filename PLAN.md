@@ -117,7 +117,7 @@
     - [x] Gate: tu valides que le rattrapage UI reste bien limite au perimetre attendu
     - [x] Gate: tu valides que le lot 3 est termine et qu'on peut ouvrir le lot 4
 
-- [ ] Lot 4 - Runtime monorepo stabilise
+- [x] Lot 4 - Runtime monorepo stabilise
   - [x] Exec
     - [x] Verifier que `packages/dataprep-backend` reste aligne sur `matchID-project/backend:dev`
     - [x] Verifier que `packages/dataprep-frontend` reste aligne sur `matchID-project/frontend:dev`
@@ -141,9 +141,9 @@
     - [x] Valider le fonctionnement local cible de `packages/dataprep-frontend`
     - [x] Valider que chaque package peut etre execute sans dependance implicite a un clone externe
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 4
-  - [ ] UAT
-    - [ ] Gate: je te presente le runtime cible du monorepo, les contrats retenus et les preuves de test de non-regression structurelle
-    - [ ] Gate: tu valides que le lot 4 est termine et qu'on peut ouvrir le lot 5
+  - [x] UAT
+    - [x] Gate: je te presente le runtime cible du monorepo, les contrats retenus et les preuves de test de non-regression structurelle
+    - [x] Gate: tu valides que le lot 4 est termine et qu'on peut ouvrir le lot 5
 
 - [ ] Lot 5 - Chaine dev complete validee
   - [ ] Exec
