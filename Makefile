@@ -81,7 +81,7 @@ export DATAGOUV_RESOURCES_REWRITE_PATH := $(shell echo ${DATAGOUV_RESOURCES_HOST
 export DATA_DIR = ${APP_PATH}/data
 export DATAPREP_VERSION_FILE = ${APP_PATH}/.dataprep.sha1
 export DATA_VERSION_FILE = ${APP_PATH}/.data.sha1
-export FILES_TO_PROCESS?=deces-([0-9]{4}|202[56]-m[0-9]{2}).txt.gz
+export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
 export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz # reference for test env
 export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz # reference for preprod env
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
@@ -222,7 +222,9 @@ down: stop
 restart: down up
 
 
-${DATAPREP_VERSION_FILE}:
+FORCE:
+
+${DATAPREP_VERSION_FILE}: ${DATAPREP_PATH}/Makefile ${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml ${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml
 	@cat ${DATAPREP_PATH}/Makefile\
 		${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml\
 		${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml\
@@ -231,7 +233,7 @@ ${DATAPREP_VERSION_FILE}:
 dataprep-version: ${DATAPREP_VERSION_FILE}
 	@cat ${DATAPREP_VERSION_FILE}
 
-${DATA_VERSION_FILE}:
+${DATA_VERSION_FILE}: FORCE
 	@${MAKE} -C ${TOOLS_PATH} catalog-tag CATALOG_TAG=${DATA_VERSION_FILE}\
 		DATAGOUV_DATASET=${DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
 		STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\

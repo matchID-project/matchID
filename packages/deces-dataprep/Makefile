@@ -35,7 +35,7 @@ export DATA_DIR=${PWD}/data
 export DATAPREP_BACKEND_PATH=${APP_PATH}/${GIT_BACKEND}
 export DATAPREP_FRONTEND_PATH=${APP_PATH}/${GIT_FRONTEND}
 export BACKUP_DIR = ${DATAPREP_BACKEND_PATH}/backup
-export DATA_TAG=${PWD}/data-tag
+export DATA_TAG=${MONOREPO_ROOT}/.data.sha1
 export BACKUP_METHOD=repository
 export BACKUP_CHECK=${PWD}/backup-check
 export REPOSITORY_CHECK=${PWD}/repository-check
@@ -122,9 +122,7 @@ datagouv-to-upload:
 	touch datagouv-to-upload
 
 ${DATA_TAG}: config
-	@${MAKE} -C ${MONOREPO_TOOLS_PATH} catalog-tag CATALOG_TAG=${DATA_TAG}\
-		DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
-		FILES_PATTERN='${FILES_TO_PROCESS}' > /dev/null 2>&1
+	@${MAKE} -C ${MONOREPO_ROOT} data-version > /dev/null
 
 data-tag: ${DATA_TAG}
 
@@ -134,7 +132,7 @@ dataprep-version:
 ${BACKUP_CHECK}: data-tag
 	${MAKE} -s -C ${MONOREPO_TOOLS_PATH} get-catalog CATALOG=${BACKUP_CHECK}\
 		DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
-		FILES_PATTERN=esdata_${DATAPREP_VERSION}_$$(cat ${PWD}/data-tag).tar &&\
+		FILES_PATTERN=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar &&\
 	if [ -s "${BACKUP_CHECK}" ]; then\
 		echo classic backup already exist on remote storage;\
 	else\
@@ -169,7 +167,7 @@ check-upload:
 backup-pull: data-tag
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} storage-pull\
 		STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-		FILE=esdata_${DATAPREP_VERSION}_$$(cat data.tag).tar &&\
+		FILE=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar &&\
 	touch backup-pull
 
 dev: config monorepo-elasticsearch frontend-config
