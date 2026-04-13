@@ -80,6 +80,10 @@ Faire du monorepo la seule source nécessaire au build et au run en local.
 - `packages/deces-dataprep/Makefile` consomme désormais `packages/tools` pour le stockage, le catalogue et le remote
 - `packages/deces-dataprep/Makefile` pointe explicitement sur ses chemins backend/frontend internes au monorepo
 - `packages/deces-dataprep` réutilise les cibles Elasticsearch mutualisées exposées par la racine et `deces-infra`
+- `.dataprep.sha1` est désormais recalculé depuis des dépendances explicites à la racine
+- `.data.sha1` est désormais recalculé explicitement à chaque `make data-version` pour éviter les états obsolètes
+- `packages/deces-dataprep` délègue `data-tag` à la racine et lit désormais la même source de vérité que `deploy-remote`
+- la regex canonique `FILES_TO_PROCESS` est alignée entre la racine et `deces-dataprep` sous une forme POSIX-compatible
 
 ## Preuves de validation intermédiaire
 
@@ -88,8 +92,15 @@ Commandes exécutées uniquement via `make`:
 - `make version`
   - succès
   - plus aucun bruit `tagfiles.version` à la racine
+- `make dataprep-version`
+  - succès
+  - valeur racine recalculée: `ccb7c116` lors de la validation
+- `make data-version`
+  - succès
+  - valeur racine recalculée: `c88006ac` lors de la validation
 - `make -C packages/deces-dataprep data-tag`
   - succès
+  - retourne la même valeur canonique que `.data.sha1` à la racine (`c88006ac` lors de la validation)
 - `make -C packages/deces-dataprep recipe-run`
   - succès
   - passe par `elasticsearch-local` via la racine quand `deces-infra` est présent

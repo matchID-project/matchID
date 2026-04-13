@@ -130,9 +130,9 @@
     - [ ] Retirer ou neutraliser le doublon `packages/deces-backend/tools`
     - [ ] Definir le contrat des variables exportees par la racine
     - [ ] Definir le contrat des variables propres aux packages
-    - [ ] Stabiliser la source de verite de `.data.sha1`
-    - [ ] Stabiliser la source de verite de `.dataprep.sha1`
-    - [ ] Traiter en commit separe l'harmonisation du moteur regex shell/Python autour de `FILES_TO_PROCESS` en forme POSIX-compatible (`[0-9]` plutot que `\d`) si l'ecart reste utile a corriger
+    - [x] Stabiliser la source de verite de `.data.sha1`
+    - [x] Stabiliser la source de verite de `.dataprep.sha1`
+    - [x] Traiter en commit separe l'harmonisation du moteur regex shell/Python autour de `FILES_TO_PROCESS` en forme POSIX-compatible (`[0-9]` plutot que `\d`) si l'ecart reste utile a corriger
     - [ ] Deplacer Redis de `deces-backend` vers `deces-infra`
     - [ ] Deplacer SMTP de `deces-backend` vers `deces-infra`
     - [ ] Clarifier la responsabilite des snapshots et restores entre `deces-infra`, `deces-dataprep` et `tools`
