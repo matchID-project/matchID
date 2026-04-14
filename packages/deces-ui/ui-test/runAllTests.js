@@ -1,5 +1,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
+const { chromium } = require('playwright');
 
 const tests = [
   { name: 'Recherche Simple', file: 'simpleSearch.js' },
@@ -12,6 +13,7 @@ async function waitForWarmup() {
   const host = process.env.TEST_HOST;
   const versionUrl = `http://${host}:${port}/deces/api/v1/version`;
   const searchUrl = `http://${host}:${port}/deces/api/v1/search?deathDate=2020&lastName=dupont&firstName=jean&deathDepartment=33&fuzzy=false`;
+  const frontendUrl = `http://${host}:${port}/search?advanced=true`;
   const timeoutMs = 90000;
   const retryDelayMs = 1000;
   const deadline = Date.now() + timeoutMs;
@@ -30,7 +32,15 @@ async function waitForWarmup() {
 
       const payload = await searchResponse.json();
       if ((payload?.response?.total || 0) > 0) {
-        console.log('✅ Warm-up UI: backend et donnees de reference prets');
+        const browser = await chromium.launch({ headless: true });
+        try {
+          const page = await browser.newPage();
+          await page.goto(frontendUrl);
+          await page.waitForSelector('#ln', { timeout: 5000 });
+        } finally {
+          await browser.close();
+        }
+        console.log('✅ Warm-up UI: frontend, backend et donnees de reference prets');
         return;
       }
       throw new Error('reference search returned no result');
