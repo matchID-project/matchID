@@ -47,7 +47,9 @@ RUN [ -z "${NPM_LATEST}" ] || npm i npm@latest -g
 
 COPY package.json ./
 
-RUN npm --no-git-tag-version version ${APP_VERSION}
+RUN package_version="${APP_VERSION}" ; \
+    printf '%s\n' "${package_version}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$$' || package_version="0.0.0-${package_version}" ; \
+    npm --no-git-tag-version version "${package_version}"
 RUN if [ -z "${NPM_VERBOSE}" ]; then\
       npm install;  \
     else \
