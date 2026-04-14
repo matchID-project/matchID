@@ -94,7 +94,7 @@ Le bootstrap racine `make dev` ne restaure plus implicitement de snapshot. Il d�
 - scénario `avec snapshot`: `make elasticsearch-restore` puis `make dev`
 - scénario `avec dataprep`: `make dataprep-run` puis `make dev`
 
-Au 13 avril 2026, le point restant ouvert du lot 5 n'est plus la parité d'indexation, mais uniquement la présentation des preuves d'exécution locales en UAT.
+Au 13 avril 2026, le point restant ouvert du lot 5 n'est plus la parité d'indexation ni la revalidation technique locale, mais uniquement la présentation des preuves d'exécution en UAT.
 
 ## Résultat du test de parité au 13 avril 2026
 
@@ -167,16 +167,30 @@ La parité d'indexation reste démontrée pour le lot 5:
 - `monorepo.count = 679573`
 - l'échantillon déterministe de `1000` documents est identique entre les deux exports
 
-En revanche, le résultat bout-en-bout local doit être rejoué avant entrée en UAT du lot 5 sur la branche nettoyée des changements produit non-upstream dans `packages/deces-backend/src` et `packages/deces-ui/src`.
+La revalidation bout-en-bout locale a maintenant été rejouée sur la branche nettoyée des changements produit non-upstream dans `packages/deces-backend/src` et `packages/deces-ui/src`.
 
-Le scénario à revalider via `make` uniquement reste:
+Les correctifs de harness nécessaires pour rendre ce scénario reproductible sans toucher au code produit sont maintenant figés:
 
-1. `make dataprep-run FILES_TO_PROCESS=deces-2020-m01.txt.gz`
+- `make dataprep-run` attend explicitement `watch-run`
+- `make dataprep-run` purge les logs dataprep avant un nouveau lancement
+- la racine et `deces-infra` partagent désormais le même contrat `ES_MEM=1024m` pour la chaîne complète
+- `elasticsearch-start` réutilise une instance locale déjà démarrée au lieu de la recréer pendant `make dev`
+
+Le scénario revalidé via `make` uniquement est:
+
+1. `make dataprep-run FILES_TO_PROCESS=deces-2020-m01.txt.gz RECIPE_RUN_MARKER=/tmp/lot5e.recipe-run S3_PULL_MARKER=/tmp/lot5e.s3-pull`
 2. `make dev`
 3. `MAILDEV_UI_PORT=37343 make backend-dev-test`
 4. `MAILDEV_UI_PORT=37343 make frontend-test`
 
-Tant que ce rerun propre n'est pas terminé, le lot 5 ne doit pas être présenté comme validé.
+Résultats observés:
+
+- `make dataprep-run ...` : succès, `60584 lines processed`, `60557 lines written`
+- `make dev` : succès, avec réutilisation explicite de `deces-elasticsearch`
+- `MAILDEV_UI_PORT=37343 make backend-dev-test` : succès
+- `MAILDEV_UI_PORT=37343 make frontend-test` : succès, `3/3` tests UI verts
+
+Le lot 5 peut donc être présenté en UAT.
 
 ## Critères d'acceptation
 
