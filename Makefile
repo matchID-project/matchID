@@ -56,7 +56,7 @@ export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
 export DC := docker compose
 export GIT_ORIGIN=origin
-export GIT_BRANCH ?= $(shell git branch | grep '*' | awk '{print $$2}')
+export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 export GIT_BRANCH_MASTER = master
 export GIT_ROOT = https://github.com/matchID-project
 export APP_URL?=https://${APP_DNS}
@@ -113,12 +113,12 @@ include ./artifacts
 export STORAGE_ACCESS_KEY_B64:=$(shell echo -n ${STORAGE_ACCESS_KEY} | openssl base64)
 export STORAGE_SECRET_KEY_B64:=$(shell echo -n ${STORAGE_SECRET_KEY} | openssl base64)
 
-commit              := $(shell git describe --tags || cat VERSION )
-tag                 := $(shell git describe --tags | sed 's/-.*//')
+commit              := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || cat VERSION 2>/dev/null)
+tag                 := $(shell (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//')
 lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 
-export APP_VERSION := $(shell git describe --tags)
+export APP_VERSION := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
 
 
 export DOCKER_USERNAME=matchid

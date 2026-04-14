@@ -10,7 +10,7 @@ export MONOREPO_ROOT ?= $(abspath ${BACKEND_PATH}/../..)
 # Canonical tools live in the sibling monorepo package, not in a local backend/tools clone.
 export TOOLS_PATH ?= $(abspath ${BACKEND_PATH}/../tools)
 export APP_DNS?=deces.matchid.io
-export APP_VERSION	:= $(shell git describe --tags )
+export APP_VERSION	:= $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
 export USE_TTY := $(shell test -t 1 && USE_TTY="-t")
 
 # make options
@@ -67,7 +67,7 @@ export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
 export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev # reference for non-prod env
 
 export DC_IMAGE_NAME=${DC_PREFIX}
-export GIT_BRANCH ?= $(shell git branch | grep '*' | awk '{print $$2}')
+export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 export GIT_BRANCH_MASTER=master
 export DOCKER_USERNAME=matchid
 export DOCKER_PASSWORD
@@ -166,6 +166,7 @@ backend-test:
 	@docker exec -i ${USE_TTY} ${APP_BACKEND} /bin/sh /deces-backend/tests/test_query_params.sh
 
 db-json-fake:
+	@mkdir -p $(dir ${DB_JSON})
 	echo '{"user1@gmail.com": "7cd61af92058569476e9d91fea601ba85fa02258b6263cfa188c15957f4752f3"}' > ${DB_JSON}
 
 backend-test-reset: backend-redis ${JOBS}
@@ -344,6 +345,7 @@ ${JOBS}:
 	mkdir -p ${JOBS}
 
 ${DB_JSON}:
+	@mkdir -p $(dir ${DB_JSON})
 	@echo "initiating void db";\
 	echo '{}' > ${DB_JSON}
 
