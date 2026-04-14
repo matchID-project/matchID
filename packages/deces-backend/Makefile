@@ -53,6 +53,7 @@ export SMTP_HOST?=smtp
 export SMTP_PORT?=1025
 export MAILDEV_UI_PORT?=1080
 export BACKEND_TEST_SCRIPT?=test
+export BACKEND_TEST_ARGS?=
 export SMTP_USER?=${API_EMAIL}
 export SMTP_PWD?=$(shell echo $$RANDOM )
 
@@ -180,7 +181,7 @@ backend-test-vitest: db-json-fake backend-smtp backend-test-reset ${BACKEND_PATH
 		export BACKEND_LOG_LEVEL=error; \
 		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml run --rm backend npm run tsoa --verbose;fi
 	@export EXEC_ENV=development; export BACKEND_LOG_LEVEL=error; \
-		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml run --rm backend npm run ${BACKEND_TEST_SCRIPT} --verbose
+		${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml run --rm backend npm run ${BACKEND_TEST_SCRIPT} -- ${BACKEND_TEST_ARGS}
 
 ${BACKEND_PATH}/tests/clients_test.csv:
 	curl -L https://github.com/matchID-project/examples/raw/master/data/clients_test.csv -o ${BACKEND_PATH}/tests/clients_test.csv

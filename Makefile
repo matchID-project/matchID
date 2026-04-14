@@ -91,7 +91,7 @@ export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-
 export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz # reference for test env
 export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz # reference for preprod env
 export SMOKE_FILES_TO_PROCESS ?= deces-2020.txt.gz
-export SMOKE_DATA_VERSION_INPUT_DIR ?= ${APP_PATH}/packages/dataprep-backend/upload
+export SMOKE_DATA_VERSION_INPUT_DIR ?= /tmp/matchid-smoke-upload
 export SMOKE_RECIPE_RUN_MARKER ?= /tmp/matchid-smoke.recipe-run
 export SMOKE_S3_PULL_MARKER ?= /tmp/matchid-smoke.s3-pull
 export SMOKE_TOOLS_DATA_DIR ?= /tmp/matchid-tools-smoke
@@ -297,11 +297,14 @@ smoke-tools:
 
 smoke-dataprep-run:
 	${MAKE} -C ${DATAPREP_PATH} datagouv-to-upload \
-		FILES_TO_SYNC='fichier-opposition-deces-.*.csv(.gz)?|${SMOKE_FILES_TO_PROCESS}' \
+		DATAGOUV_UPLOAD_DIR=${SMOKE_DATA_VERSION_INPUT_DIR} \
+		FILES_TO_SYNC='fichier-opposition-deces-.*.csv(.gz)?|${SMOKE_FILES_TO_PROCESS:.gz=}' \
 		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
 		${MAKEOVERRIDES}; \
 	${MAKE} dataprep-run \
 		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
+		DATAGOUV_CONNECTOR=upload \
+		UPLOAD=${SMOKE_DATA_VERSION_INPUT_DIR} \
 		DATA_VERSION_SOURCE=local \
 		DATA_VERSION_INPUT_DIR=${SMOKE_DATA_VERSION_INPUT_DIR} \
 		ES_MEM=${SMOKE_ES_MEM} \
@@ -313,6 +316,7 @@ smoke-dataprep-run:
 smoke-dataprep-clean:
 	@${MAKE} dataprep-dev-stop RECIPE_RUN_MARKER=${SMOKE_RECIPE_RUN_MARKER} S3_PULL_MARKER=${SMOKE_S3_PULL_MARKER} ${MAKEOVERRIDES} >/dev/null 2>&1 || true
 	@rm -f ${SMOKE_RECIPE_RUN_MARKER} ${SMOKE_S3_PULL_MARKER}
+	@rm -rf ${SMOKE_DATA_VERSION_INPUT_DIR}
 
 smoke-dataprep:
 	@set -e; \
@@ -321,8 +325,17 @@ smoke-dataprep:
 	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}
 
 smoke-backend:
-	@rm -rf ${SMOKE_BACKEND_DATA_DIR}
-	@DATA_DIR=${SMOKE_BACKEND_DATA_DIR} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} config communes wikidata-links disposable-mail backend-test-vitest ${MAKEOVERRIDES}
+	@set -e; \
+	cleanup() { \
+		${MAKE} backend-dev-stop >/dev/null 2>&1 || true; \
+		${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true; \
+	}; \
+	trap cleanup EXIT; \
+	rm -rf ${SMOKE_BACKEND_DATA_DIR}; \
+	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
+	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
+	DATA_DIR=${SMOKE_BACKEND_DATA_DIR} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} config communes wikidata-links disposable-mail backend-dev ${MAKEOVERRIDES}; \
+	${MAKE} smoke-backend-api ${MAKEOVERRIDES}
 
 smoke-backend-api:
 	@${MAKE} -C ${TOOLS_PATH} local-test-api \

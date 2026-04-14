@@ -30,6 +30,7 @@ export TIMEOUT = 2520
 export DATAGOUV_API = https://www.data.gouv.fr/api/1/datasets
 export DATAGOUV_DATASET = fichier-des-personnes-decedees
 export DATAGOUV_CONNECTOR = s3
+export DATAGOUV_UPLOAD_DIR ?= ${DATAPREP_BACKEND_PATH}/upload
 export STORAGE_BUCKET=${DATAGOUV_DATASET}
 export REPOSITORY_BUCKET=${DATAGOUV_DATASET}-elasticsearch
 export DATA_DIR=${PWD}/data
@@ -162,9 +163,9 @@ datagouv-to-storage: config
 datagouv-to-s3: datagouv-to-storage
 	touch datagouv-to-s3
 
-datagouv-to-upload:
+datagouv-to-upload: FORCE
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} datagouv-get-files \
-		DATAGOUV_DATASET=${DATAGOUV_DATASET} DATA_DIR=${DATAPREP_BACKEND_PATH}/upload\
+		DATAGOUV_DATASET=${DATAGOUV_DATASET} DATA_DIR=${DATAGOUV_UPLOAD_DIR}\
 		FILES_PATTERN='${FILES_TO_SYNC}' FILES_PATTERN_FORCE='${FILES_TO_SYNC_FORCE}' &&\
 	touch datagouv-to-upload
 
