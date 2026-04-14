@@ -89,8 +89,12 @@ elasticsearch-clean: elasticsearch-stop
 
 elasticsearch-start: infra-network vm_max
 	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
-	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod 2775 ${ES_DATA}/node1/. ; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. ; fi)
-	${DC} -f ${INFRA_PATH}/docker-compose-elasticsearch.yml up -d
+	@if docker ps --format '{{.Names}}' | grep -qx 'deces-elasticsearch'; then\
+		echo "reusing running elasticsearch deces-elasticsearch";\
+	else\
+		(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod 2775 ${ES_DATA}/node1/. ; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. ; fi);\
+		${DC} -f ${INFRA_PATH}/docker-compose-elasticsearch.yml up -d;\
+	fi
 
 elasticsearch-local: elasticsearch-start
 	@timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch API to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
