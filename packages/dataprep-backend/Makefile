@@ -52,7 +52,7 @@ export DC_NETWORK_OPT=
 export DC_BUILD_ARGS = --pull --no-cache
 export GIT_ROOT=https://github.com/matchid-project
 export GIT_ORIGIN=origin
-export GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && git branch | grep '*' | awk '{print $$2}')
+export GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && (git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 export GIT_BRANCH_MASTER=master
 export GIT_TOOLS=tools
 export GIT_FRONTEND=frontend
@@ -105,7 +105,7 @@ export SERVICES=${DB_SERVICES} backend frontend
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-tag                 := $(shell [ -f "/usr/bin/git" ] && git describe --tags | sed 's/-.*//')
+tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//'))
 version 			:= $(shell export LC_COLLATE=C;export LC_ALL=C;cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v 'conf/security/(github|facebook|twitter).yml$$|.tar.gz$$|.pyc$$|.gitignore$$' | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
 export APP_VERSION =  ${tag}-${version}
 
