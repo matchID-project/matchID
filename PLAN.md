@@ -172,8 +172,8 @@
     - [x] Valider la compatibilite dataprep -> index -> backend -> ui
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 5
   - [ ] UAT
-    - [ ] Gate: je te presente la procedure dev canonique, la source canonique de l'image `backend` pour `deces-dataprep`, la preuve de parite d'indexation et les preuves de fonctionnement bout en bout en local
-    - [ ] Gate: tu valides que la chaine dev complete est acceptable et qu'on peut ouvrir le lot 6
+    - [x] Gate: je te presente la procedure dev canonique, la source canonique de l'image `backend` pour `deces-dataprep`, la preuve de parite d'indexation et les preuves de fonctionnement bout en bout en local
+    - [x] Gate: tu valides que la chaine dev complete est acceptable et qu'on peut ouvrir le lot 6
 
 - [ ] Lot 6 - CI monorepo et non-regression validees
   - [x] Exec
@@ -193,7 +193,7 @@
     - [x] Definir les secrets necessaires en CI
     - [x] Definir les checks bloquants pour merge
   - [ ] Tests
-    - [ ] Valider un pipeline CI vert sur la branche d'integration
+    - [x] Valider un pipeline CI vert sur la branche d'integration
     - [x] Valider que les smoke tests couvrent bien les gates des lots precedents
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 6
   - [ ] UAT

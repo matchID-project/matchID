@@ -78,10 +78,22 @@ Introduire une validation monorepo fiable, proportionnée aux composants impact�
   - dataprep annuel 2020 exécuté
   - API locale validée en GET/POST via `smoke-backend-api`
   - UI validée sur recherche simple, recherche avancée, appariement Wikidata
+- `APP_VERSION=0d86474 MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz make smoke-ui`
+  - succès
+  - valide explicitement le cas CI clone sans tags où `APP_VERSION` retombe sur un SHA court
+- `APP_VERSION=0d86474 MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz make smoke-e2e`
+  - succès
+  - valide le même cas CI sur la chaîne complète
+- GitHub Actions `CI Monorepo`
+  - `pull_request` vert: run `24428649314`
+  - `push` vert: run `24428647361`
+  - jobs verts: `tools`, `dataprep`, `backend`, `ui`, `integration`
 
-### Point encore ouvert avant UAT lot 6
+### Etat d'entrée en UAT lot 6
 
-- la case `pipeline CI vert sur la branche d'integration` reste ouverte tant que la branche n'a pas été poussée avec ces commits et que le workflow GitHub n'a pas tourné au vert
+- la branche d'intégration a maintenant un pipeline CI vert exploitable
+- le dernier correctif CI ciblé est `a8db8d42` sur `packages/deces-ui/Dockerfile`
+- le lot 6 peut entrer en UAT
 
 ## Critères d'acceptation
 
