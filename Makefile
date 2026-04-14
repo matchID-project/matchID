@@ -50,6 +50,7 @@ export API_TIMEOUT = 45
 export MAILDEV_UI_PORT ?= 37343
 export BACKEND_TIMEOUT ?= 180
 export ES_MEM ?= 1024m
+export ES_TIMEOUT ?= 120
 
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
@@ -84,9 +85,17 @@ export DATAGOUV_RESOURCES_REWRITE_PATH := $(shell echo ${DATAGOUV_RESOURCES_HOST
 export DATA_DIR = ${APP_PATH}/data
 export DATAPREP_VERSION_FILE = ${APP_PATH}/.dataprep.sha1
 export DATA_VERSION_FILE = ${APP_PATH}/.data.sha1
+export DATA_VERSION_SOURCE ?= storage
+export DATA_VERSION_INPUT_DIR ?=
 export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
 export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz # reference for test env
 export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz # reference for preprod env
+export SMOKE_FILES_TO_PROCESS ?= deces-2020.txt.gz
+export SMOKE_DATA_VERSION_INPUT_DIR ?= ${APP_PATH}/packages/dataprep-backend/upload
+export SMOKE_RECIPE_RUN_MARKER ?= /tmp/matchid-smoke.recipe-run
+export SMOKE_S3_PULL_MARKER ?= /tmp/matchid-smoke.s3-pull
+export SMOKE_TOOLS_DATA_DIR ?= /tmp/matchid-tools-smoke
+export PLAYWRIGHT_VERSION ?= 1.59.1
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
 export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev # reference for non-prod env
 
@@ -250,14 +259,104 @@ ${DATAPREP_VERSION_FILE}: ${DATAPREP_PATH}/Makefile ${DATAPREP_PATH}/projects/de
 dataprep-version: ${DATAPREP_VERSION_FILE}
 	@cat ${DATAPREP_VERSION_FILE}
 
+ifeq (${DATA_VERSION_SOURCE},local)
+${DATA_VERSION_FILE}: FORCE
+	@if [ -z "${DATA_VERSION_INPUT_DIR}" ]; then\
+		echo "DATA_VERSION_INPUT_DIR is required when DATA_VERSION_SOURCE=local";\
+		exit 1;\
+	fi
+	@MATCHED_FILES=$$(mktemp /tmp/matchid-data-version.XXXXXX); \
+	find "${DATA_VERSION_INPUT_DIR}" -maxdepth 1 -type f 2> /dev/null | sed 's|^.*/||' | egrep '^${FILES_TO_PROCESS}$$' | sort > $$MATCHED_FILES; \
+	if [ ! -s "$$MATCHED_FILES" ]; then\
+		rm -f "$$MATCHED_FILES";\
+		echo "no local data files matched ${FILES_TO_PROCESS} in ${DATA_VERSION_INPUT_DIR}";\
+		exit 1;\
+	fi; \
+	cat "$$MATCHED_FILES" | sha1sum | awk '{print $$1}' | cut -c-8 > ${DATA_VERSION_FILE}; \
+	rm -f "$$MATCHED_FILES"
+else
 ${DATA_VERSION_FILE}: FORCE
 	@${MAKE} -C ${TOOLS_PATH} catalog-tag CATALOG_TAG=${DATA_VERSION_FILE}\
 		DATAGOUV_DATASET=${DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
 		STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		FILES_PATTERN='${FILES_TO_PROCESS}'
+endif
 
 data-version: ${DATA_VERSION_FILE}
 	@cat ${DATA_VERSION_FILE}
+
+smoke-tools:
+	@${MAKE} -C ${TOOLS_PATH} tools-smoke \
+		DATAGOUV_DATASET=${DATASET} \
+		DATA_DIR=${SMOKE_TOOLS_DATA_DIR} \
+		CATALOG_TAG=${SMOKE_TOOLS_DATA_DIR}/${DATASET}.tag \
+		${MAKEOVERRIDES}
+
+smoke-dataprep-run:
+	${MAKE} -C ${DATAPREP_PATH} datagouv-to-upload \
+		FILES_TO_SYNC='fichier-opposition-deces-.*.csv(.gz)?|${SMOKE_FILES_TO_PROCESS}' \
+		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
+		${MAKEOVERRIDES}; \
+	${MAKE} dataprep-run \
+		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
+		DATA_VERSION_SOURCE=local \
+		DATA_VERSION_INPUT_DIR=${SMOKE_DATA_VERSION_INPUT_DIR} \
+		RECIPE_RUN_MARKER=${SMOKE_RECIPE_RUN_MARKER} \
+		S3_PULL_MARKER=${SMOKE_S3_PULL_MARKER} \
+		${MAKEOVERRIDES}
+
+smoke-dataprep-clean:
+	@${MAKE} dataprep-dev-stop RECIPE_RUN_MARKER=${SMOKE_RECIPE_RUN_MARKER} S3_PULL_MARKER=${SMOKE_S3_PULL_MARKER} ${MAKEOVERRIDES} >/dev/null 2>&1 || true
+	@rm -f ${SMOKE_RECIPE_RUN_MARKER} ${SMOKE_S3_PULL_MARKER}
+
+smoke-dataprep:
+	@set -e; \
+	trap '${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true' EXIT; \
+	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
+	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}
+
+smoke-backend:
+	@MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} backend-test-vitest ${MAKEOVERRIDES}
+
+smoke-backend-api:
+	@${MAKE} -C ${TOOLS_PATH} local-test-api \
+		PORT=${BACKEND_PORT} \
+		API_TEST_PATH='deces/api/v1/search?deathDate=2020&firstName=Ana&fuzzy=false' \
+		API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Ana")] | all)' \
+		${MAKEOVERRIDES}
+	@${MAKE} -C ${TOOLS_PATH} local-test-api \
+		PORT=${BACKEND_PORT} \
+		API_TEST_PATH='deces/api/v1/search' \
+		API_TEST_DATA='{"deathDate":"2020","firstName":"Ana","fuzzy":"false"}' \
+		API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Ana")] | all)' \
+		${MAKEOVERRIDES}
+
+smoke-ui:
+	@set -e; \
+	cleanup() { \
+		${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true; \
+		${MAKE} dev-stop >/dev/null 2>&1 || true; \
+	}; \
+	trap cleanup EXIT; \
+	cleanup; \
+	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
+	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
+	${MAKE} dev ${MAKEOVERRIDES}; \
+	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} frontend-test ${MAKEOVERRIDES}
+
+smoke-e2e:
+	@set -e; \
+	cleanup() { \
+		${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true; \
+		${MAKE} dev-stop >/dev/null 2>&1 || true; \
+	}; \
+	trap cleanup EXIT; \
+	cleanup; \
+	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
+	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
+	${MAKE} dev ${MAKEOVERRIDES}; \
+	${MAKE} smoke-backend-api ${MAKEOVERRIDES}; \
+	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} frontend-test ${MAKEOVERRIDES}
 
 show-env:
 	env | egrep 'STORAGE|BUCKET'

@@ -22,6 +22,7 @@ export FILE_FRONTEND_DIST_LATEST_VERSION = $(APP)-latest-frontend-dist.tar.gz
 
 # Test configuration variables
 export TEST_HOST=nginx
+export PLAYWRIGHT_VERSION ?= 1.59.1
 export MITM_URL=/mitm/mitm.html
 export THEME_DNUM=0
 
@@ -66,15 +67,18 @@ frontend-update:
 frontend-dev: clean-frontend
 ifneq "$(commit)" "$(lastcommit)"
 	@echo docker-compose up ${APP_FRONTEND} frontend for dev after new commit ${APP_VERSION}
+	@docker rm -f deces-ui-frontend-development deces-ui-nginx-development > /dev/null 2>&1 || true
 	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml up -d --build --force-recreate
 	@echo "${commit}" > ${FRONTEND_PATH}/.lastcommit
 else
 	@echo docker-compose up ${APP_FRONTEND} frontend for dev
+	@docker rm -f deces-ui-frontend-development deces-ui-nginx-development > /dev/null 2>&1 || true
 	${DC} -f  ${FRONTEND_PATH}/docker-compose-dev.yml up -d
 endif
 
 frontend-dev-stop:
 	${DC} -f ${FRONTEND_PATH}/docker-compose-dev.yml down
+	@docker rm -f deces-ui-frontend-development deces-ui-nginx-development > /dev/null 2>&1 || true
 
 frontend-check-build:
 	${DC} -f $(DC_BUILD_FRONTEND) config -q
@@ -103,7 +107,7 @@ frontend:
 
 frontend-test: export TEST_HOST=nginx-development
 frontend-test: smtp
-	PLAYWRIGHT_VERSION=$$(curl -s https://mcr.microsoft.com/v2/playwright/tags/list | jq -r '.tags | map(select(test("^v[0-9]+\\.[0-9]+\\.[0-9]+$$"))) | .[]' | sort -V | tail -1 | sed 's/^v//') ${DC} -f ${DC_TEST_FRONTEND} run ui-test sh -c "yarn install && node runAllTests.js"
+	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} ${DC} -f ${DC_TEST_FRONTEND} run ui-test sh -c "yarn install && node runAllTests.js"
 
 clean-frontend: rollup-clean build-dir-clean frontend-clean-dist frontend-clean-dist-archive
 

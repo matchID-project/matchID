@@ -1,0 +1,128 @@
+name: CI Monorepo
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - master
+  push:
+    branches:
+      - feat/refacto-make
+      - dev
+      - master
+
+concurrency:
+  group: ci-monorepo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      ui: ${{ steps.filter.outputs.ui }}
+      dataprep: ${{ steps.filter.outputs.dataprep }}
+      tools: ${{ steps.filter.outputs.tools }}
+      integration: ${{ steps.filter.outputs.integration }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'Makefile'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+            ui:
+              - 'Makefile'
+              - 'packages/deces-ui/**'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+            dataprep:
+              - 'Makefile'
+              - 'packages/deces-dataprep/**'
+              - 'packages/dataprep-backend/**'
+              - 'packages/dataprep-frontend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - 'scripts/**'
+            tools:
+              - 'Makefile'
+              - 'packages/tools/**'
+            integration:
+              - 'Makefile'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-ui/**'
+              - 'packages/deces-dataprep/**'
+              - 'packages/dataprep-backend/**'
+              - 'packages/dataprep-frontend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - 'scripts/**'
+              - '.github/workflows/**'
+
+  tools:
+    name: Tools smoke
+    needs: changes
+    if: needs.changes.outputs.tools == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run tools smoke target
+        run: make smoke-tools
+
+  backend:
+    name: Backend smoke
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run backend smoke target
+        run: make smoke-backend MAILDEV_UI_PORT=37343
+
+  dataprep:
+    name: Dataprep smoke
+    needs: changes
+    if: needs.changes.outputs.dataprep == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dataprep smoke target
+        run: make smoke-dataprep SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz
+
+  ui:
+    name: UI smoke
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run UI smoke target
+        run: make smoke-ui MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz
+
+  integration:
+    name: End-to-end smoke
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run end-to-end smoke target
+        run: make smoke-e2e MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz

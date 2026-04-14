@@ -26,6 +26,7 @@ export ES_VERSION = 8.6.1
 export ES_BACKUP_BASENAME := esdata
 export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
 export REDIS_DATA ?= ${DATA_DIR}/redisdata
+export REDIS_TIMEOUT ?= 30
 export MAILDEV_UI_PORT ?= 1080
 export ES_EXPORT_CONTAINER ?= deces-elasticsearch
 export ES_COUNT_FILE ?=
@@ -155,6 +156,14 @@ redis: infra-network
 	@mkdir -p ${REDIS_DATA}
 	@docker rm -f ${APP_BACKEND}-redis > /dev/null 2>&1 || true
 	${DC} -f ${INFRA_PATH}/docker-compose-redis.yml up -d
+	@timeout=${REDIS_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do \
+		(docker exec -i ${USE_TTY} ${APP_BACKEND}-redis redis-cli PING 2> /dev/null | grep -q PONG) ; \
+		ret=$$? ; \
+		if [ "$$ret" -ne "0" ] ; then \
+			echo -en "\rwaiting for redis to start $$timeout" ; \
+		fi ; \
+		((timeout--)); sleep 1 ; \
+	done ; echo ; exit $$ret
 
 smtp-stop:
 	@echo docker-compose down matchID smtp

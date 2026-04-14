@@ -966,6 +966,16 @@ datagouv-to-aws: aws-get-catalog datagouv-get-files
 	done
 
 #DATAGOUV section
+datagouv-get-catalog-public: ${DATA_DIR}
+	@echo getting ${DATAGOUV_DATASET} catalog from data.gouv API ${DATAGOUV_API}
+	@curl -s --fail ${DATAGOUV_API}/${DATAGOUV_DATASET}/ | \
+		jq -cr '.resources[] | (.url | sub(".*/";"")) + " no-more-checksum " + .url' | sort > ${DATAGOUV_CATALOG}
+
+tools-smoke: datagouv-get-catalog-public
+	@cat ${DATAGOUV_CATALOG} | sort | sed 's/\s*$$//' | sha1sum | awk '{print $$1}' | cut -c-8 > ${CATALOG_TAG}
+	@test -s ${DATAGOUV_CATALOG}
+	@test -s ${CATALOG_TAG}
+
 ${DATAGOUV_CATALOG}: config ${DATA_DIR}
 	@echo getting ${DATAGOUV_DATASET} catalog from data.gouv API ${DATAGOUV_API}
 	@curl -s --fail ${DATAGOUV_API}/${DATAGOUV_DATASET}/ | \

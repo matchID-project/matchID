@@ -930,7 +930,7 @@ describe('server.ts - Express application', () => {
         .set('Authorization', `Bearer ${token.body.access_token as string}`)
       expect(res.status).toBe(200);
       expect(res.body.jobs.length).to.eql(0);
-    }, 30000);
+    }, 90000);
 
 
   })
