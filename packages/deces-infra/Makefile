@@ -21,7 +21,8 @@ export ES_MAX_RESULTS ?= 10000
 export ES_DATA ?= ${DATA_DIR}/esdata
 export ES_NODES ?= 1
 export ES_MEM ?= 512m
-export ES_JAVA_OPTS=-Xms${ES_MEM} -Xmx${ES_MEM}
+export ES_MMAP_DISABLED ?= false
+export ES_JAVA_OPTS=$(strip -Xms${ES_MEM} -Xmx${ES_MEM} $(if $(filter true,$(ES_MMAP_DISABLED)),-Dnode.store.allow_mmap=false))
 export ES_VERSION = 8.6.1
 export ES_BACKUP_BASENAME := esdata
 export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')

@@ -95,6 +95,8 @@ export SMOKE_DATA_VERSION_INPUT_DIR ?= ${APP_PATH}/packages/dataprep-backend/upl
 export SMOKE_RECIPE_RUN_MARKER ?= /tmp/matchid-smoke.recipe-run
 export SMOKE_S3_PULL_MARKER ?= /tmp/matchid-smoke.s3-pull
 export SMOKE_TOOLS_DATA_DIR ?= /tmp/matchid-tools-smoke
+export SMOKE_ES_MEM ?= 512m
+export SMOKE_ES_MMAP_DISABLED ?= true
 export PLAYWRIGHT_VERSION ?= 1.59.1
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
 export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev # reference for non-prod env
@@ -301,6 +303,8 @@ smoke-dataprep-run:
 		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
 		DATA_VERSION_SOURCE=local \
 		DATA_VERSION_INPUT_DIR=${SMOKE_DATA_VERSION_INPUT_DIR} \
+		ES_MEM=${SMOKE_ES_MEM} \
+		ES_MMAP_DISABLED=${SMOKE_ES_MMAP_DISABLED} \
 		RECIPE_RUN_MARKER=${SMOKE_RECIPE_RUN_MARKER} \
 		S3_PULL_MARKER=${SMOKE_S3_PULL_MARKER} \
 		${MAKEOVERRIDES}
@@ -341,7 +345,7 @@ smoke-ui:
 	cleanup; \
 	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
 	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
-	${MAKE} dev ${MAKEOVERRIDES}; \
+	${MAKE} dev ES_MEM=${SMOKE_ES_MEM} ES_MMAP_DISABLED=${SMOKE_ES_MMAP_DISABLED} ${MAKEOVERRIDES}; \
 	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} frontend-test ${MAKEOVERRIDES}
 
 smoke-e2e:
@@ -354,7 +358,7 @@ smoke-e2e:
 	cleanup; \
 	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
 	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
-	${MAKE} dev ${MAKEOVERRIDES}; \
+	${MAKE} dev ES_MEM=${SMOKE_ES_MEM} ES_MMAP_DISABLED=${SMOKE_ES_MMAP_DISABLED} ${MAKEOVERRIDES}; \
 	${MAKE} smoke-backend-api ${MAKEOVERRIDES}; \
 	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} frontend-test ${MAKEOVERRIDES}
 
