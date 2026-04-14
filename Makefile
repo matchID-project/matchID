@@ -204,6 +204,7 @@ dataprep-dev-stop:
 
 dataprep-run:
 	@${MAKE} -C ${DATAPREP_PATH} recipe-run ${MAKEOVERRIDES}
+	@${MAKE} -C ${DATAPREP_PATH} watch-run ${MAKEOVERRIDES}
 
 dataprep-data-tag:
 	@${MAKE} -C ${DATAPREP_PATH} data-tag ${MAKEOVERRIDES}
