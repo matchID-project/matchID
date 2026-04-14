@@ -49,6 +49,7 @@ export STATS = ${FRONTEND_PATH}/stats/public
 export API_TIMEOUT = 45
 export MAILDEV_UI_PORT ?= 37343
 export BACKEND_TIMEOUT ?= 180
+export ES_MEM ?= 1024m
 
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
