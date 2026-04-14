@@ -159,30 +159,24 @@ Ces preuves couvrent déjà:
 - l'exécution effective du protocole de parité d'indexation
 - la chaîne complète `dataprep -> index -> backend -> ui` sur le jeu de référence `deces-2020-m01.txt.gz`
 
-## Résultat bout-en-bout au 13 avril 2026
+## État de revalidation après purge des changements produit non-upstream
 
-Le scénario de référence a été rejoué via `make` uniquement dans cet ordre:
+La parité d'indexation reste démontrée pour le lot 5:
+
+- `original.count = 679573`
+- `monorepo.count = 679573`
+- l'échantillon déterministe de `1000` documents est identique entre les deux exports
+
+En revanche, le résultat bout-en-bout local doit être rejoué avant entrée en UAT du lot 5 sur la branche nettoyée des changements produit non-upstream dans `packages/deces-backend/src` et `packages/deces-ui/src`.
+
+Le scénario à revalider via `make` uniquement reste:
 
 1. `make dataprep-run FILES_TO_PROCESS=deces-2020-m01.txt.gz`
 2. `make dev`
 3. `MAILDEV_UI_PORT=37343 make backend-dev-test`
 4. `MAILDEV_UI_PORT=37343 make frontend-test`
 
-Résultats observés:
-
-- le dataprep de référence se termine avec `60584 lines processed` et `60557 lines written`
-- l'API locale remonte ensuite `uniqRecordsCount = 60557`, `lastDataset = 2020-m01`, `lastRecordDate = 30/01/2020`
-- `make backend-dev-test` passe
-- `make frontend-test` passe avec `3` tests réussis sur `3`
-- le scénario UI couvre:
-  - recherche simple
-  - recherche avancée avec `fuzzy=false`
-  - appariement Wikidata jusqu'au résultat attendu `Costes`
-
-Le durcissement nécessaire pour rendre ce scénario stable en `dev` a consisté à:
-
-- rendre les appels UI `register`, `auth`, `search/csv` et le poll du job tolérants à des `502/503/504` transitoires en environnement local
-- rendre le test Wikidata déterministe en utilisant un email unique par run et l'API MailDev, au lieu du scraping de l'interface MailDev
+Tant que ce rerun propre n'est pas terminé, le lot 5 ne doit pas être présenté comme validé.
 
 ## Critères d'acceptation
 
