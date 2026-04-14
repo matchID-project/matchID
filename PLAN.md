@@ -176,26 +176,26 @@
     - [ ] Gate: tu valides que la chaine dev complete est acceptable et qu'on peut ouvrir le lot 6
 
 - [ ] Lot 6 - CI monorepo et non-regression validees
-  - [ ] Exec
-    - [ ] Ajouter un smoke test dataprep
-    - [ ] Ajouter un smoke test backend
-    - [ ] Ajouter un smoke test UI
-    - [ ] Ajouter un smoke test bout-en-bout
-    - [ ] Creer la CI racine du monorepo
-    - [ ] Ajouter le job lint/build/tests de `deces-backend`
-    - [ ] Ajouter le job build/tests ou smoke checks de `deces-ui`
-    - [ ] Ajouter le job de validation ciblee de `deces-dataprep`
-    - [ ] Ajouter le job de validation ciblee de `tools`
-    - [ ] Ajouter le job d'integration chaine complete
-    - [ ] Definir les declenchements conditionnels par chemins modifies
-    - [ ] Sortir la CI des dependances a l'environnement personnel
-    - [ ] Definir les fixtures et mocks necessaires
-    - [ ] Definir les secrets necessaires en CI
-    - [ ] Definir les checks bloquants pour merge
+  - [x] Exec
+    - [x] Ajouter un smoke test dataprep
+    - [x] Ajouter un smoke test backend
+    - [x] Ajouter un smoke test UI
+    - [x] Ajouter un smoke test bout-en-bout
+    - [x] Creer la CI racine du monorepo
+    - [x] Ajouter le job lint/build/tests de `deces-backend`
+    - [x] Ajouter le job build/tests ou smoke checks de `deces-ui`
+    - [x] Ajouter le job de validation ciblee de `deces-dataprep`
+    - [x] Ajouter le job de validation ciblee de `tools`
+    - [x] Ajouter le job d'integration chaine complete
+    - [x] Definir les declenchements conditionnels par chemins modifies
+    - [x] Sortir la CI des dependances a l'environnement personnel
+    - [x] Definir les fixtures et mocks necessaires
+    - [x] Definir les secrets necessaires en CI
+    - [x] Definir les checks bloquants pour merge
   - [ ] Tests
     - [ ] Valider un pipeline CI vert sur la branche d'integration
-    - [ ] Valider que les smoke tests couvrent bien les gates des lots precedents
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 6
+    - [x] Valider que les smoke tests couvrent bien les gates des lots precedents
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 6
   - [ ] UAT
     - [ ] Gate: je te presente le pipeline cible, sa couverture et les preuves de passage au vert
     - [ ] Gate: tu valides que la CI monorepo est suffisante pour ouvrir le lot 7
