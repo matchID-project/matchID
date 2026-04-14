@@ -95,6 +95,7 @@ export SMOKE_DATA_VERSION_INPUT_DIR ?= ${APP_PATH}/packages/dataprep-backend/upl
 export SMOKE_RECIPE_RUN_MARKER ?= /tmp/matchid-smoke.recipe-run
 export SMOKE_S3_PULL_MARKER ?= /tmp/matchid-smoke.s3-pull
 export SMOKE_TOOLS_DATA_DIR ?= /tmp/matchid-tools-smoke
+export SMOKE_BACKEND_DATA_DIR ?= /tmp/matchid-backend-smoke
 export SMOKE_ES_MEM ?= 512m
 export SMOKE_ES_MMAP_DISABLED ?= true
 export PLAYWRIGHT_VERSION ?= 1.59.1
@@ -320,7 +321,8 @@ smoke-dataprep:
 	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}
 
 smoke-backend:
-	@MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} backend-test-vitest ${MAKEOVERRIDES}
+	@rm -rf ${SMOKE_BACKEND_DATA_DIR}
+	@DATA_DIR=${SMOKE_BACKEND_DATA_DIR} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} config communes wikidata-links disposable-mail backend-test-vitest ${MAKEOVERRIDES}
 
 smoke-backend-api:
 	@${MAKE} -C ${TOOLS_PATH} local-test-api \
