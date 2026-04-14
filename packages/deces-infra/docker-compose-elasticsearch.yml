@@ -7,6 +7,7 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
     container_name: deces-elasticsearch
+    user: "${ES_UID}:${ES_GID}"
     networks:
       default:
         aliases:
@@ -41,4 +42,3 @@ services:
     # ports:
     #   - 9200:9200
     restart: always
-

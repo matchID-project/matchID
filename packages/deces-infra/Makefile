@@ -22,6 +22,8 @@ export ES_DATA ?= ${DATA_DIR}/esdata
 export ES_NODES ?= 1
 export ES_MEM ?= 512m
 export ES_MMAP_DISABLED ?= false
+export ES_UID ?= $(shell id -u)
+export ES_GID ?= 0
 export ES_JAVA_OPTS=$(strip -Xms${ES_MEM} -Xmx${ES_MEM} $(if $(filter true,$(ES_MMAP_DISABLED)),-Dnode.store.allow_mmap=false))
 export ES_VERSION = 8.6.1
 export ES_BACKUP_BASENAME := esdata
