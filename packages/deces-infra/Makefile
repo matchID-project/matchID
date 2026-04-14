@@ -99,7 +99,17 @@ elasticsearch-start: infra-network vm_max
 	fi
 
 elasticsearch-local: elasticsearch-start
-	@timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch API to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
+	@timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch API to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; if [ "$$ret" -ne "0" ] ; then ${MAKE} --no-print-directory -C ${INFRA_PATH} elasticsearch-debug-info ; fi ; exit $$ret
+
+elasticsearch-debug-info:
+	@echo "elasticsearch status:"
+	@docker ps -a --filter "name=^/deces-elasticsearch$$" --format 'table {{.Names}}\t{{.Status}}\t{{.RunningFor}}'
+	@if docker inspect deces-elasticsearch > /dev/null 2>&1; then\
+		echo "elasticsearch inspect:";\
+		docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} restarting={{.State.Restarting}} oomkilled={{.State.OOMKilled}} error={{.State.Error}} restart_count={{.RestartCount}}' deces-elasticsearch;\
+		echo "elasticsearch recent logs:";\
+		docker logs --tail=200 deces-elasticsearch || true;\
+	fi
 
 elasticsearch-check: elasticsearch-restore
 	@timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch API to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
