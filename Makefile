@@ -203,6 +203,7 @@ dataprep-dev-stop:
 	@${MAKE} -C ${DATAPREP_PATH} dev-stop ${MAKEOVERRIDES}
 
 dataprep-run:
+	@${MAKE} -C ${DATAPREP_PATH} backend-clean-logs ${MAKEOVERRIDES}
 	@${MAKE} -C ${DATAPREP_PATH} recipe-run ${MAKEOVERRIDES}
 	@${MAKE} -C ${DATAPREP_PATH} watch-run ${MAKEOVERRIDES}
 
