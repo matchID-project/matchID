@@ -288,6 +288,67 @@ endif
 data-version: ${DATA_VERSION_FILE}
 	@cat ${DATA_VERSION_FILE}
 
+artifact-version-dataprep-backend:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend version | awk '{print $$NF}'
+
+artifact-version-dataprep-frontend:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend version | awk '{print $$NF}'
+
+artifact-version-deces-backend:
+	@echo ${APP_VERSION}
+
+artifact-version-deces-ui:
+	@echo ${APP_VERSION}
+
+artifact-version-dataprep-snapshot: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
+	@echo esdata_$$(cat ${DATAPREP_VERSION_FILE})_$$(cat ${DATA_VERSION_FILE})
+
+artifact-versions:
+	@echo "matchid-backend: $$(${MAKE} artifact-version-dataprep-backend)"
+	@echo "matchid-frontend: $$(${MAKE} artifact-version-dataprep-frontend)"
+	@echo "deces-backend: $$(${MAKE} artifact-version-deces-backend)"
+	@echo "deces-ui: $$(${MAKE} artifact-version-deces-ui)"
+	@echo "snapshot: $$(${MAKE} artifact-version-dataprep-snapshot)"
+
+artifact-build-dataprep-backend:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-build ${MAKEOVERRIDES}
+
+artifact-publish-dataprep-backend:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-docker-push ${MAKEOVERRIDES}
+
+artifact-build-dataprep-frontend:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend build ${MAKEOVERRIDES}
+
+artifact-publish-dataprep-frontend:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend frontend-docker-push ${MAKEOVERRIDES}
+
+artifact-build-legacy-package:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend package ${MAKEOVERRIDES}
+
+artifact-publish-legacy-package:
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend package-publish ${MAKEOVERRIDES}
+
+artifact-build-deces-backend:
+	@${MAKE} -C ${BACKEND_PATH} backend-build-all ${MAKEOVERRIDES}
+
+artifact-publish-deces-backend:
+	@${MAKE} -C ${BACKEND_PATH} docker-push-backend ${MAKEOVERRIDES}
+
+artifact-build-deces-ui:
+	@${MAKE} -C ${FRONTEND_PATH} frontend-build nginx-build ${MAKEOVERRIDES}
+
+artifact-publish-deces-ui:
+	@${MAKE} -C ${FRONTEND_PATH} frontend-docker-push ${MAKEOVERRIDES}
+
+artifact-produce-dataprep-snapshot:
+	@${MAKE} dataprep-run ${MAKEOVERRIDES}
+
+artifact-publish-dataprep-snapshot:
+	@${MAKE} -C ${DATAPREP_PATH} repository-push ${MAKEOVERRIDES}
+
+artifact-restore-dataprep-snapshot:
+	@${MAKE} elasticsearch-restore ${MAKEOVERRIDES}
+
 smoke-tools:
 	@${MAKE} -C ${TOOLS_PATH} tools-smoke \
 		DATAGOUV_DATASET=${DATASET} \

@@ -203,17 +203,17 @@
     - [x] Valider le tableau de mapping avant/apres des workflows CI par composant
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 6
   - [ ] UAT
-    - [ ] Gate: je te presente le pipeline cible, sa couverture et les preuves de passage au vert
-    - [ ] Gate: tu valides que la CI monorepo est suffisante pour ouvrir le lot 7
+    - [x] Gate: je te presente le pipeline cible, sa couverture et les preuves de passage au vert
+    - [x] Gate: tu valides que la CI monorepo est suffisante pour ouvrir le lot 7
 
 - [ ] Lot 7 - Artefacts de reference produits et publies
   - [ ] Exec
-    - [ ] Definir la convention de versionnage monorepo des artefacts
-    - [ ] Definir les artefacts versionnes par package
-    - [ ] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
-    - [ ] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
-    - [ ] Si ces images restent requises, reconstruire leurs jobs CD de build/publication dans le monorepo
-    - [ ] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`
+    - [x] Definir la convention de versionnage monorepo des artefacts
+    - [x] Definir les artefacts versionnes par package
+    - [x] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
+    - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
+    - [x] Si ces images restent requises, reconstruire leurs jobs CD de build/publication dans le monorepo
+    - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`
     - [ ] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
   - [ ] Tests
     - [ ] Valider le build de l'image `dataprep-backend`

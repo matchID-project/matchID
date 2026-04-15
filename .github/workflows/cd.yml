@@ -1,0 +1,124 @@
+name: CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+      - master
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect artifact changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      dataprep_backend: ${{ steps.filter.outputs.dataprep_backend }}
+      dataprep_frontend: ${{ steps.filter.outputs.dataprep_frontend }}
+      deces_backend: ${{ steps.filter.outputs.deces_backend }}
+      deces_ui: ${{ steps.filter.outputs.deces_ui }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            dataprep_backend:
+              - 'Makefile'
+              - 'packages/dataprep-backend/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+            dataprep_frontend:
+              - 'Makefile'
+              - 'packages/dataprep-frontend/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+            deces_backend:
+              - 'Makefile'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+            deces_ui:
+              - 'Makefile'
+              - 'packages/deces-ui/**'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+
+  dataprep-backend:
+    name: Publish matchid-backend image
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build matchid-backend image
+        run: make artifact-build-dataprep-backend GIT_BRANCH=${GITHUB_REF_NAME}
+      - name: Publish matchid-backend image
+        run: make artifact-publish-dataprep-backend GIT_BRANCH=${GITHUB_REF_NAME}
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Publish legacy matchID package on master
+        if: github.ref == 'refs/heads/master'
+        run: make artifact-publish-legacy-package GIT_BRANCH=${GITHUB_REF_NAME}
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+
+  dataprep-frontend:
+    name: Publish matchid-frontend image
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_frontend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build matchid-frontend image
+        run: make artifact-build-dataprep-frontend GIT_BRANCH=${GITHUB_REF_NAME}
+      - name: Publish matchid-frontend image
+        run: make artifact-publish-dataprep-frontend GIT_BRANCH=${GITHUB_REF_NAME}
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  deces-backend:
+    name: Publish deces-backend image
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deces-backend image
+        run: make artifact-build-deces-backend GIT_BRANCH=${GITHUB_REF_NAME}
+      - name: Publish deces-backend image
+        run: make artifact-publish-deces-backend GIT_BRANCH=${GITHUB_REF_NAME}
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  deces-ui:
+    name: Publish deces-ui image
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_ui == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deces-ui image
+        run: make artifact-build-deces-ui GIT_BRANCH=${GITHUB_REF_NAME}
+      - name: Publish deces-ui image
+        run: make artifact-publish-deces-ui GIT_BRANCH=${GITHUB_REF_NAME}
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
