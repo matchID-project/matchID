@@ -238,25 +238,31 @@
     - [x] Si ces images restent requises, reconstruire leurs jobs CD de build/publication dans le monorepo
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`
     - [ ] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
+    - [ ] Reconstruire le job CD GitHub de publication du snapshot dataprep dans le monorepo
   - [ ] Tests
-    - [ ] Prouver en local via `make` chaque job monorepo reconstruit au lot 7
-    - [ ] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
-    - [ ] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
-    - [ ] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
+    - [x] Prouver en local via `make` chaque job monorepo reconstruit au lot 7
+    - [x] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
+    - [x] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
+    - [x] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
     - [x] Valider le build local de l'image `matchid-backend`
+    - [x] Valider la publication locale de l'image `matchid-backend`
     - [ ] Valider la publication GitHub de l'image `matchid-backend`
     - [x] Valider le build local de l'image `matchid-frontend`
+    - [x] Valider la publication locale de l'image `matchid-frontend`
     - [ ] Valider la publication GitHub de l'image `matchid-frontend`
     - [x] Valider le build local de l'image `deces-backend`
+    - [x] Valider la publication locale de l'image `deces-backend`
     - [ ] Valider la publication GitHub de l'image `deces-backend`
     - [x] Valider le build local de l'image `deces-ui`
+    - [x] Valider la publication locale de l'image `deces-ui`
     - [ ] Valider la publication GitHub de l'image `deces-ui`
     - [ ] Lever le blocage GitHub `DOCKER_PASSWORD` pour les jobs `Publish * image`
-    - [ ] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
-    - [ ] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
-    - [ ] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
-    - [ ] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
+    - [x] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+    - [x] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+    - [x] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
+    - [x] Valider l'egalite stricte count + sample entre l'index avant suppression et l'index restaure depuis le snapshot artefact
+    - [x] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
   - [ ] UAT
     - [ ] Gate: je te presente la matrice exhaustive des jobs historiques, leur sort cible et les preuves `make` + GitHub associees
     - [ ] Gate: je te presente les artefacts produits, leur versionnage, les jobs CD reconstruits et les preuves de publication/restauration
