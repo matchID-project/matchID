@@ -184,36 +184,58 @@ Décision lot 7:
   - configuration explicite de `packages/deces-dataprep` avant build `dataprep-backend` / `dataprep-frontend`
   - propagation des variables `DATA_DIR`, `NPM_AUDIT_DRY_RUN` et `NPM_AUDIT_IGNORE` dans les compose de build concernes
   - correction de typage de test dans [bulk.spec.ts](/home/antoinefa/src/matchID/matchID/packages/deces-backend/src/controllers/bulk.spec.ts) pour laisser compiler `deces-backend` en image sans patch produit
+- adaptations monorepo de publication et snapshot:
+  - normalisation du tag de branche Docker via `GIT_BRANCH_TAG` pour accepter une branche du type `feat/refacto-make`
+  - `vm_max` de [packages/dataprep-backend/Makefile](/home/antoinefa/src/matchID/matchID/packages/dataprep-backend/Makefile) ne demande plus `sudo` si la valeur runtime est deja correcte
+  - [packages/deces-dataprep/Makefile](/home/antoinefa/src/matchID/matchID/packages/deces-dataprep/Makefile) laisse `REPOSITORY_BUCKET` surchargeable
+  - [Makefile](/home/antoinefa/src/matchID/matchID/Makefile) publie desormais le snapshot dataprep via [packages/deces-infra/Makefile](/home/antoinefa/src/matchID/matchID/packages/deces-infra/Makefile) sur `deces-elasticsearch`, au lieu du backend legacy `matchid-elasticsearch`
+  - [packages/deces-infra/Makefile](/home/antoinefa/src/matchID/matchID/packages/deces-infra/Makefile) porte maintenant `elasticsearch-freeze` et `elasticsearch-repository-backup`
 
 ### Vérification `make` exécutée
 
 - `make artifact-versions DATA_VERSION_SOURCE=local DATA_VERSION_INPUT_DIR=packages/dataprep-backend/upload FILES_TO_PROCESS=deces-2020.txt.gz`
   - `matchid-backend: 0.4.0-4fe0da`
   - `matchid-frontend: 0.4.0-267541`
-  - `deces-backend: 0.4.0-4243-gb66a77b8`
-  - `deces-ui: 0.4.0-4243-gb66a77b8`
-  - `snapshot: esdata_f7fe09dd_d2d7ee21`
+  - `deces-backend: 0.4.0-4245-gb41f37fb`
+  - `deces-ui: 0.4.0-4245-gb41f37fb`
+  - `snapshot: esdata_8b11c8f9_d2d7ee21`
 - `make artifact-build-dataprep-backend GIT_BRANCH=feat/refacto-make`
   - succes
   - image produite: `docker.io/matchid/matchid-backend:0.4.0-4fe0da`
+- `make artifact-publish-dataprep-backend GIT_BRANCH=feat/refacto-make`
+  - succes
+  - tags publies: `0.4.0-4fe0da`, `feat-refacto-make`
+  - digest: `sha256:b09dc452f7cd6e9bf93fa6ce4038cd5f7508e5b1340df6fb953281e62c3cb81f`
 - `make artifact-build-dataprep-frontend GIT_BRANCH=feat/refacto-make`
   - succes
   - image produite: `docker.io/matchid/matchid-frontend:0.4.0-267541`
+- `make artifact-publish-dataprep-frontend GIT_BRANCH=feat/refacto-make`
+  - succes
+  - tags publies: `0.4.0-267541`, `feat-refacto-make`
+  - digest: `sha256:ca8b12d30c6fa000b786ba1981d73507385f3ffdd1697385c3b3f7b40fc78d90`
 - `make artifact-build-deces-backend GIT_BRANCH=feat/refacto-make`
   - succes
-  - image produite: `docker.io/matchid/deces-backend:0.4.0-4244-g78f4671d`
+  - image produite: `docker.io/matchid/deces-backend:0.4.0-4245-gb41f37fb`
   - adaptation monorepo necessaire: staging explicite de `communes.json`, `disposable-mail.txt` et `wikidata.json` dans un contexte de build temporaire, plus propagation de `NPM_AUDIT_DRY_RUN=true`
+- `make artifact-publish-deces-backend GIT_BRANCH=feat/refacto-make`
+  - succes
+  - tags publies: `0.4.0-4245-gb41f37fb`, `feat-refacto-make`
+  - digest: `sha256:6096bd1f99944740908519be8c4b63efd113dfd56d2403e4d4d30c6880d2bac9`
 - `make artifact-build-deces-ui GIT_BRANCH=feat/refacto-make`
   - succes
-  - image produite: `docker.io/matchid/deces-ui:0.4.0-4244-g78f4671d`
+  - image produite: `docker.io/matchid/deces-ui:0.4.0-4245-gb41f37fb`
   - adaptation monorepo necessaire: build dist/Nginx orchestre depuis la racine sans repasser par la cible racine `build`, plus propagation de `NPM_AUDIT_IGNORE`
+- `make artifact-publish-deces-ui GIT_BRANCH=feat/refacto-make`
+  - succes
+  - tags publies: `0.4.0-4245-gb41f37fb`, `feat-refacto-make`
+  - digest: `sha256:e78c3af2df15e9dc279d5b18e8f40a4edda3dd3ebce747801d4b568e20ae3dab`
 
 ### Reste ouvert
 
 - le workflow `cd.yml` ne reconstruit pas encore la publication du snapshot dataprep
 - le traitement du package de compatibilité `matchID-latest.tar.gz` est seulement branché sur `matchid-backend`, pas encore revalidé
-- les publications effectives des images restent a rejouer via `make artifact-publish-*`
-- la production/publication/restauration effective du snapshot dataprep reste a rejouer via `make`
+- la premiere tentative de publication/restauration du snapshot dataprep etait invalide: elle visait le mauvais bucket et le mauvais noeud Elasticsearch
+- la production/publication/restauration effective du snapshot dataprep reste a rejouer completement via `make` sur le chemin corrige `deces-infra`
 
 ## Critères d'acceptation
 

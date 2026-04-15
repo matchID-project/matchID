@@ -28,6 +28,7 @@ export APP_PATH = ${TOOLS_PATH}
 GIT_ROOT=https://github.com/matchid-project
 GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && git branch | grep '*' | awk '{print $$2}')
 GIT_BRANCH_MASTER=master
+GIT_BRANCH_TAG := $(shell echo ${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
 
 export DOCKER_USERNAME=$(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_DIR=${APP_PATH}
@@ -303,12 +304,12 @@ docker-tag:
 		fi;\
 	else\
 		if [ ! -z "${DOCKER_REGISTRY}" ];then\
-			echo docker tags for ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} and ${GIT_BRANCH};\
+			echo docker tags for ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} and ${GIT_BRANCH_TAG};\
 			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION};\
-			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		else\
-			echo docker tag for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:latest;\
-			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			echo docker tag for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
+			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		fi;\
 	fi
 
@@ -340,9 +341,9 @@ docker-push: docker-login docker-tag
 		fi;\
 	else\
 		if [ ! -z "${DOCKER_REGISTRY}" ];then\
-			docker push ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			docker push ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		else\
-			docker push ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			docker push ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		fi;\
 	fi
 

@@ -361,7 +361,11 @@ artifact-produce-dataprep-snapshot:
 	@${MAKE} dataprep-run ${MAKEOVERRIDES}
 
 artifact-publish-dataprep-snapshot:
-	@${MAKE} -C ${DATAPREP_PATH} repository-push ${MAKEOVERRIDES}
+	@DATAPREP_VERSION=$$(${MAKE} artifact-version-dataprep-snapshot | sed 's/^esdata_//;s/_.*$$//'); \
+	DATA_VERSION=$$(${MAKE} data-version ${MAKEOVERRIDES}); \
+	ES_BACKUP_NAME=esdata_$${DATAPREP_VERSION}_$${DATA_VERSION}; \
+	${MAKE} -C ${INFRA_PATH} elasticsearch-repository-backup \
+		ES_INDEX=deces ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES}
 
 artifact-restore-dataprep-snapshot:
 	@${MAKE} elasticsearch-restore ${MAKEOVERRIDES}

@@ -326,10 +326,8 @@ backup-dir:
 	@if [ ! -d "$(BACKUP_DIR)" ] ; then mkdir -p $(BACKUP_DIR) ; fi
 
 vm_max:
-ifeq ("$(vm_max_count)", "")
-	@echo updating vm.max_map_count $(vm_max_count) to 262144
-	sudo sysctl -w vm.max_map_count=262144
-endif
+	@sysctl vm.max_map_count | awk '($$NF >= 262144){print "ok"}' | grep -q 'ok' \
+		|| (echo updating vm.max_map_count $(vm_max_count) to 262144 && sudo sysctl -w vm.max_map_count=262144)
 
 elasticsearch-dev: elasticsearch
 

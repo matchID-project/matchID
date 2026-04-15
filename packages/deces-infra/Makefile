@@ -36,6 +36,7 @@ export ES_COUNT_FILE ?=
 export ES_SAMPLE_FILE ?=
 export ES_SAMPLE_SIZE ?= 1000
 export ES_SAMPLE_SEED ?= 424242
+export BACKUP_TIMEOUT ?= 1800
 
 # Elasticsearch targets
 elasticsearch-stop:
@@ -62,6 +63,49 @@ elasticsearch-repository-config: elasticsearch-repository-creds
 			-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
 			| grep -q '"acknowledged":true' && touch elasticsearch-repository-config;\
 	fi
+
+elasticsearch-freeze: elasticsearch-local
+	@docker exec -i ${USE_TTY} deces-elasticsearch \
+		curl -s -XPUT "localhost:9200/${ES_INDEX}/_settings" -H 'Content-Type: application/json' \
+			-d '{"index":{"blocks.write": true}}' | grep -q '"acknowledged":true' \
+	&& echo "index ${ES_INDEX} frozen" \
+	|| (echo "index ${ES_INDEX} freeze failed" && exit 1)
+
+elasticsearch-repository-backup: elasticsearch-repository-config elasticsearch-freeze
+	@if [ -z "${ES_BACKUP_NAME}" ]; then\
+		echo "ES_BACKUP_NAME is required";\
+		exit 1;\
+	fi
+	@docker exec -i ${USE_TTY} deces-elasticsearch \
+		curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}/${ES_BACKUP_NAME}" -H 'Content-Type: application/json'\
+			-d '{"indices": "${ES_INDEX}", "ignore_unavailable": true, "include_global_state": false}' \
+	| grep -q '{"accepted":true}';\
+	if [ "$$?" -ne "0" ]; then\
+		echo "snapshot ${ES_BACKUP_NAME} creation failed";\
+		exit 1;\
+	fi;\
+	echo -n "creating snapshot ${ES_BACKUP_NAME} in elasticsearch repository";\
+	timeout=${BACKUP_TIMEOUT} ; ret=1 ; dot_count=0 ;\
+	until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ] ; do\
+		docker exec -i ${USE_TTY} deces-elasticsearch \
+			curl -s -XGET "localhost:9200/_snapshot/${APP_GROUP}/${ES_BACKUP_NAME}"\
+		| grep -q '"state":"SUCCESS"';\
+		ret=$$? ;\
+		if [ "$$ret" -ne "0" ]; then\
+			echo -en "." ;\
+			((dot_count++));\
+			if [ "$$dot_count" -gt "10" ]; then\
+				echo -en "\rwaiting for snapshot ${ES_BACKUP_NAME} to complete $$timeout" ;\
+				dot_count=0;\
+			fi;\
+		fi;\
+		((timeout--)); ((timeout--)); sleep 2;\
+	done ; echo ;\
+	if [ "$$ret" -ne "0" ]; then\
+		echo "snapshot ${ES_BACKUP_NAME} creation failed";\
+		exit $$ret;\
+	fi;\
+	echo "snapshot ${ES_BACKUP_NAME} created in elasticsearch repository"
 
 elasticsearch-restore: elasticsearch-repository-config ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\

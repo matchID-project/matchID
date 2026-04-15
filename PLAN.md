@@ -217,15 +217,15 @@
     - [ ] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
   - [ ] Tests
     - [x] Valider le build de l'image `dataprep-backend`
-    - [ ] Valider la publication de l'image `dataprep-backend`
+    - [x] Valider la publication de l'image `dataprep-backend`
     - [x] Valider le build de l'image `dataprep-frontend`
-    - [ ] Valider la publication de l'image `dataprep-frontend`
+    - [x] Valider la publication de l'image `dataprep-frontend`
     - [x] Valider le build de l'image `backend`
-    - [ ] Valider la publication de l'image `backend`
+    - [x] Valider la publication de l'image `backend`
     - [x] Valider le build de l'image `deces-backend`
-    - [ ] Valider la publication de l'image `deces-backend`
+    - [x] Valider la publication de l'image `deces-backend`
     - [x] Valider le build de l'image `deces-ui`
-    - [ ] Valider la publication de l'image `deces-ui`
+    - [x] Valider la publication de l'image `deces-ui`
     - [ ] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
