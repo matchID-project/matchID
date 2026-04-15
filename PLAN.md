@@ -177,6 +177,8 @@
 
 - [ ] Lot 6 - CI monorepo et non-regression validees
   - [x] Exec
+    - [x] Inventorier les workflows CI historiques par composant
+    - [x] Distinguer explicitement la CI de validation de la CI de build/publication d'artefacts
     - [x] Ajouter un smoke test dataprep
     - [x] Ajouter un smoke test backend
     - [x] Ajouter un smoke test UI
@@ -192,9 +194,11 @@
     - [x] Definir les fixtures et mocks necessaires
     - [x] Definir les secrets necessaires en CI
     - [x] Definir les checks bloquants pour merge
+    - [x] Documenter que les jobs historiques de build/publication d'images de `dataprep-backend` et `dataprep-frontend` ne sont pas encore reconstruits dans la CI racine et relevent du lot 7
   - [ ] Tests
     - [x] Valider un pipeline CI vert sur la branche d'integration
     - [x] Valider que les smoke tests couvrent bien les gates des lots precedents
+    - [x] Valider le tableau de mapping avant/apres des workflows CI par composant
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 6
   - [ ] UAT
     - [ ] Gate: je te presente le pipeline cible, sa couverture et les preuves de passage au vert
@@ -205,7 +209,13 @@
     - [ ] Definir la convention de versionnage monorepo des artefacts
     - [ ] Definir les artefacts versionnes par package
     - [ ] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
+    - [ ] Definir explicitement le sort des jobs historiques de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
+    - [ ] Si ces images restent requises, reconstruire leurs jobs de build/publication dans le monorepo
   - [ ] Tests
+    - [ ] Valider le build de l'image `dataprep-backend`
+    - [ ] Valider la publication de l'image `dataprep-backend`
+    - [ ] Valider le build de l'image `dataprep-frontend`
+    - [ ] Valider la publication de l'image `dataprep-frontend`
     - [ ] Valider le build de l'image `backend`
     - [ ] Valider la publication de l'image `backend`
     - [ ] Valider le build de l'image `deces-backend`
