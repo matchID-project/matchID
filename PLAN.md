@@ -211,11 +211,42 @@
     - [x] Definir la convention de versionnage monorepo des artefacts
     - [x] Definir les artefacts versionnes par package
     - [x] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
+    - [ ] Etablir la matrice exhaustive de parite workflow/job historique -> workflow/job monorepo
+      - [ ] Lister `packages/tools/.github/workflows/actions.yml` / job `swift`
+      - [ ] Lister `packages/tools/.github/workflows/actions.yml` / job `remote`
+      - [ ] Lister `packages/dataprep-backend/.github/workflows/pull.yml` / job `test`
+      - [ ] Lister `packages/dataprep-backend/.github/workflows/push.yml` / job `build`
+      - [ ] Lister `packages/dataprep-backend/.github/workflows/deploy.yml` / job `deploy`
+      - [ ] Lister `packages/dataprep-frontend/.github/workflows/pull.yml` / job `test`
+      - [ ] Lister `packages/dataprep-frontend/.github/workflows/push.yml` / job `build`
+      - [ ] Lister `packages/deces-backend/.github/workflows/dockerimage.yml` / job `build`
+      - [ ] Lister `packages/deces-backend/.github/workflows/dockerimage.yml` / job `bulk`
+      - [ ] Lister `packages/deces-ui/.github/workflows/pr.yml` / job `test`
+      - [ ] Lister `packages/deces-ui/.github/workflows/push.yml` / job `build`
+      - [ ] Lister `packages/deces-ui/.github/workflows/push.yml` / job `deploy`
+      - [ ] Lister `packages/deces-ui/.github/workflows/logs-full.yml`
+      - [ ] Lister `packages/deces-ui/.github/workflows/logs-update.yml`
+      - [ ] Lister `packages/deces-dataprep/.github/workflows/pr.yml` / job `test`
+      - [ ] Lister `packages/deces-dataprep/.github/workflows/small.yml` / job `build`
+      - [ ] Lister `packages/deces-dataprep/.github/workflows/year.yml` / job `build`
+      - [ ] Lister `packages/deces-dataprep/.github/workflows/full.yml` / job `check-previous-failure`
+      - [ ] Lister `packages/deces-dataprep/.github/workflows/full.yml` / job `build`
+      - [ ] Lister `packages/deces-dataprep/.github/workflows/push-dev.yml` / job `build`
+      - [ ] Lister `packages/deces-dataprep/.github/workflows/push-master.yml` / job `build`
+    - [ ] Pour chaque job historique liste, decider explicitement s'il est:
+      - [ ] migre dans `ci.yml`
+      - [ ] migre dans `cd.yml`
+      - [ ] reporte au lot 8
+      - [ ] retire du contrat cible
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
     - [x] Si ces images restent requises, reconstruire leurs jobs CD de build/publication dans le monorepo
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`
     - [ ] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
   - [ ] Tests
+    - [ ] Prouver en local via `make` chaque job monorepo reconstruit au lot 7
+    - [ ] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
+    - [ ] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
+    - [ ] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
     - [x] Valider le build de l'image `dataprep-backend`
     - [x] Valider la publication de l'image `dataprep-backend`
     - [x] Valider le build de l'image `dataprep-frontend`
@@ -229,8 +260,10 @@
     - [ ] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
+    - [ ] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
   - [ ] UAT
+    - [ ] Gate: je te presente la matrice exhaustive des jobs historiques, leur sort cible et les preuves `make` + GitHub associees
     - [ ] Gate: je te presente les artefacts produits, leur versionnage, les jobs CD reconstruits et les preuves de publication/restauration
     - [ ] Gate: tu valides que les artefacts de reference sont suffisants pour ouvrir le lot 8
 

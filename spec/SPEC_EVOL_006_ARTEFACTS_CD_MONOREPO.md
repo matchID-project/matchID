@@ -155,6 +155,53 @@ Décision lot 7:
 - `push` `master`: publication des tags `master`/release et des artefacts de compatibilité requis
 - aucun déploiement distant dans ce workflow; seulement production/publication
 
+### D. Preuve de parité job à job
+
+Le lot 7 ne doit pas être validé sur une impression globale du workflow `cd.yml`.
+
+La preuve attendue est explicite, job par job:
+
+- une matrice exhaustive `workflow source -> workflow monorepo -> statut`
+- une preuve locale `make` du comportement attendu
+- une preuve GitHub Actions du job monorepo correspondant
+- quand le job produit un artefact, une vérification du contenu ou des métadonnées de cet artefact
+
+Format attendu pour l'UAT du lot 7:
+
+- tableau paddé
+- une ligne par job historique
+- colonnes minimales:
+  - composant
+  - workflow/job source
+  - workflow/job monorepo
+  - preuve `make`
+  - preuve GitHub
+  - statut
+
+## Matrice exhaustive à couvrir au lot 7
+
+- `packages/tools/.github/workflows/actions.yml` / `swift`
+- `packages/tools/.github/workflows/actions.yml` / `remote`
+- `packages/dataprep-backend/.github/workflows/pull.yml` / `test`
+- `packages/dataprep-backend/.github/workflows/push.yml` / `build`
+- `packages/dataprep-backend/.github/workflows/deploy.yml` / `deploy`
+- `packages/dataprep-frontend/.github/workflows/pull.yml` / `test`
+- `packages/dataprep-frontend/.github/workflows/push.yml` / `build`
+- `packages/deces-backend/.github/workflows/dockerimage.yml` / `build`
+- `packages/deces-backend/.github/workflows/dockerimage.yml` / `bulk`
+- `packages/deces-ui/.github/workflows/pr.yml` / `test`
+- `packages/deces-ui/.github/workflows/push.yml` / `build`
+- `packages/deces-ui/.github/workflows/push.yml` / `deploy`
+- `packages/deces-ui/.github/workflows/logs-full.yml`
+- `packages/deces-ui/.github/workflows/logs-update.yml`
+- `packages/deces-dataprep/.github/workflows/pr.yml` / `test`
+- `packages/deces-dataprep/.github/workflows/small.yml` / `build`
+- `packages/deces-dataprep/.github/workflows/year.yml` / `build`
+- `packages/deces-dataprep/.github/workflows/full.yml` / `check-previous-failure`
+- `packages/deces-dataprep/.github/workflows/full.yml` / `build`
+- `packages/deces-dataprep/.github/workflows/push-dev.yml` / `build`
+- `packages/deces-dataprep/.github/workflows/push-master.yml` / `build`
+
 ## Etat lot 7 au 15 avril 2026
 
 ### Implémentation réalisée
@@ -232,6 +279,7 @@ Décision lot 7:
 
 ### Reste ouvert
 
+- la matrice exhaustive `job historique -> job monorepo` n'est pas encore démontrée avec preuves GitHub job par job
 - le workflow `cd.yml` ne reconstruit pas encore la publication du snapshot dataprep
 - le traitement du package de compatibilité `matchID-latest.tar.gz` est seulement branché sur `matchid-backend`, pas encore revalidé
 - la premiere tentative de publication/restauration du snapshot dataprep etait invalide: elle visait le mauvais bucket et le mauvais noeud Elasticsearch
@@ -241,6 +289,8 @@ Décision lot 7:
 
 - les artefacts cibles sont nommés et versionnés de manière explicite
 - un workflow racine sait construire et publier les images requises
+- chaque job historique listé a un sort explicite: migré, reporté ou retiré
+- chaque job migré a une preuve `make` et une preuve GitHub documentées
 - le snapshot dataprep peut être produit, publié, puis restauré via des cibles `make`
 - la frontière lot 7 / lot 8 est claire: publication ici, déploiement en lot 8
 
