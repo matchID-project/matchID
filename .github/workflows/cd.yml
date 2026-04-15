@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - feat/refacto-make
       - dev
       - master
 
