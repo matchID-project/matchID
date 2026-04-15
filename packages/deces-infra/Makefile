@@ -56,13 +56,11 @@ elasticsearch-repository-creds: elasticsearch-start
 	fi;
 
 elasticsearch-repository-config: elasticsearch-repository-creds
-	@if [ ! -f "elasticsearch-repository-config" ]; then\
-		echo creating elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET} && \
-		docker exec -i ${USE_TTY} deces-elasticsearch \
-			curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
-			-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
-			| grep -q '"acknowledged":true' && touch elasticsearch-repository-config;\
-	fi
+	@echo ensuring elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET} && \
+	docker exec -i ${USE_TTY} deces-elasticsearch \
+		curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
+		-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
+		| grep -q '"acknowledged":true' && touch elasticsearch-repository-config
 
 elasticsearch-freeze: elasticsearch-local
 	@docker exec -i ${USE_TTY} deces-elasticsearch \

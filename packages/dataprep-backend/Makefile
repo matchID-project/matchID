@@ -208,13 +208,11 @@ elasticsearch-repository-plugin: elasticsearch-start
 	fi;
 
 elasticsearch-repository-config: elasticsearch-repository-plugin
-	@if [ ! -f "elasticsearch-repository-config" ]; then\
-		echo creating elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET} && \
-		docker exec -i ${USE_TTY} ${DC_PREFIX}-elasticsearch \
-			curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
-			-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
-			| grep -q '"acknowledged":true' && touch elasticsearch-repository-config;\
-	fi
+	@echo ensuring elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET} && \
+	docker exec -i ${USE_TTY} ${DC_PREFIX}-elasticsearch \
+		curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
+		-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
+		| grep -q '"acknowledged":true' && touch elasticsearch-repository-config
 
 elasticsearch-freeze:
 	@\
@@ -664,7 +662,7 @@ recipe-run: ${BACKEND_RUN_TARGET}
 			BACKEND_CONTAINER="${DC_PREFIX}-backend";\
 		fi;\
 	fi;\
-	docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && PYTHONPATH=/${APP_GROUP}/code nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/tmp/${RECIPE}.log 2>&1 &" \
+	docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && mkdir -p /${APP_GROUP}/log && PYTHONPATH=/${APP_GROUP}/code nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/${APP_GROUP}/log/${RECIPE}.log 2>&1 &" \
 	&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
 	&& echo ${RECIPE} run
 

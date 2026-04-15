@@ -96,6 +96,8 @@ export SMOKE_FILES_TO_PROCESS ?= deces-2020.txt.gz
 export SMOKE_DATA_VERSION_INPUT_DIR ?= /tmp/matchid-smoke-upload
 export SMOKE_RECIPE_RUN_MARKER ?= /tmp/matchid-smoke.recipe-run
 export SMOKE_S3_PULL_MARKER ?= /tmp/matchid-smoke.s3-pull
+export ARTIFACT_RECIPE_RUN_MARKER ?= /tmp/matchid-artifact.recipe-run
+export ARTIFACT_S3_PULL_MARKER ?= /tmp/matchid-artifact.s3-pull
 export SMOKE_TOOLS_DATA_DIR ?= /tmp/matchid-tools-smoke
 export SMOKE_BACKEND_DATA_DIR ?= /tmp/matchid-backend-smoke
 export SMOKE_ES_MEM ?= 512m
@@ -367,16 +369,17 @@ artifact-publish-deces-ui:
 	@${MAKE} -C ${FRONTEND_PATH} frontend-docker-push ${MAKEOVERRIDES}
 
 artifact-produce-dataprep-snapshot:
+	@rm -f ${ARTIFACT_RECIPE_RUN_MARKER} ${ARTIFACT_S3_PULL_MARKER}
 	@${MAKE} artifact-build-dataprep-backend ${MAKEOVERRIDES}
 	@${MAKE} dataprep-run \
 		DATAPREP_BACKEND_LOCAL_TARGET=backend \
 		DATAPREP_BACKEND_LOCAL_STOP_TARGET=backend-stop \
+		RECIPE_RUN_MARKER=${ARTIFACT_RECIPE_RUN_MARKER} \
+		S3_PULL_MARKER=${ARTIFACT_S3_PULL_MARKER} \
 		${MAKEOVERRIDES}
 
 artifact-publish-dataprep-snapshot:
-	@DATAPREP_VERSION=$$(${MAKE} artifact-version-dataprep-snapshot | sed 's/^esdata_//;s/_.*$$//'); \
-	DATA_VERSION=$$(${MAKE} data-version ${MAKEOVERRIDES}); \
-	ES_BACKUP_NAME=esdata_$${DATAPREP_VERSION}_$${DATA_VERSION}; \
+	@ES_BACKUP_NAME=$$(${MAKE} artifact-version-dataprep-snapshot ${MAKEOVERRIDES} | tail -1); \
 	${MAKE} -C ${INFRA_PATH} elasticsearch-repository-backup \
 		ES_INDEX=deces ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES}
 
