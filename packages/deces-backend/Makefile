@@ -105,8 +105,10 @@ export SCW_ENDPOINT?=s3.fr-par.scw.cloud
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
+ifeq ($(abspath $(CURDIR)),$(abspath $(BACKEND_PATH)))
 config:
 	@${MAKE} -C ${TOOLS_PATH} config
+endif
 
 
 
