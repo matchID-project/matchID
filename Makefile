@@ -335,16 +335,25 @@ artifact-publish-legacy-package:
 
 artifact-build-deces-backend:
 	@set -e; \
-	TMP_DATA_DIR='${BACKEND_PATH}/.artifact-build-context/data'; \
-	rm -rf '${BACKEND_PATH}/.artifact-build-context'; \
+	TMP_BUILD_CONTEXT='${BACKEND_PATH}/artifact-build-context'; \
+	TMP_DATA_DIR="$$TMP_BUILD_CONTEXT/data"; \
+	rm -rf "$$TMP_BUILD_CONTEXT" '${BACKEND_PATH}/.artifact-build-context'; \
 	mkdir -p "$$TMP_DATA_DIR"; \
-	cp '${COMMUNES_JSON}' "$$TMP_DATA_DIR/communes.json"; \
-	cp '${DISPOSABLE_MAIL}' "$$TMP_DATA_DIR/disposable-mail.txt"; \
-	cp '${WIKIDATA_LINKS}' "$$TMP_DATA_DIR/wikidata.json"; \
-	DATA_DIR=.artifact-build-context/data \
-	NPM_AUDIT_DRY_RUN=true \
-	${MAKE} -C ${BACKEND_PATH} backend-build-image ${MAKEOVERRIDES}; \
-	rm -rf '${BACKEND_PATH}/.artifact-build-context'
+	${MAKE} -C ${BACKEND_PATH} \
+		DATA_DIR="$$TMP_DATA_DIR" \
+		communes disposable-mail wikidata-links db-json ${MAKEOVERRIDES}; \
+	mkdir -p "$$TMP_DATA_DIR/proofs" "$$TMP_DATA_DIR/jobs"; \
+	${MAKE} -C ${BACKEND_PATH} \
+		DATA_DIR=artifact-build-context/data \
+		COMMUNES_JSON=artifact-build-context/data/communes.json \
+		DISPOSABLE_MAIL=artifact-build-context/data/disposable-mail.txt \
+		WIKIDATA_LINKS=artifact-build-context/data/wikidata.json \
+		DB_JSON=artifact-build-context/data/userDB.json \
+		PROOFS="$$TMP_DATA_DIR/proofs" \
+		JOBS="$$TMP_DATA_DIR/jobs" \
+		NPM_AUDIT_DRY_RUN=true \
+		backend-build-image ${MAKEOVERRIDES}; \
+	rm -rf "$$TMP_BUILD_CONTEXT" '${BACKEND_PATH}/.artifact-build-context'
 
 artifact-publish-deces-backend:
 	@${MAKE} -C ${BACKEND_PATH} docker-push-backend ${MAKEOVERRIDES}

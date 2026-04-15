@@ -112,7 +112,7 @@ include ./artifacts
 
 SSHOPTS=-o "StrictHostKeyChecking no" -i ${SSHKEY} ${CLOUD_SSHOPTS}
 
-tag                 := $(shell [ -f "/usr/bin/git" ] && git describe --tags | sed 's/-.*//')
+tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
 export APP_VERSION =  ${tag}-${VERSION}
 
@@ -348,6 +348,10 @@ docker-push: docker-login docker-tag
 	fi
 
 docker-login:
+	@if [ -z "${DOCKER_PASSWORD}" ];then\
+		echo "DOCKER_PASSWORD is not configured";\
+		exit 1;\
+	fi
 	@if [ ! -z "${DOCKER_REGISTRY}" ];then\
 		echo docker login for ${DOCKER_USERNAME} at ${DOCKER_REGISTRY};\
 		echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin "${DOCKER_REGISTRY}";\
