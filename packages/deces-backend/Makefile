@@ -105,6 +105,9 @@ export SCW_ENDPOINT?=s3.fr-par.scw.cloud
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
+config:
+	@${MAKE} -C ${TOOLS_PATH} config
+
 
 
 
@@ -265,7 +268,8 @@ ${WIKIDATA_SRC}:
 ${WIKIDATA_LINKS}:
 	@echo "downloading wikidata and wikipedia links";\
 	mkdir -p ${DATA_DIR};\
-	curl -s -f -G 'https://query.wikidata.org/sparql' --header "Accept: application/json" --data-urlencode query="\
+	TMP_WIKIDATA_JSON=$$(mktemp "${DATA_DIR}/wikidata.XXXXXX.json"); \
+	curl --retry 5 --retry-all-errors -sS -f -G 'https://query.wikidata.org/sparql' --header "Accept: application/json" --data-urlencode query="\
 		select ?sitelink ?person ?personDescription ?img ?id where {\
 			?person wdt:P9058 ?id.\
 			OPTIONAL { ?person wdt:P18 ?img. }\
@@ -273,8 +277,9 @@ ${WIKIDATA_LINKS}:
 			  schema:about ?person;}\
 			service wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],fr'. }\
 		}" |\
-		jq -c '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
-		> ${WIKIDATA_LINKS}
+		jq -ce '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
+		> "$$TMP_WIKIDATA_JSON"; \
+	mv "$$TMP_WIKIDATA_JSON" ${WIKIDATA_LINKS}
 
 wikidata-src: ${WIKIDATA_SRC}
 
