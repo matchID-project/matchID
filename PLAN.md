@@ -211,33 +211,29 @@
     - [x] Definir la convention de versionnage monorepo des artefacts
     - [x] Definir les artefacts versionnes par package
     - [x] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
-    - [ ] Etablir la matrice exhaustive de parite workflow/job historique -> workflow/job monorepo
-      - [ ] Lister `packages/tools/.github/workflows/actions.yml` / job `swift`
-      - [ ] Lister `packages/tools/.github/workflows/actions.yml` / job `remote`
-      - [ ] Lister `packages/dataprep-backend/.github/workflows/pull.yml` / job `test`
-      - [ ] Lister `packages/dataprep-backend/.github/workflows/push.yml` / job `build`
-      - [ ] Lister `packages/dataprep-backend/.github/workflows/deploy.yml` / job `deploy`
-      - [ ] Lister `packages/dataprep-frontend/.github/workflows/pull.yml` / job `test`
-      - [ ] Lister `packages/dataprep-frontend/.github/workflows/push.yml` / job `build`
-      - [ ] Lister `packages/deces-backend/.github/workflows/dockerimage.yml` / job `build`
-      - [ ] Lister `packages/deces-backend/.github/workflows/dockerimage.yml` / job `bulk`
-      - [ ] Lister `packages/deces-ui/.github/workflows/pr.yml` / job `test`
-      - [ ] Lister `packages/deces-ui/.github/workflows/push.yml` / job `build`
-      - [ ] Lister `packages/deces-ui/.github/workflows/push.yml` / job `deploy`
-      - [ ] Lister `packages/deces-ui/.github/workflows/logs-full.yml`
-      - [ ] Lister `packages/deces-ui/.github/workflows/logs-update.yml`
-      - [ ] Lister `packages/deces-dataprep/.github/workflows/pr.yml` / job `test`
-      - [ ] Lister `packages/deces-dataprep/.github/workflows/small.yml` / job `build`
-      - [ ] Lister `packages/deces-dataprep/.github/workflows/year.yml` / job `build`
-      - [ ] Lister `packages/deces-dataprep/.github/workflows/full.yml` / job `check-previous-failure`
-      - [ ] Lister `packages/deces-dataprep/.github/workflows/full.yml` / job `build`
-      - [ ] Lister `packages/deces-dataprep/.github/workflows/push-dev.yml` / job `build`
-      - [ ] Lister `packages/deces-dataprep/.github/workflows/push-master.yml` / job `build`
-    - [ ] Pour chaque job historique liste, decider explicitement s'il est:
-      - [ ] migre dans `ci.yml`
-      - [ ] migre dans `cd.yml`
-      - [ ] reporte au lot 8
-      - [ ] retire du contrat cible
+    - [x] Etablir la matrice exhaustive de parite workflow/job historique -> workflow/job monorepo
+      - [x] Lister `packages/tools/.github/workflows/actions.yml` / job `swift`
+      - [x] Lister `packages/tools/.github/workflows/actions.yml` / job `remote`
+      - [x] Lister `packages/dataprep-backend/.github/workflows/pull.yml` / job `test`
+      - [x] Lister `packages/dataprep-backend/.github/workflows/push.yml` / job `build`
+      - [x] Lister `packages/dataprep-backend/.github/workflows/deploy.yml` / job `deploy`
+      - [x] Lister `packages/dataprep-frontend/.github/workflows/pull.yml` / job `test`
+      - [x] Lister `packages/dataprep-frontend/.github/workflows/push.yml` / job `build`
+      - [x] Lister `packages/deces-backend/.github/workflows/dockerimage.yml` / job `build`
+      - [x] Lister `packages/deces-backend/.github/workflows/dockerimage.yml` / job `bulk`
+      - [x] Lister `packages/deces-ui/.github/workflows/pr.yml` / job `test`
+      - [x] Lister `packages/deces-ui/.github/workflows/push.yml` / job `build`
+      - [x] Lister `packages/deces-ui/.github/workflows/push.yml` / job `deploy`
+      - [x] Lister `packages/deces-ui/.github/workflows/logs-full.yml`
+      - [x] Lister `packages/deces-ui/.github/workflows/logs-update.yml`
+      - [x] Lister `packages/deces-dataprep/.github/workflows/pr.yml` / job `test`
+      - [x] Lister `packages/deces-dataprep/.github/workflows/small.yml` / job `build`
+      - [x] Lister `packages/deces-dataprep/.github/workflows/year.yml` / job `build`
+      - [x] Lister `packages/deces-dataprep/.github/workflows/full.yml` / job `check-previous-failure`
+      - [x] Lister `packages/deces-dataprep/.github/workflows/full.yml` / job `build`
+      - [x] Lister `packages/deces-dataprep/.github/workflows/push-dev.yml` / job `build`
+      - [x] Lister `packages/deces-dataprep/.github/workflows/push-master.yml` / job `build`
+    - [x] Pour chaque job historique liste, renseigner explicitement son statut cible (`ci.yml`, `cd.yml`, lot 8 ou retire du contrat)
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
     - [x] Si ces images restent requises, reconstruire leurs jobs CD de build/publication dans le monorepo
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`

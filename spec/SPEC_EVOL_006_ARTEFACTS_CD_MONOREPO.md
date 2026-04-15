@@ -202,6 +202,32 @@ Format attendu pour l'UAT du lot 7:
 - `packages/deces-dataprep/.github/workflows/push-dev.yml` / `build`
 - `packages/deces-dataprep/.github/workflows/push-master.yml` / `build`
 
+## Affectation cible décidée
+
+| Composant | Workflow/job source | Workflow/job monorepo cible | Statut cible |
+| --- | --- | --- | --- |
+| `tools` | `actions.yml` / `swift` | aucun | retiré du contrat d'artefacts critique |
+| `tools` | `actions.yml` / `remote` | workflow de déploiement lot 8 | reporté lot 8 |
+| `dataprep-backend` | `pull.yml` / `test` | `ci.yml` / `Dataprep smoke` | migré lot 6 |
+| `dataprep-backend` | `push.yml` / `build` | `cd.yml` / `Publish matchid-backend image` | migré lot 7 |
+| `dataprep-backend` | `deploy.yml` / `deploy` | workflow de déploiement lot 8 | reporté lot 8 |
+| `dataprep-frontend` | `pull.yml` / `test` | `ci.yml` / `Dataprep smoke` + `End-to-end smoke` | migré lot 6 |
+| `dataprep-frontend` | `push.yml` / `build` | `cd.yml` / `Publish matchid-frontend image` | migré lot 7 |
+| `deces-backend` | `dockerimage.yml` / `build` | `ci.yml` / `Backend smoke` + `cd.yml` / `Publish deces-backend image` | migré lots 6/7 |
+| `deces-backend` | `dockerimage.yml` / `bulk` | aucun | retiré du contrat critique, piste perf séparée |
+| `deces-ui` | `pr.yml` / `test` | `ci.yml` / `UI smoke` + `End-to-end smoke` | migré lot 6 |
+| `deces-ui` | `push.yml` / `build` | `ci.yml` / `UI smoke` + `cd.yml` / `Publish deces-ui image` | migré lots 6/7 |
+| `deces-ui` | `push.yml` / `deploy` | workflow de déploiement lot 8 | reporté lot 8 |
+| `deces-ui` | `logs-full.yml` / `logs` | aucun | retiré du contrat de déploiement critique |
+| `deces-ui` | `logs-update.yml` / `logs` | aucun | retiré du contrat de déploiement critique |
+| `deces-dataprep` | `pr.yml` / `test` | `ci.yml` / `Dataprep smoke` | migré lot 6 |
+| `deces-dataprep` | `small.yml` / `build` | `ci.yml` / `Dataprep smoke` | migré lot 6 |
+| `deces-dataprep` | `year.yml` / `build` | futur job snapshot lot 7 + workflow de déploiement lot 8 | scindé lots 7/8 |
+| `deces-dataprep` | `full.yml` / `check-previous-failure` | workflow distant lot 8 si conservé | reporté lot 8 |
+| `deces-dataprep` | `full.yml` / `build` | futur job snapshot lot 7 + workflow de déploiement lot 8 | scindé lots 7/8 |
+| `deces-dataprep` | `push-dev.yml` / `build` | futur job snapshot lot 7 + workflow de déploiement lot 8 | scindé lots 7/8 |
+| `deces-dataprep` | `push-master.yml` / `build` | futur job snapshot lot 7 + workflow de déploiement lot 8 | scindé lots 7/8 |
+
 ## Etat lot 7 au 15 avril 2026
 
 ### Implémentation réalisée
@@ -280,6 +306,7 @@ Format attendu pour l'UAT du lot 7:
 ### Reste ouvert
 
 - la matrice exhaustive `job historique -> job monorepo` n'est pas encore démontrée avec preuves GitHub job par job
+- les jobs `deces-dataprep` distants `year/full/push-*` n'ont pas encore d'équivalent monorepo prouvé côté GitHub
 - le workflow `cd.yml` ne reconstruit pas encore la publication du snapshot dataprep
 - le traitement du package de compatibilité `matchID-latest.tar.gz` est seulement branché sur `matchid-backend`, pas encore revalidé
 - la premiere tentative de publication/restauration du snapshot dataprep etait invalide: elle visait le mauvais bucket et le mauvais noeud Elasticsearch
