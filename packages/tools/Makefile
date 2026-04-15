@@ -26,7 +26,7 @@ export APP = ${CLOUD_CLI}
 export APP_PATH = ${TOOLS_PATH}
 
 GIT_ROOT=https://github.com/matchid-project
-GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && git branch | grep '*' | awk '{print $$2}')
+GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell [ -f "/usr/bin/git" ] && git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 GIT_BRANCH_MASTER=master
 GIT_BRANCH_TAG := $(shell echo ${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
 

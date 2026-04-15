@@ -162,6 +162,7 @@ Le lot 7 ne doit pas être validé sur une impression globale du workflow `cd.ym
 La preuve attendue est explicite, job par job:
 
 - une matrice exhaustive `workflow source -> workflow monorepo -> statut`
+- une picture complete lots 6/7/8 `upstream -> monorepo`, service par service et job par job
 - une preuve locale `make` du comportement attendu
 - une preuve GitHub Actions du job monorepo correspondant
 - quand le job produit un artefact, une vérification du contenu ou des métadonnées de cet artefact
@@ -174,9 +175,36 @@ Format attendu pour l'UAT du lot 7:
   - composant
   - workflow/job source
   - workflow/job monorepo
+  - lot cible
   - preuve `make`
   - preuve GitHub
   - statut
+
+## Picture complete lots 6/7/8 au 15 avril 2026
+
+| Composant | Workflow/job source | Avant | Workflow/job monorepo | Lot cible | Preuve `make` | Preuve GitHub | Statut |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `tools` | `actions.yml` / `swift` | build/push image `tools` sur `push` | aucun | hors contrat critique | n/a | n/a | retire du contrat |
+| `tools` | `actions.yml` / `remote` | configuration distante sur `push master` | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
+| `dataprep-backend` | `pull.yml` / `test` | validation PR `make version backend-docker-check ...` | `ci.yml` / `Dataprep smoke` | lot 6 | `make smoke-dataprep` | `CI` push `24468695288`, `Dataprep smoke` vert | migre lot 6 |
+| `dataprep-backend` | `push.yml` / `build` | build/push image `matchid-backend`, package legacy sur `push dev/master` | `cd.yml` / `Publish matchid-backend image` | lot 7 | `make artifact-build-dataprep-backend`, `make artifact-publish-dataprep-backend` | `CD` push `24468695321`, `24473025013`: build vert, publish rouge (`DOCKER_PASSWORD`) | migre lot 7, bloque secret |
+| `dataprep-backend` | `deploy.yml` / `deploy` | deploy legacy sur `push tuto` | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
+| `dataprep-frontend` | `pull.yml` / `test` | validation PR `frontend-docker-check || make build ...` | `ci.yml` / `Dataprep smoke` + `End-to-end smoke` | lot 6 | `make smoke-dataprep`, `make smoke-e2e` | `CI` push `24468695288`: jobs `Dataprep smoke` et `End-to-end smoke` verts | migre lot 6 |
+| `dataprep-frontend` | `push.yml` / `build` | build/push image `matchid-frontend` sur `push dev/master` | `cd.yml` / `Publish matchid-frontend image` | lot 7 | `make artifact-build-dataprep-frontend`, `make artifact-publish-dataprep-frontend` | `CD` push `24468695321`, `24473025013`: build vert, publish rouge (`DOCKER_PASSWORD`) | migre lot 7, bloque secret |
+| `deces-backend` | `dockerimage.yml` / `build` | build, tests, push image, upload tar sur `push` | `ci.yml` / `Backend smoke` + `cd.yml` / `Publish deces-backend image` | lots 6/7 | `make smoke-backend`, `make artifact-build-deces-backend`, `make artifact-publish-deces-backend` | `CI` push `24468695288`: `Backend smoke` vert; `CI` PR `24473034942`: rouge sur bug `detached HEAD`; `CD` push `24468695321`, `24473025013`: build vert, publish rouge (`DOCKER_PASSWORD`) | migre lots 6/7, CI PR a corriger, CD bloque secret |
+| `deces-backend` | `dockerimage.yml` / `bulk` | tests perf et upload rapports | aucun | hors contrat critique | n/a | n/a | retire du contrat critique |
+| `deces-ui` | `pr.yml` / `test` | build + `deploy-local backend-test frontend-test` sur PR | `ci.yml` / `UI smoke` + `End-to-end smoke` | lot 6 | `make smoke-ui`, `make smoke-e2e` | `CI` push `24468695288`: jobs `UI smoke` et `End-to-end smoke` verts | migre lot 6 |
+| `deces-ui` | `push.yml` / `build` | build, test, push image sur `push dev/master` | `ci.yml` / `UI smoke` + `cd.yml` / `Publish deces-ui image` | lots 6/7 | `make smoke-ui`, `make artifact-build-deces-ui`, `make artifact-publish-deces-ui` | `CD` push `24468695321`, `24473025013`: build vert, publish rouge (`DOCKER_PASSWORD`) | migre lots 6/7, bloque secret |
+| `deces-ui` | `push.yml` / `deploy` | `deploy-remote` sur `push dev/master` / dispatch | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
+| `deces-ui` | `logs-full.yml` / `logs` | calcul stats complet | aucun | hors contrat critique | n/a | n/a | retire du contrat critique |
+| `deces-ui` | `logs-update.yml` / `logs` | calcul stats incremental | aucun | hors contrat critique | n/a | n/a | retire du contrat critique |
+| `deces-dataprep` | `pr.yml` / `test` | run local `make all` sur petit dataset PR | `ci.yml` / `Dataprep smoke` | lot 6 | `make smoke-dataprep` | `CI` push `24468695288`: `Dataprep smoke` vert | migre lot 6 |
+| `deces-dataprep` | `small.yml` / `build` | runs locaux petits datasets sur `push dev/schedule` | `ci.yml` / `Dataprep smoke` | lot 6 | `make smoke-dataprep` | `CI` push `24468695288`: `Dataprep smoke` vert | migre lot 6 |
+| `deces-dataprep` | `year.yml` / `build` | `full-check` + `remote-all` annuel distant | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | a reconstruire au lot 7 | scinde lots 7/8 |
+| `deces-dataprep` | `full.yml` / `check-previous-failure` | garde anti rerun sur schedule | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
+| `deces-dataprep` | `full.yml` / `build` | `full-check` + `remote-all` full distant | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | a reconstruire au lot 7 | scinde lots 7/8 |
+| `deces-dataprep` | `push-dev.yml` / `build` | `full-check` + `remote-all` annuel sur `push dev` | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | a reconstruire au lot 7 | scinde lots 7/8 |
+| `deces-dataprep` | `push-master.yml` / `build` | `full-check` + `remote-all` full sur `push master` | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | a reconstruire au lot 7 | scinde lots 7/8 |
 
 ## Matrice exhaustive à couvrir au lot 7
 
