@@ -74,6 +74,13 @@ elasticsearch-repository-backup: elasticsearch-repository-config elasticsearch-f
 		echo "ES_BACKUP_NAME is required";\
 		exit 1;\
 	fi
+	@STATUS=$$(docker exec -i ${USE_TTY} deces-elasticsearch curl -s -o /dev/null -w '%{http_code}' -XDELETE "localhost:9200/_snapshot/${APP_GROUP}/${ES_BACKUP_NAME}");\
+	if [ "$$STATUS" = "200" ]; then\
+		echo "snapshot ${ES_BACKUP_NAME} deleted from elasticsearch repository";\
+	elif [ "$$STATUS" != "404" ]; then\
+		echo "snapshot ${ES_BACKUP_NAME} delete failed with HTTP $$STATUS";\
+		exit 1;\
+	fi
 	@docker exec -i ${USE_TTY} deces-elasticsearch \
 		curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}/${ES_BACKUP_NAME}" -H 'Content-Type: application/json'\
 			-d '{"indices": "${ES_INDEX}", "ignore_unavailable": true, "include_global_state": false}' \
@@ -104,6 +111,20 @@ elasticsearch-repository-backup: elasticsearch-repository-config elasticsearch-f
 		exit $$ret;\
 	fi;\
 	echo "snapshot ${ES_BACKUP_NAME} created in elasticsearch repository"
+
+elasticsearch-repository-delete: elasticsearch-repository-config
+	@STATUS=$$(docker exec -i ${USE_TTY} deces-elasticsearch curl -s -o /dev/null -w '%{http_code}' -XDELETE "localhost:9200/_snapshot/${APP_GROUP}/${ES_BACKUP_NAME}");\
+	if [ "$$STATUS" = "200" ] || [ "$$STATUS" = "404" ]; then\
+		echo "snapshot ${ES_BACKUP_NAME} deleted or absent from elasticsearch repository";\
+	else\
+		echo "snapshot ${ES_BACKUP_NAME} delete failed with HTTP $$STATUS";\
+		exit 1;\
+	fi
+
+elasticsearch-repository-list: elasticsearch-repository-config
+	@docker exec -i ${USE_TTY} deces-elasticsearch \
+		curl -s -XGET "localhost:9200/_snapshot/${APP_GROUP}/_all" \
+	| jq -r '.snapshots[].snapshot'
 
 elasticsearch-restore: elasticsearch-repository-config ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
