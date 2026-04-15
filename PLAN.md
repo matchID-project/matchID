@@ -178,6 +178,7 @@
 - [ ] Lot 6 - CI monorepo et non-regression validees
   - [x] Exec
     - [x] Inventorier les workflows CI historiques par composant
+    - [x] Inventorier les workflows CD historiques par composant
     - [x] Distinguer explicitement la CI de validation de la CI de build/publication d'artefacts
     - [x] Ajouter un smoke test dataprep
     - [x] Ajouter un smoke test backend
@@ -195,6 +196,7 @@
     - [x] Definir les secrets necessaires en CI
     - [x] Definir les checks bloquants pour merge
     - [x] Documenter que les jobs historiques de build/publication d'images de `dataprep-backend` et `dataprep-frontend` ne sont pas encore reconstruits dans la CI racine et relevent du lot 7
+    - [x] Documenter que les jobs historiques de deploiement relevent des lots 7 et 8, pas du lot 6
   - [ ] Tests
     - [x] Valider un pipeline CI vert sur la branche d'integration
     - [x] Valider que les smoke tests couvrent bien les gates des lots precedents
@@ -209,8 +211,10 @@
     - [ ] Definir la convention de versionnage monorepo des artefacts
     - [ ] Definir les artefacts versionnes par package
     - [ ] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
-    - [ ] Definir explicitement le sort des jobs historiques de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
-    - [ ] Si ces images restent requises, reconstruire leurs jobs de build/publication dans le monorepo
+    - [ ] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
+    - [ ] Si ces images restent requises, reconstruire leurs jobs CD de build/publication dans le monorepo
+    - [ ] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`
+    - [ ] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
   - [ ] Tests
     - [ ] Valider le build de l'image `dataprep-backend`
     - [ ] Valider la publication de l'image `dataprep-backend`
@@ -227,7 +231,7 @@
     - [ ] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
   - [ ] UAT
-    - [ ] Gate: je te presente les artefacts produits, leur versionnage et les preuves de publication/restauration
+    - [ ] Gate: je te presente les artefacts produits, leur versionnage, les jobs CD reconstruits et les preuves de publication/restauration
     - [ ] Gate: tu valides que les artefacts de reference sont suffisants pour ouvrir le lot 8
 
 - [ ] Lot 8 - Preprod `dev-deces.matchid.io` operationnelle
@@ -238,6 +242,8 @@
     - [ ] Inventorier DNS, certificats, monitoring et jobs de refresh encore pilotes par les anciens repos
     - [ ] Definir l'environnement cible de `dev-deces.matchid.io`
     - [ ] Definir la configuration preprod hors git necessaire au monorepo
+    - [ ] Definir explicitement le workflow CD de deploiement preprod depuis le monorepo
+    - [ ] Reconstruire le job de deploiement preprod `deploy-remote` depuis le monorepo
     - [ ] Valider les prerequis et variables du flux `deploy-remote` pour la preprod
     - [ ] Provisionner l'infra de preprod depuis le monorepo
     - [ ] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
