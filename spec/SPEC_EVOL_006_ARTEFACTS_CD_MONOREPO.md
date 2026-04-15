@@ -266,49 +266,116 @@ Format attendu pour l'UAT du lot 7:
 
 ### Vérification `make` exécutée
 
-- `make artifact-versions DATA_VERSION_SOURCE=local DATA_VERSION_INPUT_DIR=packages/dataprep-backend/upload FILES_TO_PROCESS=deces-2020.txt.gz`
+- `make artifact-versions`
   - `matchid-backend: 0.4.0-4fe0da`
-  - `matchid-frontend: 0.4.0-267541`
-  - `deces-backend: 0.4.0-4245-gb41f37fb`
-  - `deces-ui: 0.4.0-4245-gb41f37fb`
-  - `snapshot: esdata_8b11c8f9_d2d7ee21`
+  - `matchid-frontend: 0.4.0-2d96b8`
+  - `deces-backend: 0.4.0-4252-gb95cf27b`
+  - `deces-ui: 0.4.0-4252-gb95cf27b`
 - `make artifact-build-dataprep-backend GIT_BRANCH=feat/refacto-make`
-  - succes
-  - image produite: `docker.io/matchid/matchid-backend:0.4.0-4fe0da`
-- `make artifact-publish-dataprep-backend GIT_BRANCH=feat/refacto-make`
-  - succes
-  - tags publies: `0.4.0-4fe0da`, `feat-refacto-make`
-  - digest: `sha256:b09dc452f7cd6e9bf93fa6ce4038cd5f7508e5b1340df6fb953281e62c3cb81f`
+  - succes en clone Git sans tags sous `/tmp/matchid-cd-proof`
+  - image produite: `docker.io/matchid/matchid-backend:72a180c-4fe0da`
+  - preuve utile: le build passe meme avec `git describe --tags` indisponible
 - `make artifact-build-dataprep-frontend GIT_BRANCH=feat/refacto-make`
-  - succes
-  - image produite: `docker.io/matchid/matchid-frontend:0.4.0-267541`
-- `make artifact-publish-dataprep-frontend GIT_BRANCH=feat/refacto-make`
-  - succes
-  - tags publies: `0.4.0-267541`, `feat-refacto-make`
-  - digest: `sha256:ca8b12d30c6fa000b786ba1981d73507385f3ffdd1697385c3b3f7b40fc78d90`
+  - succes sur la branche courante
+  - image produite: `docker.io/matchid/matchid-frontend:0.4.0-2d96b8`
+  - artefact produit: `packages/dataprep-frontend/nginx/dist/matchID-frontend-0.4.0-2d96b8-dist.tar.gz`
+  - checksum: `485ba86be4d5c0d8cdfe04d1b43bd770473d9fd7`
 - `make artifact-build-deces-backend GIT_BRANCH=feat/refacto-make`
-  - succes
-  - image produite: `docker.io/matchid/deces-backend:0.4.0-4245-gb41f37fb`
+  - succes sur la branche courante
+  - image produite: `docker.io/matchid/deces-backend:0.4.0-4252-gb95cf27b`
+  - succes egalement en clone Git sans tags sous `/tmp/matchid-cd-proof-deces-backend-1776271136`
   - adaptation monorepo necessaire: staging explicite de `communes.json`, `disposable-mail.txt` et `wikidata.json` dans un contexte de build temporaire, plus propagation de `NPM_AUDIT_DRY_RUN=true`
-- `make artifact-publish-deces-backend GIT_BRANCH=feat/refacto-make`
-  - succes
-  - tags publies: `0.4.0-4245-gb41f37fb`, `feat-refacto-make`
-  - digest: `sha256:6096bd1f99944740908519be8c4b63efd113dfd56d2403e4d4d30c6880d2bac9`
 - `make artifact-build-deces-ui GIT_BRANCH=feat/refacto-make`
-  - succes
-  - image produite: `docker.io/matchid/deces-ui:0.4.0-4245-gb41f37fb`
+  - succes sur la branche courante
+  - image produite: `docker.io/matchid/deces-ui:0.4.0-4252-gb95cf27b`
+  - artefact produit: `deces-ui-build/deces-ui-0.4.0-4252-gb95cf27b-frontend-dist.tar.gz`
+  - checksum: `378dec25891c079181d46219cfe3152636a9f939`
   - adaptation monorepo necessaire: build dist/Nginx orchestre depuis la racine sans repasser par la cible racine `build`, plus propagation de `NPM_AUDIT_IGNORE`
-- `make artifact-publish-deces-ui GIT_BRANCH=feat/refacto-make`
-  - succes
-  - tags publies: `0.4.0-4245-gb41f37fb`, `feat-refacto-make`
-  - digest: `sha256:e78c3af2df15e9dc279d5b18e8f40a4edda3dd3ebce747801d4b568e20ae3dab`
+- `make smoke-backend MAILDEV_UI_PORT=37343`
+  - succes apres correction du target `config` dans [packages/deces-backend/Makefile](/home/antoinefa/src/matchID/matchID/packages/deces-backend/Makefile)
+  - preuve utile: la plomberie racine lot 6 reste compatible avec les changements lot 7
+- `make smoke-ui MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz`
+  - succes apres la meme correction `config`
+  - `3/3` tests UI verts
+  - preuve utile: `make dev` racine et `frontend-test` ne sont pas recasses par la plomberie CD
+
+### Vérification GitHub Actions exécutée
+
+- run `24466337925` (`CD`, commit `52800aed`)
+  - `Publish matchid-frontend image`:
+    - build vert
+    - publish rouge
+    - cause: `DOCKER_PASSWORD is not configured`
+  - `Publish deces-ui image`:
+    - build vert
+    - publish rouge
+    - cause: `DOCKER_PASSWORD is not configured`
+  - `Publish matchid-backend image`:
+    - build vert
+    - publish rouge
+    - cause: `DOCKER_PASSWORD is not configured`
+  - `Publish deces-backend image`:
+    - build rouge
+    - cause corrigee ensuite au commit `b95cf27b`
+- run `24466706310` (`CD`, commit `b95cf27b`)
+  - `Detect artifact changes` (`71495676181`): vert
+  - `Publish deces-backend image` (`71495705812`):
+    - step `Build deces-backend image`: vert
+    - step `Publish deces-backend image`: rouge
+    - cause: `DOCKER_PASSWORD is not configured`
+  - `Publish deces-ui image` (`71495705831`):
+    - step `Build deces-ui image`: vert
+    - step `Publish deces-ui image`: rouge
+    - cause: `DOCKER_PASSWORD is not configured`
+  - `Publish matchid-frontend image` (`71495705868`):
+    - step `Build matchid-frontend image`: vert
+    - step `Publish matchid-frontend image`: rouge
+    - cause: `DOCKER_PASSWORD is not configured`
+  - `Publish matchid-backend image` (`71495706150`):
+    - step `Build matchid-backend image`: vert
+    - step `Publish matchid-backend image`: rouge
+    - cause: `DOCKER_PASSWORD is not configured`
+- run `24466706327` (`CI`, commit `b95cf27b`)
+  - `Backend smoke`: rouge
+  - `UI smoke`: rouge
+  - `End-to-end smoke`: rouge
+  - cause isolee localement: le target `config` de [packages/deces-backend/Makefile](/home/antoinefa/src/matchID/matchID/packages/deces-backend/Makefile) ecrasait le target `config` racine une fois le package inclus
+  - correction preparee localement et reverifiee via `make smoke-backend` puis `make smoke-ui` avant push
+
+### Matrice de preuve job à job
+
+```text
+Composant         | Workflow/job source                         | Workflow/job monorepo                           | Preuve make                                   | Preuve GitHub                               | Statut
+----------------- | ------------------------------------------ | ----------------------------------------------- | --------------------------------------------- | ------------------------------------------- | ----------------------------------------------
+tools             | actions.yml / swift                        | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
+tools             | actions.yml / remote                       | workflow de deploiement lot 8                   | n/a                                           | n/a                                         | reporte lot 8
+dataprep-backend  | pull.yml / test                            | ci.yml / Dataprep smoke                         | `make smoke-dataprep`                         | CI `24428649314`, `24428647361`             | vert lot 6
+dataprep-backend  | push.yml / build                           | cd.yml / Publish matchid-backend image          | `make artifact-build-dataprep-backend`        | CD `24466706310` job `71495706150`          | build prouve, publish bloque par secret
+dataprep-backend  | deploy.yml / deploy                        | workflow de deploiement lot 8                   | n/a                                           | n/a                                         | reporte lot 8
+dataprep-frontend | pull.yml / test                            | ci.yml / Dataprep smoke + End-to-end smoke      | `make smoke-dataprep`, `make smoke-e2e`       | CI `24428649314`, `24428647361`             | vert lot 6
+dataprep-frontend | push.yml / build                           | cd.yml / Publish matchid-frontend image         | `make artifact-build-dataprep-frontend`       | CD `24466706310` job `71495705868`          | build prouve, publish bloque par secret
+deces-backend     | dockerimage.yml / build                    | ci.yml / Backend smoke + cd.yml / Publish deces-backend image | `make smoke-backend`, `make artifact-build-deces-backend` | CI `24428649314`, `24428647361`; CD `24466706310` job `71495705812` | build prouve, publish bloque par secret
+deces-backend     | dockerimage.yml / bulk                     | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
+deces-ui          | pr.yml / test                              | ci.yml / UI smoke + End-to-end smoke            | `make smoke-ui`, `make smoke-e2e`             | CI `24428649314`, `24428647361`             | vert lot 6
+deces-ui          | push.yml / build                           | ci.yml / UI smoke + cd.yml / Publish deces-ui image | `make artifact-build-deces-ui`             | CD `24466706310` job `71495705831`          | build prouve, publish bloque par secret
+deces-ui          | push.yml / deploy                          | workflow de deploiement lot 8                   | n/a                                           | n/a                                         | reporte lot 8
+deces-ui          | logs-full.yml / logs                       | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
+deces-ui          | logs-update.yml / logs                     | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
+deces-dataprep    | pr.yml / test                              | ci.yml / Dataprep smoke                         | `make smoke-dataprep`                         | CI `24428649314`, `24428647361`             | vert lot 6
+deces-dataprep    | small.yml / build                          | ci.yml / Dataprep smoke                         | `make smoke-dataprep`                         | CI `24428649314`, `24428647361`             | vert lot 6
+deces-dataprep    | year.yml / build                           | futur job snapshot lot 7 + workflow lot 8       | non prouve                                    | non prouve                                  | ouvert lots 7/8
+deces-dataprep    | full.yml / check-previous-failure          | workflow distant lot 8 si conserve              | non prouve                                    | non prouve                                  | reporte lot 8
+deces-dataprep    | full.yml / build                           | futur job snapshot lot 7 + workflow lot 8       | non prouve                                    | non prouve                                  | ouvert lots 7/8
+deces-dataprep    | push-dev.yml / build                       | futur job snapshot lot 7 + workflow lot 8       | non prouve                                    | non prouve                                  | ouvert lots 7/8
+deces-dataprep    | push-master.yml / build                    | futur job snapshot lot 7 + workflow lot 8       | non prouve                                    | non prouve                                  | ouvert lots 7/8
+```
 
 ### Reste ouvert
 
-- la matrice exhaustive `job historique -> job monorepo` n'est pas encore démontrée avec preuves GitHub job par job
-- les jobs `deces-dataprep` distants `year/full/push-*` n'ont pas encore d'équivalent monorepo prouvé côté GitHub
+- la preuve GitHub de `publish` des quatre jobs image est bloquee uniquement par l'absence du secret repo `DOCKER_PASSWORD`
+- les jobs `deces-dataprep` distants `year/full/push-*` n'ont pas encore d'equivalent monorepo prouve cote GitHub
 - le workflow `cd.yml` ne reconstruit pas encore la publication du snapshot dataprep
-- le traitement du package de compatibilité `matchID-latest.tar.gz` est seulement branché sur `matchid-backend`, pas encore revalidé
+- le traitement du package de compatibilite `matchID-latest.tar.gz` est seulement branche sur `matchid-backend`, pas encore revalide
 - la premiere tentative de publication/restauration du snapshot dataprep etait invalide: elle visait le mauvais bucket et le mauvais noeud Elasticsearch
 - la production/publication/restauration effective du snapshot dataprep reste a rejouer completement via `make` sur le chemin corrige `deces-infra`
 

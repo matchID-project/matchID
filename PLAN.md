@@ -145,7 +145,7 @@
     - [x] Gate: je te presente le runtime cible du monorepo, les contrats retenus et les preuves de test de non-regression structurelle
     - [x] Gate: tu valides que le lot 4 est termine et qu'on peut ouvrir le lot 5
 
-- [ ] Lot 5 - Chaine dev complete validee
+- [x] Lot 5 - Chaine dev complete validee
   - [x] Exec
     - [x] Definir la commande canonique de bootstrap dev depuis la racine
     - [x] Definir explicitement quelle image `backend` est la source canonique pour `deces-dataprep` en dev, en test et pour le deploiement
@@ -154,7 +154,7 @@
     - [x] Definir le protocole canonique de comparaison d'indexation entre le `deces-dataprep` original et le `deces-dataprep` monorepo sur un jeu de donnees de reference
     - [x] Rendre `make dev` racine reproductible
     - [x] Documenter la procedure de bootstrap dev
-  - [ ] Tests
+  - [x] Tests
     - [x] Valider `deces-infra` en local
     - [x] Valider Elasticsearch en local
     - [x] Valider Redis en local
@@ -175,7 +175,7 @@
     - [x] Gate: je te presente la procedure dev canonique, la source canonique de l'image `backend` pour `deces-dataprep`, la preuve de parite d'indexation et les preuves de fonctionnement bout en bout en local
     - [x] Gate: tu valides que la chaine dev complete est acceptable et qu'on peut ouvrir le lot 6
 
-- [ ] Lot 6 - CI monorepo et non-regression validees
+- [x] Lot 6 - CI monorepo et non-regression validees
   - [x] Exec
     - [x] Inventorier les workflows CI historiques par composant
     - [x] Inventorier les workflows CD historiques par composant
@@ -197,7 +197,7 @@
     - [x] Definir les checks bloquants pour merge
     - [x] Documenter que les jobs historiques de build/publication d'images de `dataprep-backend` et `dataprep-frontend` ne sont pas encore reconstruits dans la CI racine et relevent du lot 7
     - [x] Documenter que les jobs historiques de deploiement relevent des lots 7 et 8, pas du lot 6
-  - [ ] Tests
+  - [x] Tests
     - [x] Valider un pipeline CI vert sur la branche d'integration
     - [x] Valider que les smoke tests couvrent bien les gates des lots precedents
     - [x] Valider le tableau de mapping avant/apres des workflows CI par composant
@@ -243,16 +243,15 @@
     - [ ] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
     - [ ] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
     - [ ] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
-    - [x] Valider le build de l'image `dataprep-backend`
-    - [x] Valider la publication de l'image `dataprep-backend`
-    - [x] Valider le build de l'image `dataprep-frontend`
-    - [x] Valider la publication de l'image `dataprep-frontend`
-    - [x] Valider le build de l'image `backend`
-    - [x] Valider la publication de l'image `backend`
-    - [x] Valider le build de l'image `deces-backend`
-    - [x] Valider la publication de l'image `deces-backend`
-    - [x] Valider le build de l'image `deces-ui`
-    - [x] Valider la publication de l'image `deces-ui`
+    - [x] Valider le build local de l'image `matchid-backend`
+    - [ ] Valider la publication GitHub de l'image `matchid-backend`
+    - [x] Valider le build local de l'image `matchid-frontend`
+    - [ ] Valider la publication GitHub de l'image `matchid-frontend`
+    - [x] Valider le build local de l'image `deces-backend`
+    - [ ] Valider la publication GitHub de l'image `deces-backend`
+    - [x] Valider le build local de l'image `deces-ui`
+    - [ ] Valider la publication GitHub de l'image `deces-ui`
+    - [ ] Lever le blocage GitHub `DOCKER_PASSWORD` pour les jobs `Publish * image`
     - [ ] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
