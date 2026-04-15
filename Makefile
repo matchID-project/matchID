@@ -358,7 +358,11 @@ artifact-publish-deces-ui:
 	@${MAKE} -C ${FRONTEND_PATH} frontend-docker-push ${MAKEOVERRIDES}
 
 artifact-produce-dataprep-snapshot:
-	@${MAKE} dataprep-run ${MAKEOVERRIDES}
+	@${MAKE} artifact-build-dataprep-backend ${MAKEOVERRIDES}
+	@${MAKE} dataprep-run \
+		DATAPREP_BACKEND_LOCAL_TARGET=backend \
+		DATAPREP_BACKEND_LOCAL_STOP_TARGET=backend-stop \
+		${MAKEOVERRIDES}
 
 artifact-publish-dataprep-snapshot:
 	@DATAPREP_VERSION=$$(${MAKE} artifact-version-dataprep-snapshot | sed 's/^esdata_//;s/_.*$$//'); \
@@ -414,9 +418,11 @@ smoke-backend:
 	}; \
 	trap cleanup EXIT; \
 	rm -rf ${SMOKE_BACKEND_DATA_DIR}; \
+	mkdir -p ${SMOKE_BACKEND_DATA_DIR}; \
+	cp '${BACKEND_PATH}/tests/smoke-wikidata.json' '${SMOKE_BACKEND_DATA_DIR}/wikidata.json'; \
 	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
 	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
-	DATA_DIR=${SMOKE_BACKEND_DATA_DIR} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} config communes wikidata-links disposable-mail backend-dev ${MAKEOVERRIDES}; \
+	DATA_DIR=${SMOKE_BACKEND_DATA_DIR} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} config communes disposable-mail backend-dev ${MAKEOVERRIDES}; \
 	${MAKE} smoke-backend-api ${MAKEOVERRIDES}
 
 smoke-backend-api:
