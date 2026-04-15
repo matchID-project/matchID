@@ -33,6 +33,8 @@ export FRONTEND_PATH := ${APP_PATH}/packages/${APP_FRONTEND}
 export BACKEND_PATH := ${APP_PATH}/packages/${APP_BACKEND}
 export TOOLS_PATH := ${APP_PATH}/packages/${APP_TOOLS}
 export DATAPREP_PATH := ${APP_PATH}/packages/${APP_DATAPREP}
+export DATAPREP_PROJECT_NAME ?= deces-dataprep
+export DATAPREP_PROJECT_SOURCE_PATH ?= ${DATAPREP_PATH}/projects/${DATAPREP_PROJECT_NAME}
 export INFRA_PATH = ${APP_PATH}/packages/deces-infra
 # export LOG_BUCKET = s3bucket/override/me
 # export STATS_BUCKET = s3bucket/override/me
@@ -311,31 +313,46 @@ artifact-versions:
 	@echo "snapshot: $$(${MAKE} artifact-version-dataprep-snapshot)"
 
 artifact-build-dataprep-backend:
+	@${MAKE} -C ${DATAPREP_PATH} config ${MAKEOVERRIDES}
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-build ${MAKEOVERRIDES}
 
 artifact-publish-dataprep-backend:
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-docker-push ${MAKEOVERRIDES}
 
 artifact-build-dataprep-frontend:
+	@${MAKE} -C ${DATAPREP_PATH} config frontend-config ${MAKEOVERRIDES}
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend build ${MAKEOVERRIDES}
 
 artifact-publish-dataprep-frontend:
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend frontend-docker-push ${MAKEOVERRIDES}
 
 artifact-build-legacy-package:
+	@${MAKE} -C ${DATAPREP_PATH} config frontend-config ${MAKEOVERRIDES}
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend package ${MAKEOVERRIDES}
 
 artifact-publish-legacy-package:
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend package-publish ${MAKEOVERRIDES}
 
 artifact-build-deces-backend:
-	@${MAKE} -C ${BACKEND_PATH} backend-build-all ${MAKEOVERRIDES}
+	@set -e; \
+	TMP_DATA_DIR='${BACKEND_PATH}/.artifact-build-context/data'; \
+	rm -rf '${BACKEND_PATH}/.artifact-build-context'; \
+	mkdir -p "$$TMP_DATA_DIR"; \
+	cp '${COMMUNES_JSON}' "$$TMP_DATA_DIR/communes.json"; \
+	cp '${DISPOSABLE_MAIL}' "$$TMP_DATA_DIR/disposable-mail.txt"; \
+	cp '${WIKIDATA_LINKS}' "$$TMP_DATA_DIR/wikidata.json"; \
+	DATA_DIR=.artifact-build-context/data \
+	NPM_AUDIT_DRY_RUN=true \
+	${MAKE} -C ${BACKEND_PATH} backend-build-image ${MAKEOVERRIDES}; \
+	rm -rf '${BACKEND_PATH}/.artifact-build-context'
 
 artifact-publish-deces-backend:
 	@${MAKE} -C ${BACKEND_PATH} docker-push-backend ${MAKEOVERRIDES}
 
 artifact-build-deces-ui:
-	@${MAKE} -C ${FRONTEND_PATH} frontend-build nginx-build ${MAKEOVERRIDES}
+	@${MAKE} network ${MAKEOVERRIDES}
+	@APP=${APP_FRONTEND} ${MAKE} -C ${FRONTEND_PATH} frontend-build-dist ${MAKEOVERRIDES}
+	@APP=${APP_FRONTEND} ${MAKE} -C ${FRONTEND_PATH} nginx-build ${MAKEOVERRIDES}
 
 artifact-publish-deces-ui:
 	@${MAKE} -C ${FRONTEND_PATH} frontend-docker-push ${MAKEOVERRIDES}

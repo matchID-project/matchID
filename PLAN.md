@@ -171,7 +171,7 @@
     - [x] Valider l'egalite de 1000 documents echantillonnes de maniere deterministe entre les deux runs de reference
     - [x] Valider la compatibilite dataprep -> index -> backend -> ui
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 5
-  - [ ] UAT
+  - [x] UAT
     - [x] Gate: je te presente la procedure dev canonique, la source canonique de l'image `backend` pour `deces-dataprep`, la preuve de parite d'indexation et les preuves de fonctionnement bout en bout en local
     - [x] Gate: tu valides que la chaine dev complete est acceptable et qu'on peut ouvrir le lot 6
 
@@ -202,7 +202,7 @@
     - [x] Valider que les smoke tests couvrent bien les gates des lots precedents
     - [x] Valider le tableau de mapping avant/apres des workflows CI par composant
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 6
-  - [ ] UAT
+  - [x] UAT
     - [x] Gate: je te presente le pipeline cible, sa couverture et les preuves de passage au vert
     - [x] Gate: tu valides que la CI monorepo est suffisante pour ouvrir le lot 7
 
@@ -216,15 +216,15 @@
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`
     - [ ] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
   - [ ] Tests
-    - [ ] Valider le build de l'image `dataprep-backend`
+    - [x] Valider le build de l'image `dataprep-backend`
     - [ ] Valider la publication de l'image `dataprep-backend`
-    - [ ] Valider le build de l'image `dataprep-frontend`
+    - [x] Valider le build de l'image `dataprep-frontend`
     - [ ] Valider la publication de l'image `dataprep-frontend`
-    - [ ] Valider le build de l'image `backend`
+    - [x] Valider le build de l'image `backend`
     - [ ] Valider la publication de l'image `backend`
-    - [ ] Valider le build de l'image `deces-backend`
+    - [x] Valider le build de l'image `deces-backend`
     - [ ] Valider la publication de l'image `deces-backend`
-    - [ ] Valider le build de l'image `deces-ui`
+    - [x] Valider le build de l'image `deces-ui`
     - [ ] Valider la publication de l'image `deces-ui`
     - [ ] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`

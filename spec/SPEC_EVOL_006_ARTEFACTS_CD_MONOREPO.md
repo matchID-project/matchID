@@ -180,6 +180,10 @@ Décision lot 7:
   - `matchid-frontend`
   - `deces-backend`
   - `deces-ui`
+- adaptations monorepo de build:
+  - configuration explicite de `packages/deces-dataprep` avant build `dataprep-backend` / `dataprep-frontend`
+  - propagation des variables `DATA_DIR`, `NPM_AUDIT_DRY_RUN` et `NPM_AUDIT_IGNORE` dans les compose de build concernes
+  - correction de typage de test dans [bulk.spec.ts](/home/antoinefa/src/matchID/matchID/packages/deces-backend/src/controllers/bulk.spec.ts) pour laisser compiler `deces-backend` en image sans patch produit
 
 ### Vérification `make` exécutée
 
@@ -189,12 +193,27 @@ Décision lot 7:
   - `deces-backend: 0.4.0-4243-gb66a77b8`
   - `deces-ui: 0.4.0-4243-gb66a77b8`
   - `snapshot: esdata_f7fe09dd_d2d7ee21`
+- `make artifact-build-dataprep-backend GIT_BRANCH=feat/refacto-make`
+  - succes
+  - image produite: `docker.io/matchid/matchid-backend:0.4.0-4fe0da`
+- `make artifact-build-dataprep-frontend GIT_BRANCH=feat/refacto-make`
+  - succes
+  - image produite: `docker.io/matchid/matchid-frontend:0.4.0-267541`
+- `make artifact-build-deces-backend GIT_BRANCH=feat/refacto-make`
+  - succes
+  - image produite: `docker.io/matchid/deces-backend:0.4.0-4244-g78f4671d`
+  - adaptation monorepo necessaire: staging explicite de `communes.json`, `disposable-mail.txt` et `wikidata.json` dans un contexte de build temporaire, plus propagation de `NPM_AUDIT_DRY_RUN=true`
+- `make artifact-build-deces-ui GIT_BRANCH=feat/refacto-make`
+  - succes
+  - image produite: `docker.io/matchid/deces-ui:0.4.0-4244-g78f4671d`
+  - adaptation monorepo necessaire: build dist/Nginx orchestre depuis la racine sans repasser par la cible racine `build`, plus propagation de `NPM_AUDIT_IGNORE`
 
 ### Reste ouvert
 
 - le workflow `cd.yml` ne reconstruit pas encore la publication du snapshot dataprep
 - le traitement du package de compatibilité `matchID-latest.tar.gz` est seulement branché sur `matchid-backend`, pas encore revalidé
-- les validations de build/publish effectives des artefacts restent à rejouer en lot 7 / tests
+- les publications effectives des images restent a rejouer via `make artifact-publish-*`
+- la production/publication/restauration effective du snapshot dataprep reste a rejouer via `make`
 
 ## Critères d'acceptation
 

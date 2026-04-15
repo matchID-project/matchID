@@ -20,7 +20,7 @@ describe('bulk.controller.ts', () => {
       headers: {},
       body: {},
       files: []
-    } as express.Request
+    } as unknown as express.Request
     const result = await controller.uploadCsv(req)
     expect(result.msg).to.equal('no files attached');
   });
@@ -39,7 +39,7 @@ describe('bulk.controller.ts', () => {
      body: {},
      files: [{ buffer: buf }],
      user: { user: 'tester' }
-   } as express.Request
+   } as unknown as express.Request
    const res = await controller.uploadCsv(req)
    expect(res.msg).to.equal('started');
    expect(processStream.csvHandle).toHaveBeenCalled();

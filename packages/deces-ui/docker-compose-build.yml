@@ -19,6 +19,7 @@ services:
         NPM_LATEST: ${NPM_LATEST}
         NPM_GIT: ${NPM_GIT}
         NPM_VERBOSE: ${NPM_VERBOSE}
+        NPM_AUDIT_IGNORE: ${NPM_AUDIT_IGNORE}
         AB_THRESHOLD: ${AB_THRESHOLD}
         API_EMAIL: ${API_EMAIL}
         API_MAX_BODY: ${API_MAX_BODY}
@@ -33,7 +34,6 @@ services:
     image: ${DOCKER_USERNAME}/deces-ui-frontend-build:${APP_VERSION}
     container_name: deces-ui-frontend-build
     user: ${UID}:${GID}
-
 
 
 
