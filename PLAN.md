@@ -237,13 +237,13 @@
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `dataprep-backend` et `dataprep-frontend`
     - [x] Si ces images restent requises, reconstruire leurs jobs CD de build/publication dans le monorepo
     - [x] Definir explicitement le sort des jobs historiques CD de build/publication d'images de `deces-backend` et `deces-ui`
-    - [ ] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
-    - [ ] Reconstruire le job CD GitHub de publication du snapshot dataprep dans le monorepo
-    - [ ] Figer la picture complete lots 6/7/8 `upstream -> monorepo`, service par service et job par job
+    - [x] Reconstruire les jobs CD de build/publication d'artefacts requis dans le monorepo
+    - [x] Reconstruire le job CD GitHub de publication du snapshot dataprep dans le monorepo
+    - [x] Figer la picture complete lots 6/7/8 `upstream -> monorepo`, service par service et job par job
   - [ ] Tests
     - [x] Prouver en local via `make` chaque job monorepo reconstruit au lot 7
     - [ ] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
-    - [ ] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
+    - [x] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
     - [x] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
     - [x] Valider le build local de l'image `matchid-backend`
     - [x] Valider la publication locale de l'image `matchid-backend`
@@ -260,10 +260,12 @@
     - [ ] Lever le blocage GitHub `DOCKER_PASSWORD` pour les jobs `Publish * image`
     - [x] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [x] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+    - [x] Valider la publication GitHub du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [x] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
     - [x] Valider l'egalite stricte count + sample entre l'index avant suppression et l'index restaure depuis le snapshot artefact
-    - [ ] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
-    - [ ] Produire le tableau paddé complet lots 6/7/8 `service -> job source -> job monorepo -> lot -> preuve -> statut`
+    - [ ] Expliquer puis lever l'ecart entre `ci.yml` / job `UI smoke` sur `pull_request` et les preuves `push` + locales
+    - [x] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
+    - [x] Produire le tableau paddé complet lots 6/7/8 `service -> job source -> job monorepo -> lot -> preuve -> statut`
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
   - [ ] UAT
     - [ ] Gate: je te presente la picture complete lots 6/7/8 `upstream -> monorepo`, service par service, job par job, avec preuves `make` + GitHub
