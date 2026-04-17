@@ -243,7 +243,7 @@ stop: frontend-stop backend-stop smtp-stop redis-stop elasticsearch-stop
 	@echo all components stopped
 
 start: elasticsearch backend frontend
-	@sleep 2 && docker-compose logs
+	@echo all components started
 
 log:
 	@${MAKE} -C ${TOOLS_PATH} docker-logs-to-API ${MAKEOVERRIDES} &
