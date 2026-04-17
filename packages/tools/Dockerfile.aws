@@ -21,7 +21,7 @@ RUN apk add --no-cache \
     python3 \
     groff \
     py3-pip && \
-    pip3 install awscli awscli_plugin_endpoint --upgrade --user && \
+    pip3 install awscli awscli_plugin_endpoint --break-system-packages --upgrade --user && \
     mv /root/.local/bin/* /usr/local/bin && \
     apk -v --purge del py-pip
 

@@ -101,6 +101,7 @@ export SCW_VOLUME_SIZE=50000000000
 export SCW_IMAGE_ID=8e7f9833-9787-4488-aea7-819183132acc
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
 export MONOREPO_ROOT=${APP_PATH}/../..
+export INFRA_PATH=${MONOREPO_ROOT}/packages/deces-infra
 export FRONTEND_PATH=${DATAPREP_FRONTEND_PATH}
 
 dummy               := $(shell touch artifacts)
@@ -193,16 +194,28 @@ ${BACKUP_CHECK}: data-tag
 backup-check: ${BACKUP_CHECK}
 
 repository-config: config
-	@${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-config\
-		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-		${MAKEOVERRIDES} && touch repository-config
+	@if [ -d "${INFRA_PATH}" ]; then\
+		${MAKE} -C ${INFRA_PATH} elasticsearch-repository-config\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			${MAKEOVERRIDES};\
+	else\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-config\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			${MAKEOVERRIDES};\
+	fi && touch repository-config
 
 ${REPOSITORY_CHECK}: repository-config data-tag
 	@ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
-	${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-check\
-		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-		${MAKEOVERRIDES} ES_BACKUP_NAME=$${ES_BACKUP_NAME} \
-		| egrep -q "^snapshot found"\
+	if [ -d "${INFRA_PATH}" ]; then\
+		${MAKE} -C ${INFRA_PATH} elasticsearch-repository-list\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			${MAKEOVERRIDES} | egrep -qx "$${ES_BACKUP_NAME}";\
+	else\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-check\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			${MAKEOVERRIDES} ES_BACKUP_NAME=$${ES_BACKUP_NAME} \
+			| egrep -q "^snapshot found";\
+	fi\
 		&& echo "snapshot found for or $${ES_BACKUP_NAME} in elasticsearch repository" && (echo "$${ES_BACKUP_NAME}" > "${REPOSITORY_CHECK}") \
 		|| (echo "no snapshot found for $${ES_BACKUP_NAME} elasticsearch repository")
 
@@ -343,10 +356,16 @@ backup-restore: backup-pull
 
 repository-restore: repository-check
 	@if [ ! -f "elasticsearch-restore" ];then\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-restore\
-			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG})\
-			&& (echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}) > elasticsearch-restore);\
+		ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
+		if [ -d "${INFRA_PATH}" ]; then\
+			${MAKE} -C ${INFRA_PATH} elasticsearch-restore\
+				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
+		else\
+			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-restore\
+				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
+		fi && (echo $${ES_BACKUP_NAME} > elasticsearch-restore);\
 	fi
 
 elasticsearch-restore: ${BACKUP_METHOD}-restore
@@ -380,20 +399,41 @@ backup-push: data-tag backup
 
 repository-push: data-tag
 	@if [ ! -f repository-push ];then\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup\
-			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}) && touch repository-push;\
+		ES_BACKUP_NAME=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
+		if [ -d "${INFRA_PATH}" ]; then\
+			${MAKE} -C ${INFRA_PATH} elasticsearch-repository-backup\
+				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
+		else\
+			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup\
+				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
+		fi && touch repository-push;\
 		fi
 
 repository-backup-tmp: data-tag
-	@${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup-async\
-		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-		ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_tmp_${DATAPREP_VERSION}_$$(cat ${DATA_TAG})
+	@ES_BACKUP_NAME=esdata_tmp_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
+	if [ -d "${INFRA_PATH}" ]; then\
+		${MAKE} -C ${INFRA_PATH} elasticsearch-repository-backup\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
+	else\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup-async\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
+	fi
 
 respository-cleanse:
-	@(${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-delete\
-		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-		ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=esdata_tmp_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}) > /dev/null 2>&1) || exit 0
+	@(ES_BACKUP_NAME=esdata_tmp_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
+	if [ -d "${INFRA_PATH}" ]; then\
+		${MAKE} -C ${INFRA_PATH} elasticsearch-repository-delete\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} > /dev/null 2>&1;\
+	else\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-delete\
+			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
+			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} > /dev/null 2>&1;\
+	fi) || exit 0
 
 down:
 	@if [ -f config ]; then\

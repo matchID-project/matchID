@@ -8,8 +8,13 @@ export INFRA_PATH ?= $(shell pwd)
 export MONOREPO_ROOT ?= $(abspath ${INFRA_PATH}/../..)
 export DC ?= docker compose
 export DC_NETWORK ?= matchid
+export APP_GROUP ?= matchID
 export APP_BACKEND ?= deces-backend
 export DATA_DIR ?= $(abspath ${INFRA_PATH}/../../data)
+export DATAPREP_VERSION_FILE ?= ${MONOREPO_ROOT}/.dataprep.sha1
+export DATA_VERSION_FILE ?= ${MONOREPO_ROOT}/.data.sha1
+export SCW_REGION ?= fr-par
+export SCW_ENDPOINT ?= s3.fr-par.scw.cloud
 
 # Elasticsearch configuration variables
 export ES_HOST ?= elasticsearch
@@ -126,11 +131,16 @@ elasticsearch-repository-list: elasticsearch-repository-config
 		curl -s -XGET "localhost:9200/_snapshot/${APP_GROUP}/_all" \
 	| jq -r '.snapshots[].snapshot'
 
-elasticsearch-restore: elasticsearch-repository-config ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
+elasticsearch-restore: elasticsearch-repository-config
 	@\
-	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
-	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
-	ES_BACKUP_NAME=${ES_BACKUP_BASENAME}_$${DATAPREP_VERSION}_$${DATA_VERSION};\
+	if [ -z "${ES_BACKUP_NAME}" ]; then\
+		${MAKE} -C ${MONOREPO_ROOT} ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE} ${MAKEOVERRIDES};\
+		DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
+		DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
+		ES_BACKUP_NAME=${ES_BACKUP_BASENAME}_$${DATAPREP_VERSION}_$${DATA_VERSION};\
+	else\
+		ES_BACKUP_NAME=${ES_BACKUP_NAME};\
+	fi;\
 	echo restoring snapshot $${ES_BACKUP_NAME} from elasticsearch repository;\
 	(\
 		docker exec -i ${USE_TTY} deces-elasticsearch \
@@ -139,11 +149,16 @@ elasticsearch-restore: elasticsearch-repository-config ${DATAPREP_VERSION_FILE} 
 		> /dev/null 2>&1\
 	) && echo "snapshot $${ES_BACKUP_NAME} restored from elasticsearch repository" && touch elasticsearch-restore
 
-elasticsearch-restore-async: elasticsearch-repository-config ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
+elasticsearch-restore-async: elasticsearch-repository-config
 	@\
-	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
-	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
-	ES_BACKUP_NAME=${ES_BACKUP_BASENAME}_$${DATAPREP_VERSION}_$${DATA_VERSION};\
+	if [ -z "${ES_BACKUP_NAME}" ]; then\
+		${MAKE} -C ${MONOREPO_ROOT} ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE} ${MAKEOVERRIDES};\
+		DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
+		DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
+		ES_BACKUP_NAME=${ES_BACKUP_BASENAME}_$${DATAPREP_VERSION}_$${DATA_VERSION};\
+	else\
+		ES_BACKUP_NAME=${ES_BACKUP_NAME};\
+	fi;\
 	echo restoring snapshot $${ES_BACKUP_NAME} from elasticsearch repository;\
 	STATUS=$$(\
 		docker exec -i ${USE_TTY} deces-elasticsearch \
