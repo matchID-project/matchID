@@ -264,6 +264,7 @@
     - [x] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
     - [x] Valider l'egalite stricte count + sample entre l'index avant suppression et l'index restaure depuis le snapshot artefact
     - [ ] Expliquer puis lever l'ecart entre `ci.yml` / job `UI smoke` sur `pull_request` et les preuves `push` + locales
+    - [x] Centraliser la matrice des cibles `make` CI/CD, runtime avec donnees et complements SCW lot 8 dans `spec/SPEC_EVOL_MAKE_CICD_CHECKLIST.md`
     - [x] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
     - [x] Produire le tableau paddé complet lots 6/7/8 `service -> job source -> job monorepo -> lot -> preuve -> statut`
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
@@ -279,6 +280,8 @@
     - [ ] Inventorier les buckets et snapshots encore pilotes par les anciens repos
     - [ ] Inventorier les volumes encore pilotes par les anciens repos
     - [ ] Inventorier DNS, certificats, monitoring et jobs de refresh encore pilotes par les anciens repos
+    - [ ] Inventorier et trancher les cibles d'image SCW `update-base-image`, `deploy-docker-pull-base`, `SCW-instance-snapshot` et `SCW-instance-image`
+    - [ ] Supprimer ou encadrer tout commit automatique encore declenche par une cible `make`
     - [ ] Definir l'environnement cible de `dev-deces.matchid.io`
     - [ ] Definir la configuration preprod hors git necessaire au monorepo
     - [ ] Definir explicitement le workflow CD de deploiement preprod depuis le monorepo
