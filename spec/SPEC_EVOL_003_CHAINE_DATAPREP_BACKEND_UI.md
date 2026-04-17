@@ -46,7 +46,7 @@ Obtenir un run bout-en-bout reproductible en développement.
 - fichiers de config nécessaires
 - mode "avec snapshot" et mode "avec dataprep"
 
-### B. Définir les smoke tests
+### B. Définir les tests de validation
 
 - dataprep: exécution minimale ou validation de sortie
 - infra: healthcheck Elasticsearch, Redis, SMTP

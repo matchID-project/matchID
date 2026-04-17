@@ -2,104 +2,54 @@
 
 ## Contexte
 
-Le monorepo n'a pas aujourd'hui de CI racine et la validation dépend encore largement des workflows historiques package-level.
+Le monorepo doit remplacer les validations package-level sans inventer un
+contrat parallèle. Les jobs racine doivent donc appeler les cibles `make`
+historiques des repos sources, adaptées uniquement par le chemin du package dans
+le monorepo.
 
 ## Objectif
 
-Introduire une validation monorepo fiable, proportionnée aux composants impactés.
+Introduire une CI racine qui prouve la non-régression par composant avec les
+mêmes rôles que les workflows d'origine.
 
 ## Non-objectifs
 
-- reproduire intégralement dès le départ tous les workflows historiques
-- exécuter en CI tous les scénarios cloud lourds
+- reproduire en lot 6 les déploiements distants;
+- publier des images depuis la CI de validation;
+- conserver des jeux de données artificiels ou une couche de validation ad hoc.
 
-## Travaux
+## Contrat CI cible
 
-### A. Définir le périmètre de checks minimal
+```text
+Composant         | Workflow source                 | Job monorepo                              | Commandes make monorepo
+------------------+---------------------------------+-------------------------------------------+------------------------------------------------------------
+tools             | actions.yml / build docker swift| ci.yml / build docker swift               | make -C packages/tools docker-check CLOUD_CLI=swift || make -C packages/tools docker-build CLOUD_CLI=swift
+dataprep-backend  | pull.yml / pull request test    | ci.yml / dataprep-backend pull request test | make -C packages/deces-dataprep config; make -C packages/dataprep-backend version backend-docker-check || make -C packages/dataprep-backend backend-build backend tests backend-stop
+dataprep-frontend | pull.yml / pull request test    | ci.yml / dataprep-frontend pull request test | make -C packages/deces-dataprep config frontend-config; make -C packages/dataprep-frontend version-files version; make -C packages/dataprep-frontend frontend-docker-check || make -C packages/dataprep-frontend build backend-docker-check up
+deces-backend     | dockerimage.yml / build         | ci.yml / deces-backend build docker image | make artifact-build-deces-backend; make artifact-restore-dataprep-snapshot; make backend-test-vitest
+deces-ui          | pr.yml / Pull request test      | ci.yml / deces-ui pull request test       | make version config; make frontend-docker-check || make build; make artifact-build-deces-backend; make deploy-local backend-test frontend-test
+deces-dataprep    | pr.yml / locally                | ci.yml / deces-dataprep locally           | make -C packages/deces-dataprep all FILES_TO_PROCESS=deces-2020-m01.txt.gz ...
+```
 
-- `tools`: `make smoke-tools`
-- `deces-backend`: `make smoke-backend`
-- `deces-dataprep`: `make smoke-dataprep`
-- `deces-ui`: `make smoke-ui`
-- chaîne complète: `make smoke-e2e`
+## Décisions
 
-### B. Ajouter une CI racine
+- `ci.yml` reste un workflow de validation: il construit ou réutilise les images
+  nécessaires, mais ne publie pas.
+- `cd.yml` reste le workflow de publication des artefacts et snapshots.
+- Les packages dataprep historiques reçoivent en CI les chemins monorepo
+  (`TOOLS_PATH`, `BACKEND`) au lieu de cloner des repos frères.
+- Les secrets de stockage sont requis pour les jobs qui restaurent ou produisent
+  des données depuis les buckets non-prod.
+- Les jobs sont déclenchés par chemins modifiés avec `dorny/paths-filter`.
+- Les déploiements distants et SCW restent cadrés par le lot 8.
 
-- workflow racine `.github/workflows/ci.yml`
-- jobs conditionnels par zone modifiée via `dorny/paths-filter`
-- jobs `tools`, `backend`, `dataprep`, `ui`, `integration`
+## Etat attendu avant UAT lot 6
 
-### C. Définir les fixtures et secrets
-
-- fixture publique de CI: `deces-2020.txt.gz`
-- calcul local de `DATA_VERSION` via `DATA_VERSION_SOURCE=local` et `packages/dataprep-backend/upload`
-- warm-up UI explicite du frontend hydraté avant exécution Playwright
-- aucun secret requis pour les smokes du lot 6
-
-### D. Définir la release discipline
-
-- checks bloquants pour merge: `tools`, `backend`, `dataprep`, `ui`, `integration`
-- traçabilité: chaque job ne lance que des cibles `make`
-- dépendances réseau personnelles exclues du chemin CI courant
-
-## Etat lot 6
-
-### Implémentation réalisée
-
-- ajout des cibles racine `smoke-tools`, `smoke-dataprep`, `smoke-backend`, `smoke-backend-api`, `smoke-ui`, `smoke-e2e`
-- ajout du workflow racine `ci.yml`
-- suppression de la dépendance CI à Data.gouv privé / storage personnel pour les smokes:
-  - `tools-smoke` consomme le catalogue public Data.gouv
-  - `data-version` peut être calculé localement sur les fichiers présents dans `packages/dataprep-backend/upload`
-- stabilisation make-only:
-  - attente Redis en infra
-  - timeout Elasticsearch racine porté à `120`
-  - version Playwright figée à `1.59.1`
-  - cleanup explicite des marqueurs `/tmp` de dataprep smoke
-  - durcissement du harness UI sur cold start frontend
-
-### Tests exécutés
-
-- `make smoke-tools`
-  - succès
-- `make data-version DATA_VERSION_SOURCE=local DATA_VERSION_INPUT_DIR=packages/dataprep-backend/upload FILES_TO_PROCESS=deces-2020.txt.gz`
-  - succès
-  - valeur observée: `d2d7ee21`
-- `make smoke-dataprep SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz`
-  - succès
-  - `679924 lines processed`
-  - `679593 lines written`
-- `MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 make frontend-test`
-  - succès
-  - `3/3` tests
-  - `27` étapes passées
-- `MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz make smoke-e2e`
-  - succès
-  - dataprep annuel 2020 exécuté
-  - API locale validée en GET/POST via `smoke-backend-api`
-  - UI validée sur recherche simple, recherche avancée, appariement Wikidata
-- `APP_VERSION=0d86474 MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz make smoke-ui`
-  - succès
-  - valide explicitement le cas CI clone sans tags où `APP_VERSION` retombe sur un SHA court
-- `APP_VERSION=0d86474 MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz make smoke-e2e`
-  - succès
-  - valide le même cas CI sur la chaîne complète
-- GitHub Actions `CI`
-  - `pull_request` vert: run `24428649314`
-  - `push` vert: run `24428647361`
-  - jobs verts: `tools`, `dataprep`, `backend`, `ui`, `integration`
-
-### Etat d'entrée en UAT lot 6
-
-- la branche d'intégration a maintenant un pipeline CI vert exploitable
-- le dernier correctif CI ciblé est `a8db8d42` sur `packages/deces-ui/Dockerfile`
-- le lot 6 peut entrer en UAT
-
-## Critères d'acceptation
-
-- un PR sur le monorepo obtient un statut exploitable
-- la CI ne dépend pas implicitement d'un environnement personnel
-- un job d'intégration minimal protège la chaîne critique
+- le workflow `CI` passe sur `push` de la branche d'intégration;
+- le workflow `CI` passe sur la PR;
+- chaque job CI cite une commande `make`, sans appel direct à `npm` ou `docker`;
+- la matrice complète est tenue à jour dans
+  [SPEC_EVOL_MAKE_CICD_CHECKLIST](SPEC_EVOL_MAKE_CICD_CHECKLIST.md).
 
 ## Dépendances
 

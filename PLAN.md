@@ -67,14 +67,14 @@
     - [x] Valider le demarrage local cible de `packages/deces-backend` via `make backend-dev`
     - [x] Preparer l'index Elasticsearch de reference requis par les tests backend via `make elasticsearch`
     - [x] Rendre `make backend-dev-test` compatible avec l'image Alpine utilisee par le backend
-    - [x] Assurer la presence du fixture `clients_test.csv` au chemin attendu par `server.spec.ts`
+    - [x] Assurer la presence du fichier de test `clients_test.csv` au chemin attendu par `server.spec.ts`
     - [x] Isoler `bulk.spec.ts` pour qu'il ne lance pas de vrais jobs et ne pollue pas la suite backend
     - [x] Garantir un singleton des workers bulk `processStream` pendant la suite backend pour eviter les collisions entre fichiers de tests
     - [x] Attendre explicitement le readiness check dans `make backend-dev` avant de considerer le backend dev demarre
     - [x] Serialiser l'execution inter-fichiers de Vitest pour `packages/deces-backend` afin d'eviter les collisions Redis/filesystem
     - [x] Reinitialiser Redis backend et les fichiers `.enc` transitoires avant `make backend-test-vitest`
     - [x] Arreter le backend dev resident avant `make backend-test-vitest` pour eviter deux workers backend concurrents sur Redis
-    - [x] Valider les tests et smoke checks backend cibles via `make backend-test-vitest` puis `make backend-dev-test`
+    - [x] Valider les tests backend cibles via `make backend-test-vitest` puis `make backend-dev-test`
     - [x] Verifier explicitement les comportements touches par le rattrapage backend a travers les cibles `make` precedentes
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 2
   - [x] UAT
@@ -109,7 +109,7 @@
   - [x] Tests
     - [x] Ne compter comme validation du lot 3 que des executions via cibles `make`
     - [x] Valider le demarrage local cible de `packages/deces-ui` via `make frontend-dev`
-    - [x] Valider les tests et smoke checks UI cibles via `MAILDEV_UI_PORT=37343 make frontend-test`
+    - [x] Valider les tests UI cibles via `MAILDEV_UI_PORT=37343 make frontend-test`
     - [x] Verifier explicitement les comportements touches par le rattrapage UI a travers les cibles `make` precedentes
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 3
   - [x] UAT
@@ -180,26 +180,26 @@
     - [x] Inventorier les workflows CI historiques par composant
     - [x] Inventorier les workflows CD historiques par composant
     - [x] Distinguer explicitement la CI de validation de la CI de build/publication d'artefacts
-    - [x] Ajouter un smoke test dataprep
-    - [x] Ajouter un smoke test backend
-    - [x] Ajouter un smoke test UI
-    - [x] Ajouter un smoke test bout-en-bout
+    - [x] Mapper le job CI historique de `deces-dataprep` sur `make -C packages/deces-dataprep all`
+    - [x] Mapper le job CI historique de `deces-backend` sur build image, restore snapshot et `backend-test-vitest`
+    - [x] Mapper le job CI historique de `deces-ui` sur build, `deploy-local`, `backend-test` et `frontend-test`
+    - [x] Mapper les jobs CI historiques de `dataprep-backend` et `dataprep-frontend`
     - [x] Creer la CI racine du monorepo
     - [x] Ajouter le job lint/build/tests de `deces-backend`
-    - [x] Ajouter le job build/tests ou smoke checks de `deces-ui`
+    - [x] Ajouter le job build/tests de `deces-ui`
     - [x] Ajouter le job de validation ciblee de `deces-dataprep`
     - [x] Ajouter le job de validation ciblee de `tools`
-    - [x] Ajouter le job d'integration chaine complete
+    - [x] Couvrir la chaine complete via les jobs historiques `deces-ui` et `deces-dataprep`
     - [x] Definir les declenchements conditionnels par chemins modifies
     - [x] Sortir la CI des dependances a l'environnement personnel
-    - [x] Definir les fixtures et mocks necessaires
+    - [x] Confirmer qu'aucune donnee artificielle durable n'est necessaire en CI
     - [x] Definir les secrets necessaires en CI
     - [x] Definir les checks bloquants pour merge
     - [x] Documenter que les jobs historiques de build/publication d'images de `dataprep-backend` et `dataprep-frontend` ne sont pas encore reconstruits dans la CI racine et relevent du lot 7
     - [x] Documenter que les jobs historiques de deploiement relevent des lots 7 et 8, pas du lot 6
   - [x] Tests
     - [x] Valider un pipeline CI vert sur la branche d'integration
-    - [x] Valider que les smoke tests couvrent bien les gates des lots precedents
+    - [x] Valider que les jobs CI historiques couvrent bien les gates des lots precedents
     - [x] Valider le tableau de mapping avant/apres des workflows CI par composant
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 6
   - [x] UAT
@@ -263,7 +263,7 @@
     - [x] Valider la publication GitHub du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [x] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
     - [x] Valider l'egalite stricte count + sample entre l'index avant suppression et l'index restaure depuis le snapshot artefact
-    - [x] Expliquer puis lever les ecarts `ci.yml` des jobs `Backend smoke` et `UI smoke` lies aux inputs live data.gouv et aux preuves vertes precedentes
+    - [x] Nettoyer `ci.yml` des validations inventees et revenir aux commandes `make` historiques des repos sources
     - [x] Centraliser la matrice des cibles `make` CI/CD, runtime avec donnees et complements SCW lot 8 dans `spec/SPEC_EVOL_MAKE_CICD_CHECKLIST.md`
     - [x] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
     - [x] Produire le tableau paddé complet lots 6/7/8 `service -> job source -> job monorepo -> lot -> preuve -> statut`
@@ -297,8 +297,8 @@
     - [ ] Publier la configuration d'acces `dev-deces.matchid.io`
   - [ ] Tests
     - [ ] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
-    - [ ] Valider le smoke test API en preprod
-    - [ ] Valider le smoke test UI en preprod
+    - [ ] Valider le test API en preprod
+    - [ ] Valider le test UI en preprod
     - [ ] Valider la chaine dataprep -> index -> backend -> ui en preprod
     - [ ] Valider l'observabilite preprod
     - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 8

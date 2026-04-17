@@ -142,7 +142,7 @@ Commandes exécutées uniquement via `make`:
 - `MAILDEV_UI_PORT=37343 make backend-dev-test`
   - succès
   - `backend-dev` attend désormais une vraie disponibilité côté hôte sur une requête `search`, pas seulement une réponse intra-conteneur
-  - le smoke shell GET/POST passe intégralement
+  - la validation shell GET/POST passe intégralement
   - le contrôle `fuzzy=false` ne dépend plus d'un total figé de dataset; il est vérifié via deux assertions JSON supplémentaires sur GET et POST
   - l'exécution racine consomme bien `packages/tools` et non un repo externe `../tools`
 - bruit non bloquant encore observé pendant les validations:

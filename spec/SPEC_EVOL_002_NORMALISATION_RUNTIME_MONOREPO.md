@@ -177,7 +177,7 @@ Commandes exécutées uniquement via `make`:
   - `9` fichiers et `164` tests passes lors de la validation lot 4
 - `MAILDEV_UI_PORT=37343 make backend-dev-test`
   - succes
-  - smoke GET/POST vert avec le backend demarre sur l'infra mutualisee
+  - validation GET/POST verte avec le backend demarre sur l'infra mutualisee
 - `make dev-stop`
   - succes
   - la racine stoppe maintenant aussi Redis et SMTP via `deces-infra`

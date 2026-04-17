@@ -92,16 +92,8 @@ export DATA_VERSION_INPUT_DIR ?=
 export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
 export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz # reference for test env
 export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz # reference for preprod env
-export SMOKE_FILES_TO_PROCESS ?= deces-2020.txt.gz
-export SMOKE_DATA_VERSION_INPUT_DIR ?= /tmp/matchid-smoke-upload
-export SMOKE_RECIPE_RUN_MARKER ?= /tmp/matchid-smoke.recipe-run
-export SMOKE_S3_PULL_MARKER ?= /tmp/matchid-smoke.s3-pull
 export ARTIFACT_RECIPE_RUN_MARKER ?= /tmp/matchid-artifact.recipe-run
 export ARTIFACT_S3_PULL_MARKER ?= /tmp/matchid-artifact.s3-pull
-export SMOKE_TOOLS_DATA_DIR ?= /tmp/matchid-tools-smoke
-export SMOKE_BACKEND_DATA_DIR ?= /tmp/matchid-backend-smoke
-export SMOKE_ES_MEM ?= 512m
-export SMOKE_ES_MMAP_DISABLED ?= true
 export PLAYWRIGHT_VERSION ?= 1.59.1
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
 export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev # reference for non-prod env
@@ -178,6 +170,20 @@ clean-local: clean-data clean-frontend clean-config
 
 clean: clean-remote clean-local
 
+docker-check:
+	@if [ ! -f ".${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}" ]; then\
+		(\
+			(docker image inspect ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} > /dev/null 2>&1)\
+			&& touch .${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}\
+		)\
+		||\
+		(\
+			(docker pull ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} > /dev/null 2>&1)\
+			&& touch .${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}\
+		)\
+		|| (echo no previous build found for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} && exit 1);\
+	fi;
+
 network-stop:
 	docker network rm ${DC_NETWORK}
 
@@ -206,6 +212,8 @@ network: config
 # 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 # 	${MAKE} -C ${BACKEND_PATH} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
 # 	@make proofs-umount
+
+backend: backend-start
 
 # Frontend targets are now defined in packages/deces-ui/Makefile
 
@@ -385,119 +393,6 @@ artifact-publish-dataprep-snapshot:
 
 artifact-restore-dataprep-snapshot:
 	@${MAKE} elasticsearch-restore ${MAKEOVERRIDES}
-
-smoke-tools:
-	@${MAKE} -C ${TOOLS_PATH} tools-smoke \
-		DATAGOUV_DATASET=${DATASET} \
-		DATA_DIR=${SMOKE_TOOLS_DATA_DIR} \
-		CATALOG_TAG=${SMOKE_TOOLS_DATA_DIR}/${DATASET}.tag \
-		${MAKEOVERRIDES}
-
-smoke-dataprep-fixtures:
-	@mkdir -p ${SMOKE_DATA_VERSION_INPUT_DIR}
-	@TMP_DECES=$$(mktemp); \
-	printf '%-80s%-1s%-8s%-5s%-30s%-30s%-8s%-5s%-10s\n' \
-		'DUPONT*ANA/' '2' '19600101' '75056' 'PARIS' 'FRANCE' '20200101' '75056' '000000001' > $$TMP_DECES; \
-	printf '%-80s%-1s%-8s%-5s%-30s%-30s%-8s%-5s%-10s\n' \
-		'DUPONT*JEAN PIERRE/' '1' '19321003' '33162' 'EYSINES' 'FRANCE' '20200116' '33318' '000000002' >> $$TMP_DECES; \
-	printf '%-80s%-1s%-8s%-5s%-30s%-30s%-8s%-5s%-10s\n' \
-		'COSTES*DIDIER/' '1' '19260101' '75116' 'PARIS 16E ARRONDISSEMENT' 'FRANCE' '20200121' '75116' '000000003' >> $$TMP_DECES; \
-	gzip -c $$TMP_DECES > ${SMOKE_DATA_VERSION_INPUT_DIR}/${SMOKE_FILES_TO_PROCESS}; \
-	rm -f $$TMP_DECES
-	@TMP_OPPOSITION=$$(mktemp); \
-	printf "Code du lieu de décès;Date de décès;Numéro d'acte de décès\n00000;19000101;999999999\n" > $$TMP_OPPOSITION; \
-	gzip -c $$TMP_OPPOSITION > ${SMOKE_DATA_VERSION_INPUT_DIR}/fichier-opposition-deces-smoke.csv.gz; \
-	rm -f $$TMP_OPPOSITION
-
-smoke-dataprep-run: smoke-dataprep-fixtures
-	${MAKE} dataprep-run \
-		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
-		DATAGOUV_CONNECTOR=upload \
-		UPLOAD=${SMOKE_DATA_VERSION_INPUT_DIR} \
-		DATA_VERSION_SOURCE=local \
-		DATA_VERSION_INPUT_DIR=${SMOKE_DATA_VERSION_INPUT_DIR} \
-		ES_MEM=${SMOKE_ES_MEM} \
-		ES_MMAP_DISABLED=${SMOKE_ES_MMAP_DISABLED} \
-		RECIPE_RUN_MARKER=${SMOKE_RECIPE_RUN_MARKER} \
-		S3_PULL_MARKER=${SMOKE_S3_PULL_MARKER} \
-		${MAKEOVERRIDES}
-
-smoke-dataprep-clean:
-	@${MAKE} dataprep-dev-stop RECIPE_RUN_MARKER=${SMOKE_RECIPE_RUN_MARKER} S3_PULL_MARKER=${SMOKE_S3_PULL_MARKER} ${MAKEOVERRIDES} >/dev/null 2>&1 || true
-	@rm -f ${SMOKE_RECIPE_RUN_MARKER} ${SMOKE_S3_PULL_MARKER}
-	@rm -rf ${SMOKE_DATA_VERSION_INPUT_DIR}
-
-smoke-dataprep:
-	@set -e; \
-	trap '${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true' EXIT; \
-	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
-	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}
-
-smoke-backend:
-	@set -e; \
-	cleanup() { \
-		${MAKE} backend-dev-stop >/dev/null 2>&1 || true; \
-		${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true; \
-	}; \
-	trap cleanup EXIT; \
-	rm -rf ${SMOKE_BACKEND_DATA_DIR}; \
-	mkdir -p ${SMOKE_BACKEND_DATA_DIR}; \
-	cp '${BACKEND_PATH}/tests/smoke-wikidata.json' '${SMOKE_BACKEND_DATA_DIR}/wikidata.json'; \
-	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
-	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
-	DATA_DIR=${SMOKE_BACKEND_DATA_DIR} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} config communes disposable-mail backend-dev ${MAKEOVERRIDES}; \
-	${MAKE} smoke-backend-api ${MAKEOVERRIDES}
-
-smoke-backend-api:
-	@attempts=30; \
-	until ${MAKE} smoke-backend-api-once ${MAKEOVERRIDES}; do \
-		attempts=$$((attempts - 1)); \
-		if [ $$attempts -le 0 ]; then \
-			exit 1; \
-		fi; \
-		echo "waiting for backend smoke API data ($$attempts retries left)"; \
-		sleep 1; \
-	done
-
-smoke-backend-api-once:
-	@${MAKE} -C ${TOOLS_PATH} local-test-api \
-		PORT=${BACKEND_PORT} \
-		API_TEST_PATH='deces/api/v1/search?deathDate=2020&lastName=dupont&firstName=jean&fuzzy=false' \
-		API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Jean")] | all)' \
-		${MAKEOVERRIDES}
-	@${MAKE} -C ${TOOLS_PATH} local-test-api \
-		PORT=${BACKEND_PORT} \
-		API_TEST_PATH='deces/api/v1/search' \
-		API_TEST_DATA='{"deathDate":"2020","lastName":"dupont","firstName":"jean","fuzzy":"false"}' \
-		API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Jean")] | all)' \
-		${MAKEOVERRIDES}
-
-smoke-ui:
-	@set -e; \
-	cleanup() { \
-		${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true; \
-		${MAKE} dev-stop >/dev/null 2>&1 || true; \
-	}; \
-	trap cleanup EXIT; \
-	cleanup; \
-	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
-	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
-	${MAKE} dev ES_MEM=${SMOKE_ES_MEM} ES_MMAP_DISABLED=${SMOKE_ES_MMAP_DISABLED} ${MAKEOVERRIDES}; \
-	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} frontend-test ${MAKEOVERRIDES}
-
-smoke-e2e:
-	@set -e; \
-	cleanup() { \
-		${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES} >/dev/null 2>&1 || true; \
-		${MAKE} dev-stop >/dev/null 2>&1 || true; \
-	}; \
-	trap cleanup EXIT; \
-	cleanup; \
-	${MAKE} smoke-dataprep-run ${MAKEOVERRIDES}; \
-	${MAKE} smoke-dataprep-clean ${MAKEOVERRIDES}; \
-	${MAKE} dev ES_MEM=${SMOKE_ES_MEM} ES_MMAP_DISABLED=${SMOKE_ES_MMAP_DISABLED} ${MAKEOVERRIDES}; \
-	${MAKE} smoke-backend-api ${MAKEOVERRIDES}; \
-	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} MAILDEV_UI_PORT=${MAILDEV_UI_PORT} ${MAKE} frontend-test ${MAKEOVERRIDES}
 
 show-env:
 	env | egrep 'STORAGE|BUCKET'

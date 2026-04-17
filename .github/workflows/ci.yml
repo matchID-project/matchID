@@ -22,53 +22,60 @@ jobs:
     permissions:
       contents: read
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      ui: ${{ steps.filter.outputs.ui }}
-      dataprep: ${{ steps.filter.outputs.dataprep }}
       tools: ${{ steps.filter.outputs.tools }}
-      integration: ${{ steps.filter.outputs.integration }}
+      dataprep_backend: ${{ steps.filter.outputs.dataprep_backend }}
+      dataprep_frontend: ${{ steps.filter.outputs.dataprep_frontend }}
+      deces_backend: ${{ steps.filter.outputs.deces_backend }}
+      deces_ui: ${{ steps.filter.outputs.deces_ui }}
+      deces_dataprep: ${{ steps.filter.outputs.deces_dataprep }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            backend:
-              - 'Makefile'
-              - 'packages/deces-backend/**'
-              - 'packages/deces-infra/**'
-              - 'packages/tools/**'
-            ui:
-              - 'Makefile'
-              - 'packages/deces-ui/**'
-              - 'packages/deces-backend/**'
-              - 'packages/deces-infra/**'
-              - 'packages/tools/**'
-            dataprep:
-              - 'Makefile'
-              - 'packages/deces-dataprep/**'
-              - 'packages/dataprep-backend/**'
-              - 'packages/dataprep-frontend/**'
-              - 'packages/deces-infra/**'
-              - 'packages/tools/**'
-              - 'scripts/**'
             tools:
               - 'Makefile'
               - 'packages/tools/**'
-            integration:
+              - '.github/workflows/ci.yml'
+            dataprep_backend:
+              - 'Makefile'
+              - 'packages/dataprep-backend/**'
+              - 'packages/deces-dataprep/**'
+              - 'packages/tools/**'
+              - '.github/workflows/ci.yml'
+            dataprep_frontend:
+              - 'Makefile'
+              - 'packages/dataprep-frontend/**'
+              - 'packages/dataprep-backend/**'
+              - 'packages/deces-dataprep/**'
+              - 'packages/tools/**'
+              - '.github/workflows/ci.yml'
+            deces_backend:
               - 'Makefile'
               - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - '.github/workflows/ci.yml'
+            deces_ui:
+              - 'Makefile'
               - 'packages/deces-ui/**'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - '.github/workflows/ci.yml'
+            deces_dataprep:
+              - 'Makefile'
               - 'packages/deces-dataprep/**'
               - 'packages/dataprep-backend/**'
               - 'packages/dataprep-frontend/**'
               - 'packages/deces-infra/**'
               - 'packages/tools/**'
               - 'scripts/**'
-              - '.github/workflows/**'
+              - '.github/workflows/ci.yml'
 
-  tools:
-    name: Tools smoke
+  tools-swift:
+    name: build docker swift
     needs: changes
     if: needs.changes.outputs.tools == 'true'
     runs-on: ubuntu-latest
@@ -76,53 +83,125 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Run tools smoke target
-        run: make smoke-tools
+      - name: Build docker swift
+        run: make -C packages/tools docker-check CLOUD_CLI=swift || make -C packages/tools docker-build CLOUD_CLI=swift
 
-  backend:
-    name: Backend smoke
+  dataprep-backend-test:
+    name: dataprep-backend pull request test
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.dataprep_backend == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TOOLS_PATH: ${{ github.workspace }}/packages/tools
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure monorepo dataprep backend
+        run: make -C packages/deces-dataprep config
+      - name: Build or reuse backend image and run tests
+        run: make -C packages/dataprep-backend version backend-docker-check GIT_BRANCH=${GITHUB_REF_NAME} || ( make -C packages/dataprep-backend backend-build GIT_BRANCH=${GITHUB_REF_NAME} && make -C packages/dataprep-backend backend tests backend-stop GIT_BRANCH=${GITHUB_REF_NAME} )
+
+  dataprep-frontend-test:
+    name: dataprep-frontend pull request test
+    needs: changes
+    if: needs.changes.outputs.dataprep_frontend == 'true'
+    runs-on: ubuntu-latest
+    env:
+      BACKEND: ${{ github.workspace }}/packages/dataprep-backend
+      BACKEND_DC_IMAGE_NAME: matchid-backend
+      TOOLS_PATH: ${{ github.workspace }}/packages/tools
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure monorepo dataprep frontend
+        run: make -C packages/deces-dataprep config frontend-config
+      - name: Build or reuse frontend image and start stack
+        run: |
+          make -C packages/dataprep-frontend version-files
+          make -C packages/dataprep-frontend version
+          make -C packages/dataprep-frontend frontend-docker-check || make -C packages/dataprep-frontend build backend-docker-check up
+
+  deces-backend-build:
+    name: deces-backend build docker image
+    needs: changes
+    if: needs.changes.outputs.deces_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Run backend smoke target
-        run: make smoke-backend MAILDEV_UI_PORT=37343
+      - name: Build backend image
+        run: make artifact-build-deces-backend GIT_BRANCH=${GITHUB_REF_NAME}
+      - name: Restore dataprep snapshot
+        run: make artifact-restore-dataprep-snapshot FILES_TO_PROCESS=deces-2020-m01.txt.gz REPOSITORY_BUCKET=fichier-des-personnes-decedees-elasticsearch-dev
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Execute vitest tests
+        run: make backend-test-vitest GIT_BRANCH=${GITHUB_REF_NAME}
 
-  dataprep:
-    name: Dataprep smoke
+  deces-ui-pull-request-test:
+    name: deces-ui pull request test
     needs: changes
-    if: needs.changes.outputs.dataprep == 'true'
+    if: needs.changes.outputs.deces_ui == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Run dataprep smoke target
-        run: make smoke-dataprep SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz
+      - name: Config
+        run: make version config GIT_BRANCH=${GIT_BRANCH}
+        env:
+          GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+      - name: Build or reuse frontend image
+        run: make frontend-docker-check GIT_BRANCH=${GIT_BRANCH} || make build GIT_BRANCH=${GIT_BRANCH}
+        env:
+          GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+      - name: Build backend image for deploy-local
+        run: make artifact-build-deces-backend GIT_BRANCH=${GIT_BRANCH}
+        env:
+          GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+      - name: Deploy local and run backend/frontend tests
+        run: make deploy-local backend-test frontend-test GIT_BRANCH=${GIT_BRANCH}
+        env:
+          GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+          FILES_TO_PROCESS: deces-2020-m01.txt.gz
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+          API_SEARCH_LIMIT_RATE: 10r/s
+          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
 
-  ui:
-    name: UI smoke
+  deces-dataprep-locally:
+    name: deces-dataprep locally
     needs: changes
-    if: needs.changes.outputs.ui == 'true'
+    if: needs.changes.outputs.deces_dataprep == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Run UI smoke target
-        run: make smoke-ui MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz
-
-  integration:
-    name: End-to-end smoke
-    needs: changes
-    if: needs.changes.outputs.integration == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run end-to-end smoke target
-        run: make smoke-e2e MAILDEV_UI_PORT=37343 PLAYWRIGHT_VERSION=1.59.1 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz
+      - name: Run small dataset
+        run: |
+          make -C packages/deces-dataprep all FILES_TO_PROCESS=${FILES_TO_PROCESS} \
+            REPOSITORY_BUCKET=${REPOSITORY_BUCKET} \
+            CHUNK_SIZE=${CHUNK_SIZE} ES_THREADS=${ES_THREADS} RECIPE_THREADS=${RECIPE_THREADS} ES_MEM=${ES_MEM}
+        env:
+          FILES_TO_PROCESS: deces-2020-m01.txt.gz
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+          CHUNK_SIZE: 5000
+          ES_THREADS: 2
+          RECIPE_THREADS: 2
+          ES_MEM: 4000m
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
