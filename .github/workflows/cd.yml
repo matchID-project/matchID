@@ -1,12 +1,9 @@
 name: CD
 
 on:
-  workflow_dispatch:
   push:
     branches:
-      - feat/refacto-make
       - dev
-      - master
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -65,7 +62,7 @@ jobs:
   dataprep-backend:
     name: Publish matchid-backend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_backend == 'true'
+    if: needs.changes.outputs.dataprep_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -88,7 +85,7 @@ jobs:
   dataprep-frontend:
     name: Publish matchid-frontend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_frontend == 'true'
+    if: needs.changes.outputs.dataprep_frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -104,7 +101,7 @@ jobs:
   deces-backend:
     name: Publish deces-backend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_backend == 'true'
+    if: needs.changes.outputs.deces_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -120,7 +117,7 @@ jobs:
   deces-ui:
     name: Publish deces-ui image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_ui == 'true'
+    if: needs.changes.outputs.deces_ui == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -136,7 +133,7 @@ jobs:
   dataprep-snapshot:
     name: Publish dataprep snapshot
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_snapshot == 'true'
+    if: needs.changes.outputs.dataprep_snapshot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
