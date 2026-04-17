@@ -180,31 +180,31 @@ Format attendu pour l'UAT du lot 7:
   - preuve GitHub
   - statut
 
-## Picture complete lots 6/7/8 au 15 avril 2026
+## Picture complete lots 6/7/8 au 17 avril 2026
 
 | Composant | Workflow/job source | Avant | Workflow/job monorepo | Lot cible | Preuve `make` | Preuve GitHub | Statut |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `tools` | `actions.yml` / `swift` | build/push image `tools` sur `push` | aucun | hors contrat critique | n/a | n/a | retire du contrat |
 | `tools` | `actions.yml` / `remote` | configuration distante sur `push master` | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
 | `dataprep-backend` | `pull.yml` / `test` | validation PR `make version backend-docker-check ...` | `ci.yml` / `Dataprep smoke` | lot 6 | `make smoke-dataprep` | `CI` push `24483907269` job `Dataprep smoke` vert; `CI` PR `24483908784` job `Dataprep smoke` vert | migre lot 6 |
-| `dataprep-backend` | `push.yml` / `build` | build/push image `matchid-backend`, package legacy sur `push dev/master` | `cd.yml` / `Publish matchid-backend image` | lot 7 | `make artifact-build-dataprep-backend`, `make artifact-publish-dataprep-backend` | `CD` rerun `24483907271` job `Publish matchid-backend image`: step build vert, step publish rouge (`docker login` unauthorized pour `matchid`) | job reconstruit, cred Docker Hub invalide |
+| `dataprep-backend` | `push.yml` / `build` | build/push image `matchid-backend`, package legacy sur `push dev/master` | `cd.yml` / `Publish matchid-backend image` | lot 7 | `make artifact-build-dataprep-backend`, `make artifact-publish-dataprep-backend` | `CD` workflow_dispatch/rerun `24533977844` job `Publish matchid-backend image` (`71748576509`): build + publish verts | job reconstruit et publie |
 | `dataprep-backend` | `deploy.yml` / `deploy` | deploy legacy sur `push tuto` | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
 | `dataprep-frontend` | `pull.yml` / `test` | validation PR `frontend-docker-check || make build ...` | `ci.yml` / `Dataprep smoke` + `End-to-end smoke` | lot 6 | `make smoke-dataprep`, `make smoke-e2e` | `CI` push `24483907269`: `Dataprep smoke` et `End-to-end smoke` verts; `CI` PR `24483908784`: `Dataprep smoke` et `End-to-end smoke` verts | migre lot 6 |
-| `dataprep-frontend` | `push.yml` / `build` | build/push image `matchid-frontend` sur `push dev/master` | `cd.yml` / `Publish matchid-frontend image` | lot 7 | `make artifact-build-dataprep-frontend`, `make artifact-publish-dataprep-frontend` | `CD` rerun `24483907271` job `Publish matchid-frontend image`: step build vert, step publish rouge (`docker login` unauthorized pour `matchid`) | job reconstruit, cred Docker Hub invalide |
-| `deces-backend` | `dockerimage.yml` / `build` | build, tests, push image, upload tar sur `push` | `ci.yml` / `Backend smoke` + `cd.yml` / `Publish deces-backend image` | lots 6/7 | `make smoke-backend`, `make artifact-build-deces-backend`, `make artifact-publish-deces-backend` | `CI` push `24483907269` job `Backend smoke` vert; `CI` PR `24483908784` job `Backend smoke` vert; `CD` rerun `24483907271` job `Publish deces-backend image`: step build vert, step publish rouge (`docker login` unauthorized pour `matchid`) | migre lots 6/7, cred Docker Hub invalide |
+| `dataprep-frontend` | `push.yml` / `build` | build/push image `matchid-frontend` sur `push dev/master` | `cd.yml` / `Publish matchid-frontend image` | lot 7 | `make artifact-build-dataprep-frontend`, `make artifact-publish-dataprep-frontend` | `CD` workflow_dispatch/rerun `24533977844` job `Publish matchid-frontend image` (`71748576373`): build + publish verts | job reconstruit et publie |
+| `deces-backend` | `dockerimage.yml` / `build` | build, tests, push image, upload tar sur `push` | `ci.yml` / `Backend smoke` + `cd.yml` / `Publish deces-backend image` | lots 6/7 | `make smoke-backend`, `make artifact-build-deces-backend`, `make artifact-publish-deces-backend` | `CI` push `24483907269` job `Backend smoke` vert; `CI` PR `24483908784` job `Backend smoke` vert; `CD` workflow_dispatch/rerun `24533977844` job `Publish deces-backend image` (`71748576624`): build + publish verts | migre lots 6/7 |
 | `deces-backend` | `dockerimage.yml` / `bulk` | tests perf et upload rapports | aucun | hors contrat critique | n/a | n/a | retire du contrat critique |
 | `deces-ui` | `pr.yml` / `test` | build + `deploy-local backend-test frontend-test` sur PR | `ci.yml` / `UI smoke` + `End-to-end smoke` | lot 6 | `make smoke-e2e`; `make smoke-ui` encore instable localement au head courant | `CI` push `24483907269`: `UI smoke` et `End-to-end smoke` verts; `CI` PR `24483908784`: `End-to-end smoke` vert, `UI smoke` rouge | parite non encore demontree sur `UI smoke` |
-| `deces-ui` | `push.yml` / `build` | build, test, push image sur `push dev/master` | `ci.yml` / `UI smoke` + `cd.yml` / `Publish deces-ui image` | lots 6/7 | `make artifact-build-deces-ui`, `make artifact-publish-deces-ui` | `CD` rerun `24483907271` job `Publish deces-ui image`: step build vert, step publish rouge (`docker login` unauthorized pour `matchid`) | job reconstruit, cred Docker Hub invalide |
+| `deces-ui` | `push.yml` / `build` | build, test, push image sur `push dev/master` | `ci.yml` / `UI smoke` + `cd.yml` / `Publish deces-ui image` | lots 6/7 | `make artifact-build-deces-ui`, `make artifact-publish-deces-ui` | `CD` workflow_dispatch/rerun `24533977844` job `Publish deces-ui image` (`71748576677`): build + publish verts | job image publie; ecart `UI smoke` PR reste ouvert |
 | `deces-ui` | `push.yml` / `deploy` | `deploy-remote` sur `push dev/master` / dispatch | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
 | `deces-ui` | `logs-full.yml` / `logs` | calcul stats complet | aucun | hors contrat critique | n/a | n/a | retire du contrat critique |
 | `deces-ui` | `logs-update.yml` / `logs` | calcul stats incremental | aucun | hors contrat critique | n/a | n/a | retire du contrat critique |
 | `deces-dataprep` | `pr.yml` / `test` | run local `make all` sur petit dataset PR | `ci.yml` / `Dataprep smoke` | lot 6 | `make smoke-dataprep` | `CI` push `24483907269` job `Dataprep smoke` vert; `CI` PR `24483908784` job `Dataprep smoke` vert | migre lot 6 |
 | `deces-dataprep` | `small.yml` / `build` | runs locaux petits datasets sur `push dev/schedule` | `ci.yml` / `Dataprep smoke` | lot 6 | `make smoke-dataprep` | `CI` push `24483907269` job `Dataprep smoke` vert; `CI` PR `24483908784` job `Dataprep smoke` vert | migre lot 6 |
-| `deces-dataprep` | `year.yml` / `build` | `full-check` + `remote-all` annuel distant | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` push `24483907271` job `Publish dataprep snapshot` vert, metadata `dataprep-snapshot-metadata` publiee | job snapshot reconstruit, deploiement reporte lot 8 |
+| `deces-dataprep` | `year.yml` / `build` | `full-check` + `remote-all` annuel distant | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` workflow_dispatch/rerun `24533977844` job `Publish dataprep snapshot` (`71748576233`) vert; metadata `count=679573`; artifact `6486657468` | job snapshot reconstruit et prouve, deploiement reporte lot 8 |
 | `deces-dataprep` | `full.yml` / `check-previous-failure` | garde anti rerun sur schedule | workflow de deploiement monorepo | lot 8 | n/a | n/a | reporte lot 8 |
-| `deces-dataprep` | `full.yml` / `build` | `full-check` + `remote-all` full distant | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` push `24483907271` job `Publish dataprep snapshot` vert | job snapshot reconstruit, deploiement reporte lot 8 |
-| `deces-dataprep` | `push-dev.yml` / `build` | `full-check` + `remote-all` annuel sur `push dev` | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` push `24483907271` job `Publish dataprep snapshot` vert | job snapshot reconstruit, deploiement reporte lot 8 |
-| `deces-dataprep` | `push-master.yml` / `build` | `full-check` + `remote-all` full sur `push master` | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` push `24483907271` job `Publish dataprep snapshot` vert | job snapshot reconstruit, deploiement reporte lot 8 |
+| `deces-dataprep` | `full.yml` / `build` | `full-check` + `remote-all` full distant | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` workflow_dispatch/rerun `24533977844` job `Publish dataprep snapshot` (`71748576233`) vert; metadata `count=679573`; artifact `6486657468` | job snapshot reconstruit et prouve, deploiement reporte lot 8 |
+| `deces-dataprep` | `push-dev.yml` / `build` | `full-check` + `remote-all` annuel sur `push dev` | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` workflow_dispatch/rerun `24533977844` job `Publish dataprep snapshot` (`71748576233`) vert; metadata `count=679573`; artifact `6486657468` | job snapshot reconstruit et prouve, deploiement reporte lot 8 |
+| `deces-dataprep` | `push-master.yml` / `build` | `full-check` + `remote-all` full sur `push master` | `cd.yml` / `Publish dataprep snapshot` + workflow de deploiement monorepo | lots 7/8 | `make artifact-produce-dataprep-snapshot`, `make artifact-publish-dataprep-snapshot`, `make artifact-restore-dataprep-snapshot` | `CD` workflow_dispatch/rerun `24533977844` job `Publish dataprep snapshot` (`71748576233`) vert; metadata `count=679573`; artifact `6486657468` | job snapshot reconstruit et prouve, deploiement reporte lot 8 |
 
 ## Matrice exhaustive à couvrir au lot 7
 
@@ -256,7 +256,7 @@ Format attendu pour l'UAT du lot 7:
 | `deces-dataprep` | `push-dev.yml` / `build` | `cd.yml` / `Publish dataprep snapshot` + workflow de déploiement lot 8 | scindé lots 7/8 |
 | `deces-dataprep` | `push-master.yml` / `build` | `cd.yml` / `Publish dataprep snapshot` + workflow de déploiement lot 8 | scindé lots 7/8 |
 
-## Etat lot 7 au 15 avril 2026
+## Etat lot 7 au 17 avril 2026
 
 ### Implémentation réalisée
 
@@ -386,29 +386,22 @@ Format attendu pour l'UAT du lot 7:
     - la cible echoue dans `smoke-dataprep-run`, pas dans Playwright
     - erreur observee: deux chunks Elasticsearch en `400` (`x_content_parse_exception` et `illegal_argument_exception`)
     - l'ecart PR/push/local reste ouvert
-- run `24483907271` (`CD`, push, commit `406f90f5`)
-  - `Detect artifact changes` (`71554419432`): vert
-  - `Publish matchid-frontend image` (`71558662570`):
-    - step `Build matchid-frontend image`: vert
-    - step `Publish matchid-frontend image`: rouge
-    - cause: `docker login` retourne `unauthorized: incorrect username or password`
-  - `Publish deces-ui image` (`71558662562`):
-    - step `Build deces-ui image`: vert
-    - step `Publish deces-ui image`: rouge
-    - cause: `docker login` retourne `unauthorized: incorrect username or password`
-  - `Publish deces-backend image` (`71558662580`):
-    - step `Build deces-backend image`: vert
-    - step `Publish deces-backend image`: rouge
-    - cause: `docker login` retourne `unauthorized: incorrect username or password`
-  - `Publish matchid-backend image` (`71558662559`):
-    - step `Build matchid-backend image`: vert
-    - step `Publish matchid-backend image`: rouge
-    - cause: `docker login` retourne `unauthorized: incorrect username or password`
-  - `Publish dataprep snapshot` (`71554440661`):
-    - step `Produce dataprep snapshot`: vert
-    - step `Export dataprep snapshot metadata`: vert
-    - step `Publish dataprep snapshot`: vert
-    - artifact GitHub: `dataprep-snapshot-metadata`
+- run `24483907271` (`CD`, push, commit `406f90f5`, historique avant correction secrets)
+  - workflow rouge
+  - cause principale: `DOCKER_PASSWORD` GitHub invalide a ce moment; blocage leve dans le run `24533977844`
+- run `24533977844` (`CD`, workflow_dispatch/rerun, commit `8e2e07a`)
+  - workflow vert
+  - `Detect artifact changes` (`71748586453`): vert
+  - `Publish matchid-frontend image` (`71748576373`): build + publish verts
+  - `Publish matchid-backend image` (`71748576509`): build + publish verts
+  - `Publish deces-backend image` (`71748576624`): build + publish verts
+  - `Publish deces-ui image` (`71748576677`): build + publish verts
+  - `Publish dataprep snapshot` (`71748576233`): produce + export metadata + publish + upload artifact verts
+  - secrets `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` masques dans le runner (`***`)
+  - snapshot publie: `esdata_6df42346_d2d7ee21`
+  - indexation: `679924 lines processed`, `679593 lines written`, `count=679573`
+  - artifact GitHub: `dataprep-snapshot-metadata`, artifact id `6486657468`, digest `a50f8884a528fcf22b2919fb5d1443e1cc9e600d6efeb7bff80f6fb7e2cbc39c`
+  - verification Make S3: `make -C packages/tools rclone-get-catalog STORAGE_BUCKET=fichier-des-personnes-decedees-elasticsearch-dev DATA_DIR=/tmp/matchid-s3-verify-dev-after` liste `61` objets
 
 ### Matrice de preuve job à job
 
@@ -418,26 +411,25 @@ Composant         | Job source                                 | Job monorepo   
 tools             | actions.yml / swift                        | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
 tools             | actions.yml / remote                       | workflow de deploiement lot 8                   | n/a                                           | n/a                                         | reporte lot 8
 dataprep-backend  | pull.yml / test                            | ci.yml / Dataprep smoke                         | `make smoke-dataprep`                         | CI push `24483907269` + PR `24483908784`    | vert lot 6
-dataprep-backend  | push.yml / build                           | cd.yml / Publish matchid-backend image          | build/publish locaux verts                    | CD `24483907271` build vert, publish rouge  | cred Docker Hub invalide
+dataprep-backend  | push.yml / build                           | cd.yml / Publish matchid-backend image          | build/publish locaux verts                    | CD `24533977844` build + publish verts      | vert lot 7
 dataprep-backend  | deploy.yml / deploy                        | workflow de deploiement lot 8                   | n/a                                           | n/a                                         | reporte lot 8
 dataprep-frontend | pull.yml / test                            | ci.yml / Dataprep smoke + End-to-end smoke      | `make smoke-dataprep`, `make smoke-e2e`       | CI push `24483907269` + PR `24483908784`    | vert lot 6
-dataprep-frontend | push.yml / build                           | cd.yml / Publish matchid-frontend image         | build/publish locaux verts                    | CD `24483907271` build vert, publish rouge  | cred Docker Hub invalide
-deces-backend     | dockerimage.yml / build                    | ci.yml / Backend smoke + cd.yml / Publish deces-backend image | `make smoke-backend`, build/publish locaux verts | CI push `24483907269`, CI PR `24483908784`, CD `24483907271` | build prouve, cred Docker Hub invalide
+dataprep-frontend | push.yml / build                           | cd.yml / Publish matchid-frontend image         | build/publish locaux verts                    | CD `24533977844` build + publish verts      | vert lot 7
+deces-backend     | dockerimage.yml / build                    | ci.yml / Backend smoke + cd.yml / Publish deces-backend image | `make smoke-backend`, build/publish locaux verts | CI push `24483907269`, CI PR `24483908784`, CD `24533977844` | vert lots 6/7
 deces-backend     | dockerimage.yml / bulk                     | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
 deces-ui          | pr.yml / test                              | ci.yml / UI smoke + End-to-end smoke            | `make smoke-e2e` vert; `make smoke-ui` instable | CI push `24483907269` vert; CI PR `24483908784` rouge sur `UI smoke` | ecart ouvert
-deces-ui          | push.yml / build                           | ci.yml / UI smoke + cd.yml / Publish deces-ui image | build/publish locaux verts                    | CD `24483907271` build vert, publish rouge  | cred Docker Hub invalide + ecart `UI smoke`
+deces-ui          | push.yml / build                           | ci.yml / UI smoke + cd.yml / Publish deces-ui image | build/publish locaux verts                    | CD `24533977844` build + publish verts      | image lot 7 verte; ecart `UI smoke` ouvert
 deces-ui          | push.yml / deploy                          | workflow de deploiement lot 8                   | n/a                                           | n/a                                         | reporte lot 8
 deces-ui          | logs-full.yml / logs                       | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
 deces-ui          | logs-update.yml / logs                     | aucun                                           | n/a                                           | n/a                                         | retire du contrat critique
 deces-dataprep    | pr.yml / test                              | ci.yml / Dataprep smoke                         | `make smoke-dataprep`                         | CI push `24483907269` + PR `24483908784`    | vert lot 6
 deces-dataprep    | small.yml / build                          | ci.yml / Dataprep smoke                         | `make smoke-dataprep`                         | CI push `24483907269` + PR `24483908784`    | vert lot 6
-deces-dataprep    | year/full/push-dev/push-master / build     | cd.yml / Publish dataprep snapshot + lot 8      | produce/publish/restore locaux verts          | CD `24483907271` snapshot vert              | lot 7 prouve pour snapshot, lot 8 ouvert
+deces-dataprep    | year/full/push-dev/push-master / build     | cd.yml / Publish dataprep snapshot + lot 8      | produce/publish/restore locaux verts          | CD `24533977844` snapshot vert, `count=679573` | lot 7 prouve pour snapshot, lot 8 ouvert
 deces-dataprep    | full.yml / check-previous-failure          | workflow distant lot 8 si conserve              | non prouve                                    | non prouve                                  | reporte lot 8
 ```
 
 ### Reste ouvert
 
-- la preuve GitHub de `publish` des quatre jobs image est maintenant bloquee par des credentials Docker Hub invalides pour l'utilisateur `matchid`
 - l'ecart `UI smoke` entre `push` (vert), `pull_request` (rouge) et les reruns locaux (instables) n'est pas encore explique
 - les jobs `deces-dataprep` distants `year/full/push-*` n'ont pas encore d'equivalent monorepo prouve cote deploiement, uniquement cote snapshot
 - le workflow lot 8 de deploiement `deploy-remote` n'est pas encore reconstruit ni prouve

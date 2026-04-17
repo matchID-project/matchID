@@ -242,22 +242,22 @@
     - [x] Figer la picture complete lots 6/7/8 `upstream -> monorepo`, service par service et job par job
   - [ ] Tests
     - [x] Prouver en local via `make` chaque job monorepo reconstruit au lot 7
-    - [ ] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
+    - [x] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
     - [x] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
     - [x] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
     - [x] Valider le build local de l'image `matchid-backend`
     - [x] Valider la publication locale de l'image `matchid-backend`
-    - [ ] Valider la publication GitHub de l'image `matchid-backend`
+    - [x] Valider la publication GitHub de l'image `matchid-backend`
     - [x] Valider le build local de l'image `matchid-frontend`
     - [x] Valider la publication locale de l'image `matchid-frontend`
-    - [ ] Valider la publication GitHub de l'image `matchid-frontend`
+    - [x] Valider la publication GitHub de l'image `matchid-frontend`
     - [x] Valider le build local de l'image `deces-backend`
     - [x] Valider la publication locale de l'image `deces-backend`
-    - [ ] Valider la publication GitHub de l'image `deces-backend`
+    - [x] Valider la publication GitHub de l'image `deces-backend`
     - [x] Valider le build local de l'image `deces-ui`
     - [x] Valider la publication locale de l'image `deces-ui`
-    - [ ] Valider la publication GitHub de l'image `deces-ui`
-    - [ ] Lever le blocage GitHub `DOCKER_PASSWORD` pour les jobs `Publish * image`
+    - [x] Valider la publication GitHub de l'image `deces-ui`
+    - [x] Lever le blocage GitHub `DOCKER_PASSWORD` pour les jobs `Publish * image`
     - [x] Valider la production du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [x] Valider la publication du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [x] Valider la publication GitHub du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
