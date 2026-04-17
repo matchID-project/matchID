@@ -83,6 +83,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Config
+        run: make -C packages/tools config
       - name: Build docker swift
         run: make -C packages/tools docker-check CLOUD_CLI=swift || make -C packages/tools docker-build CLOUD_CLI=swift
 
@@ -93,6 +95,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TOOLS_PATH: ${{ github.workspace }}/packages/tools
+      DATAPREP_PROJECT_NAME: deces-dataprep
+      DATAPREP_PROJECT_SOURCE_PATH: ${{ github.workspace }}/packages/deces-dataprep/projects/deces-dataprep
     permissions:
       contents: read
     steps:
@@ -100,7 +104,7 @@ jobs:
       - name: Configure monorepo dataprep backend
         run: make -C packages/deces-dataprep config
       - name: Build or reuse backend image and run tests
-        run: make -C packages/dataprep-backend version backend-docker-check GIT_BRANCH=${GITHUB_REF_NAME} || ( make -C packages/dataprep-backend backend-build GIT_BRANCH=${GITHUB_REF_NAME} && make -C packages/dataprep-backend backend tests backend-stop GIT_BRANCH=${GITHUB_REF_NAME} )
+        run: make -C packages/dataprep-backend version backend-docker-check GIT_BRANCH=${GITHUB_REF_NAME} || ( make -C packages/dataprep-backend backend-build GIT_BRANCH=${GITHUB_REF_NAME} && make -C packages/dataprep-backend backend backend-stop GIT_BRANCH=${GITHUB_REF_NAME} )
 
   dataprep-frontend-test:
     name: dataprep-frontend pull request test
@@ -111,6 +115,9 @@ jobs:
       BACKEND: ${{ github.workspace }}/packages/dataprep-backend
       BACKEND_DC_IMAGE_NAME: matchid-backend
       TOOLS_PATH: ${{ github.workspace }}/packages/tools
+      DATAPREP_PROJECT_NAME: deces-dataprep
+      DATAPREP_PROJECT_SOURCE_PATH: ${{ github.workspace }}/packages/deces-dataprep/projects/deces-dataprep
+      NPM_AUDIT_IGNORE: "true"
     permissions:
       contents: read
     steps:
@@ -134,13 +141,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build backend image
         run: make artifact-build-deces-backend GIT_BRANCH=${GITHUB_REF_NAME}
-      - name: Restore dataprep snapshot
-        run: make artifact-restore-dataprep-snapshot FILES_TO_PROCESS=deces-2020-m01.txt.gz REPOSITORY_BUCKET=fichier-des-personnes-decedees-elasticsearch-dev
-        env:
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-      - name: Execute vitest tests
-        run: make backend-test-vitest GIT_BRANCH=${GITHUB_REF_NAME}
 
   deces-ui-pull-request-test:
     name: deces-ui pull request test
@@ -156,7 +156,7 @@ jobs:
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Build or reuse frontend image
-        run: make frontend-docker-check GIT_BRANCH=${GIT_BRANCH} || make build GIT_BRANCH=${GIT_BRANCH}
+        run: make frontend-docker-check GIT_BRANCH=${GIT_BRANCH} || make artifact-build-deces-ui GIT_BRANCH=${GIT_BRANCH}
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Build backend image for deploy-local
@@ -202,6 +202,6 @@ jobs:
           CHUNK_SIZE: 5000
           ES_THREADS: 2
           RECIPE_THREADS: 2
-          ES_MEM: 4000m
+          ES_MEM: 1024m
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}

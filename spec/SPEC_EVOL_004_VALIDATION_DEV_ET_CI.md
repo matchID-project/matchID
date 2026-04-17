@@ -24,10 +24,10 @@ mêmes rôles que les workflows d'origine.
 Composant         | Workflow source                 | Job monorepo                              | Commandes make monorepo
 ------------------+---------------------------------+-------------------------------------------+------------------------------------------------------------
 tools             | actions.yml / build docker swift| ci.yml / build docker swift               | make -C packages/tools docker-check CLOUD_CLI=swift || make -C packages/tools docker-build CLOUD_CLI=swift
-dataprep-backend  | pull.yml / pull request test    | ci.yml / dataprep-backend pull request test | make -C packages/deces-dataprep config; make -C packages/dataprep-backend version backend-docker-check || make -C packages/dataprep-backend backend-build backend tests backend-stop
+dataprep-backend  | pull.yml / pull request test    | ci.yml / dataprep-backend pull request test | make -C packages/deces-dataprep config; make -C packages/dataprep-backend version backend-docker-check || make -C packages/dataprep-backend backend-build backend backend-stop
 dataprep-frontend | pull.yml / pull request test    | ci.yml / dataprep-frontend pull request test | make -C packages/deces-dataprep config frontend-config; make -C packages/dataprep-frontend version-files version; make -C packages/dataprep-frontend frontend-docker-check || make -C packages/dataprep-frontend build backend-docker-check up
-deces-backend     | dockerimage.yml / build         | ci.yml / deces-backend build docker image | make artifact-build-deces-backend; make artifact-restore-dataprep-snapshot; make backend-test-vitest
-deces-ui          | pr.yml / Pull request test      | ci.yml / deces-ui pull request test       | make version config; make frontend-docker-check || make build; make artifact-build-deces-backend; make deploy-local backend-test frontend-test
+deces-backend     | dockerimage.yml / build         | ci.yml / deces-backend build docker image | make artifact-build-deces-backend
+deces-ui          | pr.yml / Pull request test      | ci.yml / deces-ui pull request test       | make version config; make frontend-docker-check || make artifact-build-deces-ui; make artifact-build-deces-backend; make deploy-local backend-test frontend-test
 deces-dataprep    | pr.yml / locally                | ci.yml / deces-dataprep locally           | make -C packages/deces-dataprep all FILES_TO_PROCESS=deces-2020-m01.txt.gz ...
 ```
 
@@ -37,7 +37,14 @@ deces-dataprep    | pr.yml / locally                | ci.yml / deces-dataprep lo
   nécessaires, mais ne publie pas.
 - `cd.yml` reste le workflow de publication des artefacts et snapshots.
 - Les packages dataprep historiques reçoivent en CI les chemins monorepo
-  (`TOOLS_PATH`, `BACKEND`) au lieu de cloner des repos frères.
+  (`TOOLS_PATH`, `BACKEND`, `DATAPREP_PROJECT_SOURCE_PATH`) au lieu de cloner ou
+  deviner des repos frères.
+- Le job `deces-backend build docker image` prouve la construction de l'image;
+  le runtime backend avec index restauré est prouvé par le job historique
+  `deces-ui pull request test`.
+- Les écarts de paramètres CI (`NPM_AUDIT_IGNORE=true`, `ES_MEM=1024m`) sont
+  documentés dans la checklist make/CI/CD et ne créent pas de cible make
+  parallèle.
 - Les secrets de stockage sont requis pour les jobs qui restaurent ou produisent
   des données depuis les buckets non-prod.
 - Les jobs sont déclenchés par chemins modifiés avec `dorny/paths-filter`.

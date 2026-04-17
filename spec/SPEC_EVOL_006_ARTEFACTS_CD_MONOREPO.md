@@ -84,13 +84,13 @@ deces-dataprep    | pr.yml/small/year/full/push-*                     | ci.yml /
 
 ## Écarts assumés
 
-- `deces-backend` ne réutilise pas l'ancien nom `deploy-dependencies` dans le
-  job monorepo; la restauration de données passe par
-  `artifact-restore-dataprep-snapshot`, qui est le contrat racine.
+- `deces-backend` est construit et publié par les cibles artefact racine; la
+  preuve runtime avec données restaurées reste portée par `deces-ui`, comme dans
+  les jobs historiques UI.
 - `deces-ui` construit l'image `deces-backend` monorepo avant `deploy-local` pour
   éviter de valider contre une image backend déjà publiée par un repo source.
-- `dataprep-frontend` reçoit le chemin `BACKEND` du package
-  `packages/dataprep-backend` en CI, sans cible intermédiaire.
+- `dataprep-backend` et `dataprep-frontend` reçoivent les chemins monorepo
+  nécessaires en CI, sans cible intermédiaire.
 - Les jobs de déploiement distant restent exclus du lot 7 et seront prouvés sur
   `dev-deces.matchid.io` au lot 8.
 

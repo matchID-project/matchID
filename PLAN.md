@@ -181,7 +181,7 @@
     - [x] Inventorier les workflows CD historiques par composant
     - [x] Distinguer explicitement la CI de validation de la CI de build/publication d'artefacts
     - [x] Mapper le job CI historique de `deces-dataprep` sur `make -C packages/deces-dataprep all`
-    - [x] Mapper le job CI historique de `deces-backend` sur build image, restore snapshot et `backend-test-vitest`
+    - [x] Mapper le job CI historique de `deces-backend` sur build image, avec runtime backend couvert par le job historique `deces-ui`
     - [x] Mapper le job CI historique de `deces-ui` sur build, `deploy-local`, `backend-test` et `frontend-test`
     - [x] Mapper les jobs CI historiques de `dataprep-backend` et `dataprep-frontend`
     - [x] Creer la CI racine du monorepo
@@ -242,7 +242,8 @@
     - [x] Figer la picture complete lots 6/7/8 `upstream -> monorepo`, service par service et job par job
   - [x] Tests
     - [x] Prouver en local via `make` chaque job monorepo reconstruit au lot 7
-    - [x] Prouver sur GitHub Actions chaque job monorepo reconstruit au lot 7
+    - [x] Prouver sur GitHub Actions chaque job CD monorepo reconstruit au lot 7
+    - [ ] Prouver sur GitHub Actions chaque job CI monorepo apres retour aux commandes make historiques
     - [x] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
     - [x] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
     - [x] Valider le build local de l'image `matchid-backend`
@@ -267,6 +268,7 @@
     - [x] Centraliser la matrice des cibles `make` CI/CD, runtime avec donnees et complements SCW lot 8 dans `spec/SPEC_EVOL_MAKE_CICD_CHECKLIST.md`
     - [x] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
     - [x] Produire le tableau paddé complet lots 6/7/8 `service -> job source -> job monorepo -> lot -> preuve -> statut`
+    - [ ] Mettre a jour `spec/SPEC_EVOL_MAKE_CICD_CHECKLIST.md` avec les run ids GitHub CI verts apres correction
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
   - [ ] UAT
     - [ ] Gate: je te presente la picture complete lots 6/7/8 `upstream -> monorepo`, service par service, job par job, avec preuves `make` + GitHub
