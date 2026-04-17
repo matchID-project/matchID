@@ -105,7 +105,6 @@ frontend:
 	${DC} -f ${DC_RUN_NGINX_FRONTEND} up -d
 	@timeout=${NGINX_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (curl -s --fail -XGET localhost:${PORT} > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo "waiting for nginx to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; exit $$ret
 
-frontend-test: export TEST_HOST=nginx-development
 frontend-test: smtp
 	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} ${DC} -f ${DC_TEST_FRONTEND} run ui-test sh -c "yarn install && node runAllTests.js"
 
