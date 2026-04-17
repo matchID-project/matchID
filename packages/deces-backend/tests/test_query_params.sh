@@ -176,7 +176,7 @@ else
     echo -e "\e[31mbirthDate: KO!\e[0m"
     exit 1
 fi
-if curl -s -X POST -H "Content-Type: application/json" -d '{"deathDate": "22/02/2020"}' http://localhost:${BACKEND_PORT}/deces/api/v1/search | grep -q '20200122'; then
+if curl -s -X POST -H "Content-Type: application/json" -d '{"deathDate": "22/01/2020"}' http://localhost:${BACKEND_PORT}/deces/api/v1/search | grep -q '20200122'; then
     echo "deathDate: OK"
 else
     echo -e "\e[31mdeathDate: KO!\e[0m"
