@@ -393,12 +393,23 @@ smoke-tools:
 		CATALOG_TAG=${SMOKE_TOOLS_DATA_DIR}/${DATASET}.tag \
 		${MAKEOVERRIDES}
 
-smoke-dataprep-run:
-	${MAKE} -C ${DATAPREP_PATH} datagouv-to-upload \
-		DATAGOUV_UPLOAD_DIR=${SMOKE_DATA_VERSION_INPUT_DIR} \
-		FILES_TO_SYNC='fichier-opposition-deces-.*.csv(.gz)?|${SMOKE_FILES_TO_PROCESS:.gz=}' \
-		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
-		${MAKEOVERRIDES}; \
+smoke-dataprep-fixtures:
+	@mkdir -p ${SMOKE_DATA_VERSION_INPUT_DIR}
+	@TMP_DECES=$$(mktemp); \
+	printf '%-80s%-1s%-8s%-5s%-30s%-30s%-8s%-5s%-10s\n' \
+		'DUPONT*ANA/' '2' '19600101' '75056' 'PARIS' 'FRANCE' '20200101' '75056' '000000001' > $$TMP_DECES; \
+	printf '%-80s%-1s%-8s%-5s%-30s%-30s%-8s%-5s%-10s\n' \
+		'DUPONT*JEAN PIERRE/' '1' '19321003' '33162' 'EYSINES' 'FRANCE' '20200116' '33318' '000000002' >> $$TMP_DECES; \
+	printf '%-80s%-1s%-8s%-5s%-30s%-30s%-8s%-5s%-10s\n' \
+		'COSTES*DIDIER/' '1' '19260101' '75116' 'PARIS 16E ARRONDISSEMENT' 'FRANCE' '20200121' '75116' '000000003' >> $$TMP_DECES; \
+	gzip -c $$TMP_DECES > ${SMOKE_DATA_VERSION_INPUT_DIR}/${SMOKE_FILES_TO_PROCESS}; \
+	rm -f $$TMP_DECES
+	@TMP_OPPOSITION=$$(mktemp); \
+	printf "Code du lieu de décès;Date de décès;Numéro d'acte de décès\n00000;19000101;999999999\n" > $$TMP_OPPOSITION; \
+	gzip -c $$TMP_OPPOSITION > ${SMOKE_DATA_VERSION_INPUT_DIR}/fichier-opposition-deces-smoke.csv.gz; \
+	rm -f $$TMP_OPPOSITION
+
+smoke-dataprep-run: smoke-dataprep-fixtures
 	${MAKE} dataprep-run \
 		FILES_TO_PROCESS='${SMOKE_FILES_TO_PROCESS}' \
 		DATAGOUV_CONNECTOR=upload \
