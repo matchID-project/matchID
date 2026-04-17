@@ -449,6 +449,17 @@ smoke-backend:
 	${MAKE} smoke-backend-api ${MAKEOVERRIDES}
 
 smoke-backend-api:
+	@attempts=30; \
+	until ${MAKE} smoke-backend-api-once ${MAKEOVERRIDES}; do \
+		attempts=$$((attempts - 1)); \
+		if [ $$attempts -le 0 ]; then \
+			exit 1; \
+		fi; \
+		echo "waiting for backend smoke API data ($$attempts retries left)"; \
+		sleep 1; \
+	done
+
+smoke-backend-api-once:
 	@${MAKE} -C ${TOOLS_PATH} local-test-api \
 		PORT=${BACKEND_PORT} \
 		API_TEST_PATH='deces/api/v1/search?deathDate=2020&firstName=Ana&fuzzy=false' \
