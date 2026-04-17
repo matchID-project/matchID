@@ -462,13 +462,13 @@ smoke-backend-api:
 smoke-backend-api-once:
 	@${MAKE} -C ${TOOLS_PATH} local-test-api \
 		PORT=${BACKEND_PORT} \
-		API_TEST_PATH='deces/api/v1/search?deathDate=2020&lastName=dupont&firstName=jean&deathDepartment=33&fuzzy=false' \
+		API_TEST_PATH='deces/api/v1/search?deathDate=2020&lastName=dupont&firstName=jean&fuzzy=false' \
 		API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Jean")] | all)' \
 		${MAKEOVERRIDES}
 	@${MAKE} -C ${TOOLS_PATH} local-test-api \
 		PORT=${BACKEND_PORT} \
 		API_TEST_PATH='deces/api/v1/search' \
-		API_TEST_DATA='{"deathDate":"2020","lastName":"dupont","firstName":"jean","deathDepartment":"33","fuzzy":"false"}' \
+		API_TEST_DATA='{"deathDate":"2020","lastName":"dupont","firstName":"jean","fuzzy":"false"}' \
 		API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Jean")] | all)' \
 		${MAKEOVERRIDES}
 
