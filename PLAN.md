@@ -263,7 +263,7 @@
     - [x] Valider la publication GitHub du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [x] Valider la restauration du snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}` dans le flux `deploy-remote`
     - [x] Valider l'egalite stricte count + sample entre l'index avant suppression et l'index restaure depuis le snapshot artefact
-    - [ ] Expliquer puis lever l'ecart entre `ci.yml` / job `UI smoke` sur `pull_request` et les preuves `push` + locales
+    - [ ] Expliquer puis lever les ecarts `ci.yml` des jobs `Backend smoke` et `UI smoke` lies aux inputs live data.gouv et aux preuves vertes precedentes
     - [x] Centraliser la matrice des cibles `make` CI/CD, runtime avec donnees et complements SCW lot 8 dans `spec/SPEC_EVOL_MAKE_CICD_CHECKLIST.md`
     - [x] Produire le tableau paddé de demonstration `source -> monorepo -> preuve make -> preuve GH -> statut`
     - [x] Produire le tableau paddé complet lots 6/7/8 `service -> job source -> job monorepo -> lot -> preuve -> statut`

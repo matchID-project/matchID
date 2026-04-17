@@ -55,6 +55,75 @@ CD       | Publish deces-ui image           | 24559459280 | pass
 CD       | Publish dataprep snapshot        | 24559459280 | pass
 ```
 
+
+## Matrice make par composant source
+
+Cette matrice liste les cibles `make` historiques ou nouvellement exposees qui
+doivent rester visibles dans la substitution. `pkg/` abrege `packages/`. Les
+lignes `pkg/...` sont conservees au niveau package mais pas encore promues comme
+contrat racine.
+
+```text
+Repo              | Make source                      | Mono make                          | CI src                | CI mono               | Statut
+------------------+----------------------------------+------------------------------------+-----------------------+-----------------------+----------------
+root monorepo     | n/a                              | dev                                | n/a                   | CI/UI+E2E smoke       | pass local+GH
+root monorepo     | n/a                              | dev-stop                           | n/a                   | cleanup smoke         | pass indirect
+root monorepo     | n/a                              | start; up                          | n/a                   | aucun job dedie       | cible presente
+root monorepo     | n/a                              | stop; down; restart                | n/a                   | cleanup smoke         | cible presente
+root monorepo     | n/a                              | build                              | deces-ui/push build   | CD/deces-ui image     | pass indirect
+tools             | tools-smoke                      | smoke-tools                        | actions.yml/swift     | CI/Tools smoke        | pass push+PR
+tools             | docker-check                     | pkg/tools docker-check             | actions.yml/swift     | CI/Tools smoke        | pass indirect
+tools             | docker-build; docker-push        | pkg/tools docker-build/push        | actions.yml/swift     | aucun job dedie       | hors critique
+tools             | remote-config-test               | pkg/tools remote-config-test       | actions.yml/remote    | lot 8 deploy          | a prouver
+tools             | SCW-instance-*                   | pkg/tools SCW-instance-*           | actions.yml/remote    | lot 8 SCW             | a encadrer
+dataprep-backend  | test                             | pkg/dataprep-backend test          | pull.yml/test         | CI/Dataprep smoke     | pass indirect
+dataprep-backend  | backend-dev; backend-dev-stop    | pkg/dataprep-backend backend-dev   | aucun                 | CI/Dataprep smoke     | pass indirect
+dataprep-backend  | backend-build                    | artifact-build-dataprep-backend    | push.yml/build        | CD/matchid-backend    | pass local+GH
+dataprep-backend  | backend-docker-push              | artifact-publish-dataprep-backend  | push.yml/build        | CD/matchid-backend    | pass local+GH
+dataprep-backend  | dev; dev-stop                    | pkg/dataprep-backend dev           | aucun                 | aucun job dedie       | cible conservee
+dataprep-backend  | start; stop; up; down; restart   | pkg/dataprep-backend start/stop    | aucun                 | aucun job dedie       | cible conservee
+dataprep-backend  | recipe-run                       | dataprep-run                       | via deces-dataprep    | CI/CD snapshot        | pass
+dataprep-backend  | elasticsearch-restore            | artifact-restore-dataprep-snapshot | aucun                 | restore local         | pass local
+dataprep-backend  | deploy-local                     | deploy-local                       | aucun                 | lot 8                 | a prouver
+dataprep-backend  | deploy-remote                    | deploy-remote                      | deploy.yml/deploy     | lot 8 deploy          | a prouver
+dataprep-frontend | frontend-dev; frontend-dev-stop  | pkg/dataprep-frontend frontend-*   | pull.yml/test         | CI/Dataprep smoke     | pass indirect
+dataprep-frontend | frontend-build                   | artifact-build-dataprep-frontend   | push.yml/build        | CD/matchid-frontend   | pass local+GH
+dataprep-frontend | frontend-docker-push             | artifact-publish-dataprep-frontend | push.yml/build        | CD/matchid-frontend   | pass local+GH
+dataprep-frontend | backend-dev                      | pkg/dataprep-frontend backend-dev  | aucun                 | CI/Dataprep smoke     | pass indirect
+dataprep-frontend | dev; dev-stop                    | pkg/dataprep-frontend dev          | aucun                 | aucun job dedie       | cible conservee
+dataprep-frontend | start; stop; up; down; restart   | pkg/dataprep-frontend start/stop   | aucun                 | aucun job dedie       | cible conservee
+deces-backend     | backend-build-image              | artifact-build-deces-backend       | dockerimage/build     | CD/deces-backend      | pass local+GH
+deces-backend     | docker-push-backend              | artifact-publish-deces-backend     | dockerimage/build     | CD/deces-backend      | pass local+GH
+deces-backend     | backend-dev                      | backend-dev                        | dockerimage/build     | CI/Backend smoke      | pass local+GH*
+deces-backend     | backend-dev-test                 | backend-dev-test; smoke-backend    | dockerimage/build     | CI/Backend smoke      | pass local+GH*
+deces-backend     | test-perf-v1                     | pkg/deces-backend test-perf-v1     | dockerimage/bulk      | non reconstruit       | lot8/hors gate
+deces-ui          | frontend-dev; frontend-dev-stop  | frontend-dev; frontend-dev-stop    | pr.yml/test           | CI/UI smoke           | pass local+GH*
+deces-ui          | frontend-build                   | artifact-build-deces-ui            | push.yml/build        | CD/deces-ui           | pass local+GH
+deces-ui          | frontend-test                    | frontend-test; smoke-ui            | pr.yml; push.yml      | CI/UI smoke           | pass local+GH*
+deces-ui          | build; docker-check; docker-push | artifact-build/publish-deces-ui    | push.yml/build        | CD/deces-ui           | pass local+GH
+deces-ui          | deploy-local                     | deploy-local                       | push.yml/test         | lot 8                 | a prouver
+deces-ui          | deploy-remote                    | deploy-remote                      | push.yml/deploy       | lot 8 deploy          | a prouver
+deces-ui          | logs-full; logs-update           | aucun contrat racine               | logs-*.yml            | non reconstruit       | a trancher lot8
+deces-dataprep    | dev; dev-stop                    | dataprep-dev; dataprep-dev-stop    | aucun                 | aucun job dedie       | pass local
+deces-dataprep    | up; down                         | pkg/deces-dataprep up/down         | aucun                 | smoke cleanup         | cible presente
+deces-dataprep    | data-tag                         | dataprep-data-tag                  | aucun                 | CD snapshot meta      | pass indirect
+deces-dataprep    | recipe-run                       | dataprep-run                       | pr/small/year/full    | CI/Dataprep + CD snap | pass local+GH*
+deces-dataprep    | full-check; full                 | smoke-dataprep; artifact snapshot  | pr/small/year/full    | CI/CD snapshot        | pass local+GH*
+deces-dataprep    | elasticsearch-restore            | elasticsearch-restore              | aucun                 | restore local         | pass local
+deces-dataprep    | remote-all                       | cible racine a definir             | push-dev/master; full | lot 8 remote          | a definir
+deces-dataprep    | update-base-image                | cible racine a definir             | aucun                 | lot 8 SCW             | a encadrer
+deces-infra       | elasticsearch-restore            | elasticsearch-restore              | deces-ui deploy       | lot 8 restore         | a prouver
+deces-infra       | elasticsearch-restore-async      | elasticsearch-restore-async        | deces-ui deploy-local | lot 8 deploy-local    | cible presente
+deces-infra       | repo backup/delete/list          | artifact-publish-dataprep-snapshot | dataprep full/push    | CD/dataprep snapshot  | pass local+GH
+website           | build; up; down                  | pkg/website build/up/down          | aucun                 | aucun                 | hors chaine
+```
+
+`*` Le dernier push docs a relance la CI complete. Les preuves vertes de
+reference restent les runs `24559459271` et `24559461257`; le run courant
+`24564170802` expose un ecart a lever: les smoke `Backend`/`UI` dependent d'un
+input live data.gouv (`fichier-opposition-deces-260407.csv`) et/ou d'un jeu
+d'index qui ne contient pas toujours la requete `Ana` attendue.
+
 ## Matrice lot 6 - CI validation
 
 ```text
