@@ -2,9 +2,19 @@
 
 ## Objet
 
-Cette spec centralise les cibles `make` qui servent de contrat d'execution
-pour le monorepo. Elle complete les specs par lot en donnant une vue cible par
-cible, avec le statut de preuve local, CI ou CD.
+Cette spec centralise la parite entre les repos source et le monorepo. Chaque
+ligne de matrice donne le mapping complet:
+
+- repo source;
+- target `make` dans le repo source;
+- target `make` cible dans le monorepo;
+- job CI/CD source;
+- job CI/CD cible dans le monorepo;
+- preuve et statut.
+
+Convention: `Make source` est une target du repo source historique. `Make
+monorepo` est une target appelee depuis la racine du monorepo, sauf mention
+explicite `packages/...`.
 
 Regles:
 
@@ -14,169 +24,133 @@ Regles:
 - les cibles SCW et `deploy-remote` relevent du lot 8 tant qu'elles ne sont pas
   prouvees sur `dev-deces.matchid.io`.
 
-## Etat des preuves CI/CD
-
-Preuves observees avant creation de cette spec:
+## Preuves CI/CD courantes
 
 ```text
-Workflow  Event          Run id       Statut   Couverture
---------  -------------  -----------  -------  -------------------------------
-CI        push           24542130936  pass     smoke tools/backend/dataprep/ui/e2e
-CI        pull_request   24542132027  pass     smoke tools/backend/dataprep/ui/e2e
-CD        push           24542130939  pass     images + snapshot dataprep
-CD        dispatch       24533977844  pass     images + snapshot dataprep avec debug
-```
-
-Le run CD `24542130939` contient les jobs verts suivants:
-
-```text
-Job                              Statut
--------------------------------  ------
-Detect artifact changes          pass
-Publish matchid-backend image    pass
-Publish matchid-frontend image   pass
-Publish deces-backend image      pass
-Publish deces-ui image           pass
-Publish dataprep snapshot        pass
-```
-
-Le run CI PR `24542132027` contient les jobs verts suivants:
-
-```text
-Job                   Statut
---------------------  ------
-Detect changed areas  pass
-Tools smoke           pass
-Backend smoke         pass
-Dataprep smoke        pass
-UI smoke              pass
-End-to-end smoke      pass
-```
-
-## Cibles de validation CI
-
-```text
-Cible make racine                  Source historique                 Workflow/job monorepo        Statut
----------------------------------  --------------------------------  ---------------------------  ----------------
-make smoke-tools                   packages/tools: tools-smoke       CI / Tools smoke             prouve push + PR
-make smoke-backend                 deces-backend: backend-dev-test   CI / Backend smoke           prouve push + PR
-make smoke-dataprep                deces-dataprep: full/check local  CI / Dataprep smoke          prouve push + PR
-make smoke-ui                      deces-ui: frontend-test           CI / UI smoke                prouve push + PR
-make smoke-e2e                     pas de cible inter-repos unique   CI / End-to-end smoke        prouve push + PR
-make backend-dev-test              deces-backend direct              cible racine incluse         prouve local lot 3
-make frontend-test                 deces-ui direct                   cible racine incluse         prouve local lot 3
-```
-
-Notes:
-
-- `make smoke-ui` et `make smoke-e2e` demarrent une stack dev avec donnees de
-  smoke, donc ils couvrent aussi le chemin `dataprep -> elasticsearch -> backend
-  -> ui`.
-- `make backend-dev-test` et `make frontend-test` restent disponibles comme
-  cibles directes de diagnostic local, meme si les jobs CI utilisent les cibles
-  `smoke-*`.
-
-## Cibles runtime avec donnees
-
-Ces cibles ne sont pas seulement du CI/CD: elles prouvent que le repo peut
-demarrer avec des donnees exploitables.
-
-```text
-Cible make racine                  Role                              Preuve actuelle              Statut
----------------------------------  --------------------------------  ---------------------------  ----------------
-make dataprep-run                  indexer depuis les donnees source lot 5 local + CD snapshot    prouve
-make dataprep-data-tag             calculer le tag data canonique    utilise par dataprep/run     prouve indirect
-make elasticsearch-restore         restaurer snapshot S3 vers ES     via artifact-restore local   prouve local
-make artifact-restore-dataprep-snapshot  wrapper restore lot 7       preuve locale lot 7          prouve local
-make dev                           demarrer ES/backend/UI en dev     lot 5 local + smoke UI/e2e   prouve
-make dev-stop                      arreter la stack dev              utilise par smoke cleanup    prouve indirect
-make deploy-local                  restore async + up + API test     cible legacy conservee       a revalider lot 8
-```
-
-Point a ne pas perdre: `make elasticsearch-restore` existe a la racine via
-l'inclusion de `packages/deces-infra/Makefile`. Elle restaure le snapshot
-`esdata_${DATAPREP_VERSION}_${DATA_VERSION}` depuis le repository S3 configure.
-
-Pour le lot 8, le gate preprod devra demontrer explicitement:
-
-```text
-Etape                              Cible attendue
----------------------------------  --------------------------------------------
-restauration preprod               make elasticsearch-restore
-demarrage preprod                  make dev ou make deploy-local selon scenario
-validation API                     make smoke-backend-api ou deploy remote test
-validation UI                      make frontend-test ou smoke UI preprod dedie
-```
-
-## Cibles CD artefacts
-
-```text
-Cible make racine                         Artefact produit              Workflow/job monorepo               Statut
-----------------------------------------  ----------------------------  ----------------------------------  ----------------
-make artifact-versions                    tags artefacts                diagnostic local                    prouve local
-make artifact-build-dataprep-backend      image matchid-backend         CD / Publish matchid-backend image  prouve local + GH
-make artifact-publish-dataprep-backend    push matchid-backend          CD / Publish matchid-backend image  prouve local + GH
-make artifact-build-dataprep-frontend     image matchid-frontend        CD / Publish matchid-frontend image prouve local + GH
-make artifact-publish-dataprep-frontend   push matchid-frontend         CD / Publish matchid-frontend image prouve local + GH
-make artifact-build-deces-backend         image deces-backend           CD / Publish deces-backend image    prouve local + GH
-make artifact-publish-deces-backend       push deces-backend            CD / Publish deces-backend image    prouve local + GH
-make artifact-build-deces-ui              image deces-ui                CD / Publish deces-ui image         prouve local + GH
-make artifact-publish-deces-ui            push deces-ui                 CD / Publish deces-ui image         prouve local + GH
-make artifact-build-legacy-package        package legacy matchID        master only                         cible presente
-make artifact-publish-legacy-package      publish package legacy        master only                         cible presente
-make artifact-produce-dataprep-snapshot   index ES local                CD / Publish dataprep snapshot      prouve local + GH
-make artifact-publish-dataprep-snapshot   snapshot S3 ES                CD / Publish dataprep snapshot      prouve local + GH
-make artifact-restore-dataprep-snapshot   restore snapshot ES           local                               prouve local
-```
-
-Le snapshot CD prouve au run `24542130939`:
-
-```text
-Champ                 Valeur
---------------------  ---------------------------------------------------------
-bucket non-prod       fichier-des-personnes-decedees-elasticsearch-dev
-files_to_process      deces-2020.txt.gz
-job                   Publish dataprep snapshot
-statut                pass
-```
-
-Le run de debug `24533977844` a aussi capture:
-
-```text
-Champ                 Valeur
---------------------  ---------------------------------------------------------
-snapshot              esdata_6df42346_d2d7ee21
-count ES              679573
-artifact              dataprep-snapshot-metadata / id 6486657468
-digest artifact       a50f8884a528fcf22b2919fb5d1443e1cc9e600d6efeb7bff80f6fb7e2cbc39c
-```
-
-## Cibles deploy-remote et SCW pour lot 8
-
-Ces cibles existent mais ne sont pas encore des preuves de substitution de la
-preprod. Elles doivent etre reprises dans le lot 8.
-
-```text
-Cible racine                  Role cible                         Statut lot 8
-----------------------------  ----------------------------------  ----------------------
-make deploy-remote            deploy preprod/prod canonique       a reconstruire/prouver
-make deploy-remote-instance   configure instance remote SCW       a prouver
-make deploy-remote-services   deploie services sur instance       a prouver
-make deploy-remote-publish    branche nginx/API/publication       a prouver
-make deploy-delete-old        nettoie anciennes instances         a prouver
-make deploy-monitor           installe monitoring                 a prouver
-make deploy-cdn-purge-cache   purge CDN                           a prouver
-make deploy-docker-pull-base  precharge images base remote        a prouver
-make update-base-image        cree image SCW base UI/deploy       a auditer/fixer/prouver
+Workflow | Event        | Run id      | Statut | Commentaire
+---------+--------------+-------------+--------+-------------------------------
+CI       | push         | 24559459271 | pass   | final vert apres rerun cible
+CI       | pull_request | 24559461257 | pass   | final vert apres rerun cible
+CD       | push         | 24559459280 | pass   | images + snapshot dataprep
+CD       | dispatch     | 24533977844 | pass   | run debug snapshot + artefacts
 ```
 
 ```text
-Cible package/outils                         Role cible                  Statut lot 8
--------------------------------------------  --------------------------  -----------------------
-make -C packages/deces-dataprep remote-all   execution dataprep remote   a comparer au snapshot CD
-make -C packages/deces-dataprep update-base-image image SCW dataprep     a migrer ou retirer
-make -C packages/tools SCW-instance-snapshot snapshot volume SCW         primitive outil
-make -C packages/tools SCW-instance-image    image SCW depuis snapshot   primitive outil
+Workflow | Job                              | Run id      | Statut
+---------+----------------------------------+-------------+-------
+CI       | Tools smoke                      | 24559459271 | pass
+CI       | Backend smoke                    | 24559459271 | pass
+CI       | Dataprep smoke                   | 24559459271 | pass
+CI       | UI smoke                         | 24559459271 | pass
+CI       | End-to-end smoke                 | 24559459271 | pass
+CI       | Tools smoke                      | 24559461257 | pass
+CI       | Backend smoke                    | 24559461257 | pass
+CI       | Dataprep smoke                   | 24559461257 | pass
+CI       | UI smoke                         | 24559461257 | pass
+CI       | End-to-end smoke                 | 24559461257 | pass
+CD       | Publish matchid-backend image    | 24559459280 | pass
+CD       | Publish matchid-frontend image   | 24559459280 | pass
+CD       | Publish deces-backend image      | 24559459280 | pass
+CD       | Publish deces-ui image           | 24559459280 | pass
+CD       | Publish dataprep snapshot        | 24559459280 | pass
+```
+
+## Matrice lot 6 - CI validation
+
+```text
+Repo source       | Make source                 | Make monorepo                  | Job source          | Job monorepo        | Statut
+------------------+-----------------------------+--------------------------------+---------------------+---------------------+-------------
+tools             | tools-smoke                 | smoke-tools                    | actions.yml/swift   | CI/Tools smoke      | pass push+PR
+dataprep-backend  | test; backend-docker-check  | smoke-dataprep                 | pull.yml/test       | CI/Dataprep smoke   | pass push+PR
+dataprep-frontend | frontend-docker-check; build| smoke-dataprep                 | pull.yml/test       | CI/Dataprep smoke   | pass push+PR
+dataprep-frontend | frontend-docker-check; build| smoke-e2e                      | pull.yml/test       | CI/E2E smoke        | pass push+PR
+deces-backend     | backend-dev-test            | smoke-backend                  | dockerimage.yml     | CI/Backend smoke    | pass push+PR
+deces-ui          | frontend-test               | smoke-ui                       | pr.yml/test         | CI/UI smoke         | pass push+PR
+inter-repos       | aucun                       | smoke-e2e                      | aucun               | CI/E2E smoke        | pass push+PR
+deces-backend     | backend-dev-test            | backend-dev-test               | aucun               | aucun               | pass local lot 3
+deces-ui          | frontend-test               | frontend-test                  | aucun               | aucun               | pass local lot 3
+```
+
+## Matrice runtime avec donnees
+
+```text
+Repo source       | Make source                 | Make monorepo                  | Job source          | Job monorepo        | Statut
+------------------+-----------------------------+--------------------------------+---------------------+---------------------+-------------
+deces-dataprep    | recipe-run; watch-run       | dataprep-run                   | pr/small/year       | CI/CD smoke+snapshot| pass
+deces-dataprep    | data-tag                    | dataprep-data-tag              | aucun               | utilise snapshot    | pass indirect
+deces-infra       | elasticsearch-restore       | elasticsearch-restore          | aucun               | restore local       | pass local
+deces-infra       | elasticsearch-restore       | artifact-restore-dataprep-snapshot | aucun        | wrapper lot 7       | pass local
+deces-ui/backend  | dev; start; up              | dev                            | aucun               | CI smoke-ui/e2e     | pass
+deces-ui/backend  | stop; down                  | dev-stop                       | aucun               | cleanup smoke       | pass indirect
+deces-ui          | deploy-local                | deploy-local                   | push.yml/deploy     | aucun lot 7         | lot 8
+```
+
+## Matrice lot 7 - CD artefacts
+
+```text
+Repo source       | Make source                 | Make monorepo                  | Job source          | Job monorepo        | Statut
+------------------+-----------------------------+--------------------------------+---------------------+---------------------+-------------
+dataprep-backend  | backend-build               | artifact-build-dataprep-backend | push.yml/build     | CD/matchid-backend  | pass local+GH
+dataprep-backend  | backend-docker-push         | artifact-publish-dataprep-backend | push.yml/build   | CD/matchid-backend  | pass local+GH
+dataprep-frontend | build                       | artifact-build-dataprep-frontend | push.yml/build    | CD/matchid-frontend | pass local+GH
+dataprep-frontend | frontend-docker-push        | artifact-publish-dataprep-frontend | push.yml/build  | CD/matchid-frontend | pass local+GH
+deces-backend     | backend-build-image         | artifact-build-deces-backend   | dockerimage.yml     | CD/deces-backend    | pass local+GH
+deces-backend     | docker-push-backend         | artifact-publish-deces-backend | dockerimage.yml     | CD/deces-backend    | pass local+GH
+deces-ui          | frontend-build; nginx-build | artifact-build-deces-ui        | push.yml/build      | CD/deces-ui         | pass local+GH
+deces-ui          | frontend-docker-push        | artifact-publish-deces-ui      | push.yml/build      | CD/deces-ui         | pass local+GH
+dataprep-backend  | package                     | artifact-build-legacy-package  | push.yml/master     | CD/master only      | cible presente
+dataprep-backend  | package-publish             | artifact-publish-legacy-package| push.yml/master     | CD/master only      | cible presente
+deces-dataprep    | full-check; recipe-run      | artifact-produce-dataprep-snapshot | year/full/push | CD/dataprep snapshot| pass local+GH
+deces-infra       | elasticsearch-repository-backup | artifact-publish-dataprep-snapshot | year/full/push | CD/dataprep snapshot| pass local+GH
+deces-infra       | elasticsearch-restore       | artifact-restore-dataprep-snapshot | aucun          | restore local       | pass local
+```
+
+Snapshot prouve par CD:
+
+```text
+Champ            | Valeur
+-----------------+------------------------------------------------------------
+run id           | 24559459280
+bucket non-prod  | fichier-des-personnes-decedees-elasticsearch-dev
+files_to_process | deces-2020.txt.gz
+job              | Publish dataprep snapshot
+statut           | pass
+```
+
+Run debug snapshot precedent:
+
+```text
+Champ            | Valeur
+-----------------+------------------------------------------------------------
+run id           | 24533977844
+snapshot         | esdata_6df42346_d2d7ee21
+count ES         | 679573
+artifact         | dataprep-snapshot-metadata / id 6486657468
+digest artifact  | a50f8884a528fcf22b2919fb5d1443e1cc9e600d6efeb7bff80f6fb7e2cbc39c
+```
+
+## Matrice lot 8 - preprod, deploy-remote et SCW
+
+Ces lignes ne sont pas encore des preuves de substitution. Elles cadrent ce qui
+doit etre tranche ou prouve pour `dev-deces.matchid.io`.
+
+```text
+Repo source       | Make source                 | Make monorepo                  | Job source          | Job monorepo cible  | Statut
+------------------+-----------------------------+--------------------------------+---------------------+---------------------+-------------
+deces-ui          | deploy-remote               | deploy-remote                  | push.yml/deploy     | deploy preprod      | a prouver
+deces-ui/tools    | deploy-remote-instance      | deploy-remote-instance         | push.yml/deploy     | deploy preprod      | a prouver
+deces-ui/tools    | deploy-remote-services      | deploy-remote-services         | push.yml/deploy     | deploy preprod      | a prouver
+deces-ui/tools    | deploy-remote-publish       | deploy-remote-publish          | push.yml/deploy     | deploy preprod      | a prouver
+deces-ui/tools    | deploy-delete-old           | deploy-delete-old              | push.yml/deploy     | deploy preprod      | a prouver
+deces-ui/tools    | deploy-monitor              | deploy-monitor                 | push.yml/deploy     | deploy preprod      | a prouver
+deces-ui/tools    | deploy-cdn-purge-cache      | deploy-cdn-purge-cache         | push.yml/deploy     | deploy preprod      | a prouver
+deces-ui/tools    | remote-docker-pull          | deploy-docker-pull-base        | aucun               | SCW preprod         | a prouver
+deces-ui/tools    | update-base-image           | update-base-image              | aucun               | SCW preprod         | auditer/fixer
+deces-dataprep    | remote-all                  | cible racine a definir         | year/full/push      | dataprep remote     | comparer CD snapshot
+deces-dataprep    | update-base-image           | cible racine a definir         | aucun               | SCW dataprep        | migrer ou retirer
+tools             | SCW-instance-snapshot       | primitive, pas contrat direct  | aucun               | SCW preprod         | encapsuler
+tools             | SCW-instance-image          | primitive, pas contrat direct  | aucun               | SCW preprod         | encapsuler
+deces-infra       | elasticsearch-restore       | elasticsearch-restore          | deploy implicite    | deploy preprod      | a prouver preprod
 ```
 
 Points d'attention lot 8:
