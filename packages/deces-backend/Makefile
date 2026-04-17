@@ -169,7 +169,9 @@ backend-stop:
 
 backend-test:
 	@echo Testing API parameters
-	@docker exec -i ${USE_TTY} ${APP_BACKEND} /bin/sh /deces-backend/tests/test_query_params.sh
+	@docker exec -i ${USE_TTY} ${APP_BACKEND} /bin/sh -c "SKIP_FUZZY_CHECK=1 /bin/sh /deces-backend/tests/test_query_params.sh"
+	@${MAKE} -C ${TOOLS_PATH} local-test-api PORT=${BACKEND_PORT} API_TEST_PATH='deces/api/v1/search?deathDate=2020&firstName=Ana&fuzzy=false' API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Ana")] | all)'
+	@${MAKE} -C ${TOOLS_PATH} local-test-api PORT=${BACKEND_PORT} API_TEST_PATH='deces/api/v1/search' API_TEST_DATA='{"deathDate":"2020","firstName":"Ana","fuzzy":"false"}' API_TEST_JSON_PATH='response.total > 0 and ([.response.persons[].name.first[0] | contains("Ana")] | all)'
 
 db-json-fake:
 	@mkdir -p $(dir ${DB_JSON})
