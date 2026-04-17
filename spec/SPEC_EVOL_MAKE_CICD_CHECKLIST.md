@@ -29,30 +29,45 @@ Regles:
 ```text
 Workflow | Event        | Run id      | Statut | Commentaire
 ---------+--------------+-------------+--------+-------------------------------
-CI       | push         | 24559459271 | pass   | final vert apres rerun cible
-CI       | pull_request | 24559461257 | pass   | final vert apres rerun cible
-CD       | push         | 24559459280 | pass   | images + snapshot dataprep
+CI       | push         | 24586029291 | pass   | commit 24aad951
+CI       | pull_request | 24586031821 | pass   | PR #2, commit 24aad951
+CD       | push         | 24586029288 | pass   | images + snapshot dataprep
 CD       | dispatch     | 24533977844 | pass   | run debug snapshot + artefacts
 ```
 
 ```text
-Workflow | Job                              | Run id      | Statut
----------+----------------------------------+-------------+-------
-CI       | Tools smoke                      | 24559459271 | pass
-CI       | Backend smoke                    | 24559459271 | pass
-CI       | Dataprep smoke                   | 24559459271 | pass
-CI       | UI smoke                         | 24559459271 | pass
-CI       | End-to-end smoke                 | 24559459271 | pass
-CI       | Tools smoke                      | 24559461257 | pass
-CI       | Backend smoke                    | 24559461257 | pass
-CI       | Dataprep smoke                   | 24559461257 | pass
-CI       | UI smoke                         | 24559461257 | pass
-CI       | End-to-end smoke                 | 24559461257 | pass
-CD       | Publish matchid-backend image    | 24559459280 | pass
-CD       | Publish matchid-frontend image   | 24559459280 | pass
-CD       | Publish deces-backend image      | 24559459280 | pass
-CD       | Publish deces-ui image           | 24559459280 | pass
-CD       | Publish dataprep snapshot        | 24559459280 | pass
+Workflow | Event        | Job                              | Run id      | Job id      | Statut
+---------+--------------+----------------------------------+-------------+-------------+-------
+CI       | push         | Tools smoke                      | 24586029291 | 71895726818 | pass
+CI       | push         | Backend smoke                    | 24586029291 | 71895726807 | pass
+CI       | push         | Dataprep smoke                   | 24586029291 | 71895726817 | pass
+CI       | push         | UI smoke                         | 24586029291 | 71895726813 | pass
+CI       | push         | End-to-end smoke                 | 24586029291 | 71895726799 | pass
+CI       | pull_request | Tools smoke                      | 24586031821 | 71895726809 | pass
+CI       | pull_request | Backend smoke                    | 24586031821 | 71895726812 | pass
+CI       | pull_request | Dataprep smoke                   | 24586031821 | 71895726830 | pass
+CI       | pull_request | UI smoke                         | 24586031821 | 71895726814 | pass
+CI       | pull_request | End-to-end smoke                 | 24586031821 | 71895726805 | pass
+CD       | push         | Publish matchid-backend image    | 24586029288 | 71895732114 | pass
+CD       | push         | Publish matchid-frontend image   | 24586029288 | 71895732047 | pass
+CD       | push         | Publish deces-backend image      | 24586029288 | 71895732033 | pass
+CD       | push         | Publish deces-ui image           | 24586029288 | 71895732121 | pass
+CD       | push         | Publish dataprep snapshot        | 24586029288 | 71895732072 | pass
+```
+
+Correction de l'ecart CI `Backend smoke` / `UI smoke`:
+
+```text
+Champ            | Valeur
+-----------------+------------------------------------------------------------
+commit           | 24aad951
+cause            | inputs live data.gouv et requete smoke trop specifique
+correction       | fixture dataprep hermetique + requete API sans departement
+preuve locale    | make smoke-backend MAILDEV_UI_PORT=37343 SMOKE_FILES_TO_PROCESS=deces-2020.txt.gz
+resultat local   | pass; dataprep 3/3 lignes ecrites; GET+POST API ok
+preuve GitHub CI | push 24586029291 + pull_request 24586031821
+preuve GitHub CD | push 24586029288
+statut           | leve
 ```
 
 
@@ -94,12 +109,12 @@ dataprep-frontend | dev; dev-stop                    | pkg/dataprep-frontend dev
 dataprep-frontend | start; stop; up; down; restart   | pkg/dataprep-frontend start/stop   | aucun                 | aucun job dedie       | cible conservee
 deces-backend     | backend-build-image              | artifact-build-deces-backend       | dockerimage/build     | CD/deces-backend      | pass local+GH
 deces-backend     | docker-push-backend              | artifact-publish-deces-backend     | dockerimage/build     | CD/deces-backend      | pass local+GH
-deces-backend     | backend-dev                      | backend-dev                        | dockerimage/build     | CI/Backend smoke      | pass local+GH*
-deces-backend     | backend-dev-test                 | backend-dev-test; smoke-backend    | dockerimage/build     | CI/Backend smoke      | pass local+GH*
+deces-backend     | backend-dev                      | backend-dev                        | dockerimage/build     | CI/Backend smoke      | pass local+GH
+deces-backend     | backend-dev-test                 | backend-dev-test; smoke-backend    | dockerimage/build     | CI/Backend smoke      | pass local+GH
 deces-backend     | test-perf-v1                     | pkg/deces-backend test-perf-v1     | dockerimage/bulk      | non reconstruit       | lot8/hors gate
-deces-ui          | frontend-dev; frontend-dev-stop  | frontend-dev; frontend-dev-stop    | pr.yml/test           | CI/UI smoke           | pass local+GH*
+deces-ui          | frontend-dev; frontend-dev-stop  | frontend-dev; frontend-dev-stop    | pr.yml/test           | CI/UI smoke           | pass local+GH
 deces-ui          | frontend-build                   | artifact-build-deces-ui            | push.yml/build        | CD/deces-ui           | pass local+GH
-deces-ui          | frontend-test                    | frontend-test; smoke-ui            | pr.yml; push.yml      | CI/UI smoke           | pass local+GH*
+deces-ui          | frontend-test                    | frontend-test; smoke-ui            | pr.yml; push.yml      | CI/UI smoke           | pass local+GH
 deces-ui          | build; docker-check; docker-push | artifact-build/publish-deces-ui    | push.yml/build        | CD/deces-ui           | pass local+GH
 deces-ui          | deploy-local                     | deploy-local                       | push.yml/test         | lot 8                 | a prouver
 deces-ui          | deploy-remote                    | deploy-remote                      | push.yml/deploy       | lot 8 deploy          | a prouver
@@ -107,8 +122,8 @@ deces-ui          | logs-full; logs-update           | aucun contrat racine     
 deces-dataprep    | dev; dev-stop                    | dataprep-dev; dataprep-dev-stop    | aucun                 | aucun job dedie       | pass local
 deces-dataprep    | up; down                         | pkg/deces-dataprep up/down         | aucun                 | smoke cleanup         | cible presente
 deces-dataprep    | data-tag                         | dataprep-data-tag                  | aucun                 | CD snapshot meta      | pass indirect
-deces-dataprep    | recipe-run                       | dataprep-run                       | pr/small/year/full    | CI/Dataprep + CD snap | pass local+GH*
-deces-dataprep    | full-check; full                 | smoke-dataprep; artifact snapshot  | pr/small/year/full    | CI/CD snapshot        | pass local+GH*
+deces-dataprep    | recipe-run                       | dataprep-run                       | pr/small/year/full    | CI/Dataprep + CD snap | pass local+GH
+deces-dataprep    | full-check; full                 | smoke-dataprep; artifact snapshot  | pr/small/year/full    | CI/CD snapshot        | pass local+GH
 deces-dataprep    | elasticsearch-restore            | elasticsearch-restore              | aucun                 | restore local         | pass local
 deces-dataprep    | remote-all                       | cible racine a definir             | push-dev/master; full | lot 8 remote          | a definir
 deces-dataprep    | update-base-image                | cible racine a definir             | aucun                 | lot 8 SCW             | a encadrer
@@ -118,11 +133,10 @@ deces-infra       | repo backup/delete/list          | artifact-publish-dataprep
 website           | build; up; down                  | pkg/website build/up/down          | aucun                 | aucun                 | hors chaine
 ```
 
-`*` Le dernier push docs a relance la CI complete. Les preuves vertes de
-reference restent les runs `24559459271` et `24559461257`; le run courant
-`24564170802` expose un ecart a lever: les smoke `Backend`/`UI` dependent d'un
-input live data.gouv (`fichier-opposition-deces-260407.csv`) et/ou d'un jeu
-d'index qui ne contient pas toujours la requete `Ana` attendue.
+L'ecart CI observe sur les smoke `Backend`/`UI` est leve: les inputs de smoke
+ne dependent plus du fichier live data.gouv `fichier-opposition-deces-260407.csv`
+et la requete de validation backend cible un enregistrement present dans la
+fixture hermetique.
 
 ## Matrice lot 6 - CI validation
 
@@ -179,7 +193,7 @@ Snapshot prouve par CD:
 ```text
 Champ            | Valeur
 -----------------+------------------------------------------------------------
-run id           | 24559459280
+run id           | 24586029288
 bucket non-prod  | fichier-des-personnes-decedees-elasticsearch-dev
 files_to_process | deces-2020.txt.gz
 job              | Publish dataprep snapshot
