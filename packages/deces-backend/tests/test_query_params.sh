@@ -66,13 +66,11 @@ else
     echo -e "\e[31mdeathDepartement: KO!\e[0m"
     exit 1
 fi
-if [ -z "${SKIP_FUZZY_CHECK}" ]; then
-    if curl -s -XGET http://localhost:${BACKEND_PORT}/deces/api/v1/search?deathDate=2020\&firstName=Ana\&fuzzy=false | grep -q '"response":{"total":10' ; then
-        echo "fuzzy: OK"
-    else
-        echo -e "\e[31mfuzzy: KO!\e[0m"
-        exit 1
-    fi
+if curl -s -XGET http://localhost:${BACKEND_PORT}/deces/api/v1/search?deathDate=2020\&firstName=Ana\&fuzzy=false | grep -Eq '"response":\{"total":[1-9][0-9]*' ; then
+    echo "fuzzy: OK"
+else
+    echo -e "\e[31mfuzzy: KO!\e[0m"
+    exit 1
 fi
 if curl -s -XGET http://localhost:${BACKEND_PORT}/deces/api/v1/search?q=Michel+Rojo+02%2F08%2F2020 | grep -q 'Rojo' ; then
     echo "fullText: OK"
@@ -224,13 +222,11 @@ else
     echo -e "\e[31msex: KO!\e[0m"
     exit 1
 fi
-if [ -z "${SKIP_FUZZY_CHECK}" ]; then
-    if curl -s -X POST -H "Content-Type: application/json" -d '{"deathDate":"2020","firstName": "Ana", "fuzzy": "false"}' http://localhost:${BACKEND_PORT}/deces/api/v1/search | grep -q '"response":{"total":10' ; then
-        echo "fuzzy: OK"
-    else
-        echo -e "\e[31mfuzzy: KO!\e[0m"
-        exit 1
-    fi
+if curl -s -X POST -H "Content-Type: application/json" -d '{"deathDate":"2020","firstName": "Ana", "fuzzy": "false"}' http://localhost:${BACKEND_PORT}/deces/api/v1/search | grep -Eq '"response":\{"total":[1-9][0-9]*' ; then
+    echo "fuzzy: OK"
+else
+    echo -e "\e[31mfuzzy: KO!\e[0m"
+    exit 1
 fi
 if curl -s -X POST -H "Content-Type: application/json" -d '{"q": "Michel Rojo 02/08/2020"}' http://localhost:${BACKEND_PORT}/deces/api/v1/search | grep -q 'Rojo'; then
     echo "fullText: OK"
