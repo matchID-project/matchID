@@ -15,10 +15,30 @@ Règles:
 
 ## CI - Parité job par job
 
-Statut courant: les runs GitHub `24591228586` et `24591229594` prouvent les
-jobs CI reconstruits sauf `deces-ui pull request test`. Ce dernier passe les
-tests UI `Recherche Simple` et `Recherche Avancée`, puis échoue sur
-`Appariement Wikidata` avec une erreur serveur pendant le traitement bulk.
+Statut courant: le run GitHub `24606370609` prouve le retour au vert de
+`deces-ui pull request test`, incluant `Appariement Wikidata`. Le run push
+reste rouge globalement car `build docker swift` et
+`dataprep-backend pull request test` ont échoué avant exécution utile: le
+binaire `docker-compose` installé contenait une page HTML `504 Gateway
+Time-out`.
+
+Preuve spécifique `Appariement Wikidata`:
+
+```text
+Reference | Run id      | Job id      | SHA      | Statut
+----------+-------------+-------------+----------+-------------------------------
+upstream  | 21919067766 | 63294061207 | 08e33bb  | pass, "Costes" trouve
+monorepo  | 24606370609 | 71953180729 | 3269a52f | pass, job UI complet vert
+```
+
+Corrections de parité associées:
+
+```text
+Commit   | Portee        | Correction
+---------+---------------+------------------------------------------------
+1c8235e  | ci.yml        | dataset UI aligne sur `deces-2020-m01.txt.gz`
+3269a52  | deces-backend | mounts `JOBS`/`PROOFS` remis sur `/${APP}/data`
+```
 
 ```text
 Repo source       | Type | Source                       | Monorepo                             | Statut
@@ -30,6 +50,9 @@ tools             | make | docker-check CLOUD_CLI=swift | make -C packages/tools
                   |      |                              |   docker-build CLOUD_CLI=swift      |
                   | ci   | actions.yml / build docker   | ci.yml / build docker swift         | job vert GH
                   |      | swift                        |                                      | 24591228586/29594
+                  |      |                              |                                      | 24606370609:
+                  |      |                              |                                      | 504 install
+                  |      |                              |                                      | docker-compose
 ------------------+------+------------------------------+--------------------------------------+------------------
 dataprep-backend  | make | version backend-docker-check | make -C packages/deces-dataprep     | job vert GH
                   |      | || backend-build backend     |   config                            | 24591228586/29594
@@ -40,6 +63,9 @@ dataprep-backend  | make | version backend-docker-check | make -C packages/deces
                   |      |                              |   backend-stop                      |
                   | ci   | pull.yml / pull request test | ci.yml / dataprep-backend           | job vert GH
                   |      |                              |   pull request test                 | 24591228586/29594
+                  |      |                              |                                      | 24606370609:
+                  |      |                              |                                      | 504 install
+                  |      |                              |                                      | docker-compose
 ------------------+------+------------------------------+--------------------------------------+------------------
 dataprep-frontend | make | version-files; version       | make -C packages/deces-dataprep     | job vert GH
                   |      | frontend-docker-check        |   config frontend-config            | 24591228586/29594
@@ -59,14 +85,14 @@ deces-backend     | make | backend-build-image          | make artifact-build-de
                   | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | job vert GH
                   |      |                              |   docker image                      | 24591228586/29594
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-ui          | make | version config               | make version config                 | job rouge GH
-                  |      | docker-check || build        | make frontend-docker-check          | 24591228586/29594
-                  |      | deploy-local backend-test    | || make artifact-build-deces-ui     | echec bulk
-                  |      | frontend-test                | make artifact-build-deces-backend   | Appariement
-                  |      |                              | make deploy-local backend-test      | Wikidata
+deces-ui          | make | version config               | make version config                 | job vert GH
+                  |      | docker-check || build        | make frontend-docker-check          | 24606370609
+                  |      | deploy-local backend-test    | || make artifact-build-deces-ui     | Appariement
+                  |      | frontend-test                | make artifact-build-deces-backend   | Wikidata inclus
+                  |      |                              | make deploy-local backend-test      |
                   |      |                              |   frontend-test                     |
-                  | ci   | pr.yml / Pull request test   | ci.yml / deces-ui pull request test | job rouge GH
-                  |      |                              |                                      | 24591228586/29594
+                  | ci   | pr.yml / Pull request test   | ci.yml / deces-ui pull request test | job vert GH
+                  |      |                              |                                      | 24606370609
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-dataprep    | make | all FILES_TO_PROCESS=deces- | make -C packages/deces-dataprep all | job vert GH
                   |      | 2020-m01.txt.gz ES_MEM=     |   FILES_TO_PROCESS=deces-2020-      | 24591228586/29594
@@ -171,8 +197,11 @@ root monorepo     | n/a                     | dev                        | dev l
 root monorepo     | n/a                     | dev-stop                   | arret dev local    | pass indirect
 root monorepo     | n/a                     | docker-check               | deploy-local       | restaure
 deces-ui          | frontend-test           | frontend-test              | tests UI via make  | pass lot 5
-deces-ui          | deploy-local            | deploy-local               | CI PR + preprod    | CI rouge UI
-deces-backend     | backend-test-vitest     | backend-test-vitest        | tests backend make | a reprouver CI
+deces-ui          | deploy-local            | deploy-local               | CI PR + preprod    | pass GH
+                  |                         |                            |                    | 24606370609
+deces-backend     | backend-test            | backend-test               | tests backend CI   | pass via
+                  |                         |                            |                    | deces-ui CI
+                  |                         |                            |                    | 24606370609
 deces-dataprep    | recipe-run; watch-run   | dataprep-run               | indexation via     | pass lot 5
                   |                         |                            | backend monorepo   |
 deces-dataprep    | all                     | packages/deces-dataprep    | CI PR petit        | job vert GH
