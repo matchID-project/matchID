@@ -62,8 +62,8 @@ services:
       - JOBS=data/jobs
       - WIKIDATA_LINKS=data/wikidata.json
     volumes:
-      - ${PROOFS}:/${DATA_DIR}/proofs
-      - ${JOBS}:/${DATA_DIR}/jobs
+      - ${PROOFS}:/${APP}/data/proofs
+      - ${JOBS}:/${APP}/data/jobs
     restart: always
 
 
