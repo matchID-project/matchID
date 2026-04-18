@@ -15,22 +15,64 @@ Règles:
 
 ## CI - Parité job par job
 
-Statut courant: le premier run GitHub après réalignement a exposé des écarts
-d'exécution CI, sans remettre en cause le contrat make. Les corrections sont:
-configuration explicite de `tools`, chemins monorepo pour le compose local
-dataprep, build UI via l'artefact racine, audit npm frontend dataprep ignoré via
-la variable prévue par le Dockerfile, et `ES_MEM=1024m` pour tenir sur runner
-GitHub.
+Statut courant: les runs GitHub `24591228586` et `24591229594` prouvent les
+jobs CI reconstruits sauf `deces-ui pull request test`. Ce dernier passe les
+tests UI `Recherche Simple` et `Recherche Avancée`, puis échoue sur
+`Appariement Wikidata` avec une erreur serveur pendant le traitement bulk.
 
 ```text
-Repo source       | Make source                                               | Make monorepo                                             | Job CI source                  | Job CI monorepo                         | Statut
-------------------+-----------------------------------------------------------+-----------------------------------------------------------+--------------------------------+-----------------------------------------+----------------------------
-tools             | docker-check CLOUD_CLI=swift || docker-build CLOUD_CLI=swift | make -C packages/tools config; make -C packages/tools docker-check CLOUD_CLI=swift || make -C packages/tools docker-build CLOUD_CLI=swift | actions.yml / build docker swift | ci.yml / build docker swift             | à prouver prochain CI
-dataprep-backend  | version backend-docker-check || backend-build backend backend-stop | make -C packages/deces-dataprep config; make -C packages/dataprep-backend version backend-docker-check || make -C packages/dataprep-backend backend-build backend backend-stop | pull.yml / pull request test  | ci.yml / dataprep-backend pull request test | à prouver prochain CI
-dataprep-frontend | version-files; version; frontend-docker-check || build backend-docker-check up | make -C packages/deces-dataprep config frontend-config; make -C packages/dataprep-frontend version-files; make -C packages/dataprep-frontend version; make -C packages/dataprep-frontend frontend-docker-check || make -C packages/dataprep-frontend build backend-docker-check up | pull.yml / pull request test | ci.yml / dataprep-frontend pull request test | à prouver prochain CI
-deces-backend     | backend-build-image                                       | make artifact-build-deces-backend                         | dockerimage.yml / build       | ci.yml / deces-backend build docker image | à prouver prochain CI
-deces-ui          | version config; docker-check || build; deploy-local backend-test frontend-test | make version config; make frontend-docker-check || make artifact-build-deces-ui; make artifact-build-deces-backend; make deploy-local backend-test frontend-test | pr.yml / Pull request test | ci.yml / deces-ui pull request test     | à prouver prochain CI
-deces-dataprep    | all FILES_TO_PROCESS=deces-2020-m01.txt.gz ... ES_MEM=4000m | make -C packages/deces-dataprep all FILES_TO_PROCESS=deces-2020-m01.txt.gz ... ES_MEM=1024m | pr.yml / locally              | ci.yml / deces-dataprep locally         | à prouver prochain CI
+Repo source       | Type | Source                       | Monorepo                             | Statut
+------------------+------+------------------------------+--------------------------------------+------------------
+tools             | make | docker-check CLOUD_CLI=swift | make -C packages/tools config       | job vert GH
+                  |      | || docker-build CLOUD_CLI=   | make -C packages/tools docker-check | 24591228586/29594
+                  |      | swift                        |   CLOUD_CLI=swift                   |
+                  |      |                              | || make -C packages/tools           |
+                  |      |                              |   docker-build CLOUD_CLI=swift      |
+                  | ci   | actions.yml / build docker   | ci.yml / build docker swift         | job vert GH
+                  |      | swift                        |                                      | 24591228586/29594
+------------------+------+------------------------------+--------------------------------------+------------------
+dataprep-backend  | make | version backend-docker-check | make -C packages/deces-dataprep     | job vert GH
+                  |      | || backend-build backend     |   config                            | 24591228586/29594
+                  |      | backend-stop                 | make -C packages/dataprep-backend   |
+                  |      |                              |   version backend-docker-check      |
+                  |      |                              | || make -C packages/dataprep-       |
+                  |      |                              |   backend backend-build backend     |
+                  |      |                              |   backend-stop                      |
+                  | ci   | pull.yml / pull request test | ci.yml / dataprep-backend           | job vert GH
+                  |      |                              |   pull request test                 | 24591228586/29594
+------------------+------+------------------------------+--------------------------------------+------------------
+dataprep-frontend | make | version-files; version       | make -C packages/deces-dataprep     | job vert GH
+                  |      | frontend-docker-check        |   config frontend-config            | 24591228586/29594
+                  |      | || build backend-docker-     | make -C packages/dataprep-frontend  |
+                  |      | check up                     |   version-files                     |
+                  |      |                              | make -C packages/dataprep-frontend  |
+                  |      |                              |   version                           |
+                  |      |                              | make -C packages/dataprep-frontend  |
+                  |      |                              |   frontend-docker-check             |
+                  |      |                              | || make -C packages/dataprep-       |
+                  |      |                              |   frontend build backend-docker-    |
+                  |      |                              |   check up                          |
+                  | ci   | pull.yml / pull request test | ci.yml / dataprep-frontend          | job vert GH
+                  |      |                              |   pull request test                 | 24591228586/29594
+------------------+------+------------------------------+--------------------------------------+------------------
+deces-backend     | make | backend-build-image          | make artifact-build-deces-backend   | job vert GH
+                  | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | job vert GH
+                  |      |                              |   docker image                      | 24591228586/29594
+------------------+------+------------------------------+--------------------------------------+------------------
+deces-ui          | make | version config               | make version config                 | job rouge GH
+                  |      | docker-check || build        | make frontend-docker-check          | 24591228586/29594
+                  |      | deploy-local backend-test    | || make artifact-build-deces-ui     | echec bulk
+                  |      | frontend-test                | make artifact-build-deces-backend   | Appariement
+                  |      |                              | make deploy-local backend-test      | Wikidata
+                  |      |                              |   frontend-test                     |
+                  | ci   | pr.yml / Pull request test   | ci.yml / deces-ui pull request test | job rouge GH
+                  |      |                              |                                      | 24591228586/29594
+------------------+------+------------------------------+--------------------------------------+------------------
+deces-dataprep    | make | all FILES_TO_PROCESS=deces- | make -C packages/deces-dataprep all | job vert GH
+                  |      | 2020-m01.txt.gz ES_MEM=     |   FILES_TO_PROCESS=deces-2020-      | 24591228586/29594
+                  |      | 4000m                        |   m01.txt.gz ES_MEM=1024m           |
+                  | ci   | pr.yml / locally             | ci.yml / deces-dataprep locally     | job vert GH
+                  |      |                              |                                      | 24591228586/29594
 ```
 
 Notes de parité:
@@ -56,29 +98,48 @@ Notes de parité:
 
 ## CD - Artefacts publiés
 
-Dernière preuve verte avant réalignement CI:
+Déclenchement cible: `cd.yml` publie automatiquement uniquement sur `push` vers
+`dev`. Les runs listés ci-dessous prouvent l'exécution technique des jobs CD
+déjà reconstruits; ils ne changent pas la règle de déclenchement cible.
 
 ```text
-Workflow | Event | Run id      | Statut | Commentaire
----------+-------+-------------+--------+-------------------------------
-CD       | push  | 24586029288 | pass   | images + snapshot dataprep
-CD       | dispatch | 24533977844 | pass | run debug snapshot + artefacts
+Workflow | Event    | Run id      | Statut | Commentaire
+---------+----------+-------------+--------+------------------------------
+CD       | push     | 24586029288 | pass   | images + snapshot dataprep
+CD       | dispatch | 24533977844 | pass   | debug snapshot + artefacts
 ```
 
 ```text
-Repo source       | Make source                          | Make monorepo                         | Job CD source             | Job CD monorepo                    | Preuve
-------------------+--------------------------------------+---------------------------------------+---------------------------+------------------------------------+-----------------------------------------
-dataprep-backend  | backend-build                        | artifact-build-dataprep-backend       | push.yml / build          | cd.yml / Publish matchid-backend image | CD push 24586029288 pass
-dataprep-backend  | backend-docker-push                  | artifact-publish-dataprep-backend     | push.yml / build          | cd.yml / Publish matchid-backend image | CD push 24586029288 pass
-dataprep-frontend | build                                | artifact-build-dataprep-frontend      | push.yml / build          | cd.yml / Publish matchid-frontend image | CD push 24586029288 pass
-dataprep-frontend | frontend-docker-push                 | artifact-publish-dataprep-frontend    | push.yml / build          | cd.yml / Publish matchid-frontend image | CD push 24586029288 pass
-deces-backend     | backend-build-image                  | artifact-build-deces-backend          | dockerimage.yml / build   | cd.yml / Publish deces-backend image | CD push 24586029288 pass
-deces-backend     | docker-push-backend                  | artifact-publish-deces-backend        | dockerimage.yml / build   | cd.yml / Publish deces-backend image | CD push 24586029288 pass
-deces-ui          | frontend-build; nginx-build          | artifact-build-deces-ui               | push.yml / build          | cd.yml / Publish deces-ui image    | CD push 24586029288 pass
-deces-ui          | frontend-docker-push                 | artifact-publish-deces-ui             | push.yml / build          | cd.yml / Publish deces-ui image    | CD push 24586029288 pass
-deces-dataprep    | full-check; recipe-run               | artifact-produce-dataprep-snapshot    | year/full/push* / build   | cd.yml / Publish dataprep snapshot | CD push 24586029288 pass
-deces-infra       | elasticsearch-repository-backup      | artifact-publish-dataprep-snapshot    | year/full/push* / build   | cd.yml / Publish dataprep snapshot | CD push 24586029288 pass
-deces-infra       | elasticsearch-restore                | artifact-restore-dataprep-snapshot    | aucun                     | restore local                      | preuve locale lot 5
+Repo source       | Type | Source                       | Monorepo                             | Preuve
+------------------+------+------------------------------+--------------------------------------+------------------
+dataprep-backend  | make | backend-build                | artifact-build-dataprep-backend     | CD vert GH
+                  | make | backend-docker-push          | artifact-publish-dataprep-backend   | 24586029288
+                  | cd   | push.yml / build             | cd.yml / Publish matchid-backend    | image publiee
+                  |      |                              | image                                |
+------------------+------+------------------------------+--------------------------------------+------------------
+dataprep-frontend | make | build                        | artifact-build-dataprep-frontend    | CD vert GH
+                  | make | frontend-docker-push         | artifact-publish-dataprep-frontend  | 24586029288
+                  | cd   | push.yml / build             | cd.yml / Publish matchid-frontend   | image publiee
+                  |      |                              | image                                |
+------------------+------+------------------------------+--------------------------------------+------------------
+deces-backend     | make | backend-build-image          | artifact-build-deces-backend        | CD vert GH
+                  | make | docker-push-backend          | artifact-publish-deces-backend      | 24586029288
+                  | cd   | dockerimage.yml / build      | cd.yml / Publish deces-backend      | image publiee
+                  |      |                              | image                                |
+------------------+------+------------------------------+--------------------------------------+------------------
+deces-ui          | make | frontend-build; nginx-build  | artifact-build-deces-ui             | CD vert GH
+                  | make | frontend-docker-push         | artifact-publish-deces-ui           | 24586029288
+                  | cd   | push.yml / build             | cd.yml / Publish deces-ui image     | image publiee
+------------------+------+------------------------------+--------------------------------------+------------------
+deces-dataprep    | make | full-check; recipe-run       | artifact-produce-dataprep-snapshot  | CD vert GH
+                  | cd   | year/full/push* / build      | cd.yml / Publish dataprep snapshot  | 24586029288
+                  |      |                              |                                      | snapshot publie
+------------------+------+------------------------------+--------------------------------------+------------------
+deces-infra       | make | elasticsearch-repository-    | artifact-publish-dataprep-snapshot  | CD vert GH
+                  |      | backup                       |                                      | 24586029288
+                  | make | elasticsearch-restore        | artifact-restore-dataprep-snapshot  | pass lot 5
+                  | cd   | year/full/push* / build      | cd.yml / Publish dataprep snapshot  | snapshot publie
+                  | cd   | aucun                        | restore local                       | preuve locale
 ```
 
 Snapshot prouvé:
@@ -96,29 +157,34 @@ statut           | pass
 ## Make runtime et dev
 
 ```text
-Repo source       | Make source                 | Make monorepo                  | Usage cible                 | Statut
-------------------+-----------------------------+--------------------------------+-----------------------------+----------------
-root monorepo     | n/a                         | dev                            | dev local complet           | pass lot 5
-root monorepo     | n/a                         | dev-stop                       | arrêt dev local             | pass indirect
-root monorepo     | n/a                         | docker-check                   | compat deploy-local         | restauré
-deces-ui          | frontend-test               | frontend-test                  | tests UI via make           | pass lot 5
-deces-ui          | deploy-local                | deploy-local                   | CI PR + lot 8 local/preprod | à reprouver CI
-deces-backend     | backend-test-vitest         | backend-test-vitest            | tests backend via make      | à reprouver CI
-deces-dataprep    | recipe-run; watch-run       | dataprep-run                   | indexation via backend monorepo | pass lot 5
-deces-dataprep    | all                         | packages/deces-dataprep all    | CI PR petit dataset         | à reprouver CI
-deces-infra       | elasticsearch-restore       | elasticsearch-restore          | données dev depuis snapshot | pass lot 5
+Repo source       | Make source             | Make monorepo              | Usage cible        | Statut
+------------------+-------------------------+----------------------------+--------------------+--------------
+root monorepo     | n/a                     | dev                        | dev local complet  | pass lot 5
+root monorepo     | n/a                     | dev-stop                   | arret dev local    | pass indirect
+root monorepo     | n/a                     | docker-check               | deploy-local       | restaure
+deces-ui          | frontend-test           | frontend-test              | tests UI via make  | pass lot 5
+deces-ui          | deploy-local            | deploy-local               | CI PR + preprod    | CI rouge UI
+deces-backend     | backend-test-vitest     | backend-test-vitest        | tests backend make | a reprouver CI
+deces-dataprep    | recipe-run; watch-run   | dataprep-run               | indexation via     | pass lot 5
+                  |                         |                            | backend monorepo   |
+deces-dataprep    | all                     | packages/deces-dataprep    | CI PR petit        | job vert GH
+                  |                         | all                        | dataset            | 24591228586/29594
+deces-infra       | elasticsearch-restore   | elasticsearch-restore      | donnees dev depuis | pass lot 5
+                  |                         |                            | snapshot           |
 ```
 
 ## Lot 8 - À prouver
 
 ```text
-Repo source       | Make source                 | Make monorepo                  | Job source          | Job cible            | Statut
-------------------+-----------------------------+--------------------------------+---------------------+----------------------+-------------
-tools             | remote-config-test           | packages/tools remote-config-test | actions.yml / remote | déploiement preprod | lot 8
-deces-ui          | deploy-remote                | deploy-remote                  | push.yml / deploy   | déploiement preprod  | lot 8
-deces-ui/tools    | deploy-remote-instance       | deploy-remote-instance         | push.yml / deploy   | déploiement preprod  | lot 8
-deces-ui/tools    | deploy-remote-services       | deploy-remote-services         | push.yml / deploy   | déploiement preprod  | lot 8
-deces-ui/tools    | deploy-remote-publish        | deploy-remote-publish          | push.yml / deploy   | déploiement preprod  | lot 8
-deces-ui/tools    | deploy-delete-old            | deploy-delete-old              | push.yml / deploy   | déploiement preprod  | lot 8
-deces-dataprep    | remote-all                   | cible racine à définir         | full/push* / build  | dataprep distant     | lot 8
+Repo source       | Make source              | Make monorepo             | Job source        | Statut
+------------------+--------------------------+---------------------------+-------------------+-------------
+tools             | remote-config-test       | packages/tools remote-    | actions.yml /     | lot 8
+                  |                          | config-test               | remote            |
+deces-ui          | deploy-remote            | deploy-remote             | push.yml / deploy | lot 8
+deces-ui/tools    | deploy-remote-instance   | deploy-remote-instance    | push.yml / deploy | lot 8
+deces-ui/tools    | deploy-remote-services   | deploy-remote-services    | push.yml / deploy | lot 8
+deces-ui/tools    | deploy-remote-publish    | deploy-remote-publish     | push.yml / deploy | lot 8
+deces-ui/tools    | deploy-delete-old        | deploy-delete-old         | push.yml / deploy | lot 8
+deces-dataprep    | remote-all               | cible racine a definir    | full/push* /      | lot 8
+                  |                          |                           | build             |
 ```
