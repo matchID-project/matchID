@@ -243,7 +243,7 @@
   - [x] Tests
     - [x] Prouver en local via `make` chaque job monorepo reconstruit au lot 7
     - [x] Prouver sur GitHub Actions chaque job CD monorepo reconstruit au lot 7
-    - [ ] Prouver sur GitHub Actions chaque job CI monorepo apres retour aux commandes make historiques
+    - [x] Prouver sur GitHub Actions chaque job CI monorepo apres retour aux commandes make historiques
     - [x] Capturer pour chaque preuve GitHub le workflow, le job, le `run id` et le statut final
     - [x] Verifier localement le contenu des artefacts produits par les jobs reconstruits quand un artefact est attendu
     - [x] Valider le build local de l'image `matchid-backend`
