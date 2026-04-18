@@ -274,7 +274,7 @@
     - [ ] Gate: je te presente la picture complete lots 6/7/8 `upstream -> monorepo`, service par service, job par job, avec preuves `make` + GitHub
     - [ ] Gate: je te presente la matrice exhaustive des jobs historiques, leur sort cible et les preuves `make` + GitHub associees
     - [ ] Gate: je te presente les artefacts produits, leur versionnage, les jobs CD reconstruits et les preuves de publication/restauration
-    - [ ] Gate: tu valides que les artefacts de reference sont suffisants pour ouvrir le lot 8
+    - [x] Gate: tu valides en UAT, apres `make clean elasticsearch-restore dev`, que les artefacts de reference sont suffisants pour ouvrir le lot 8
 
 - [ ] Lot 8 - Preprod `dev-deces.matchid.io` operationnelle
   - [ ] Exec

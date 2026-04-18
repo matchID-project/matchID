@@ -154,6 +154,14 @@ job              | Publish dataprep snapshot
 statut           | pass
 ```
 
+Preuve UAT lot 7:
+
+```text
+Commande utilisateur                 | Statut | Portee
+-------------------------------------+--------+-------------------------------
+make clean elasticsearch-restore dev | valide | restore snapshot + dev local
+```
+
 ## Make runtime et dev
 
 ```text
