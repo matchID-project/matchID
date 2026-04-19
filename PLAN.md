@@ -290,6 +290,7 @@
     - [x] Reconstruire le job de deploiement preprod `deploy-remote` depuis le monorepo
     - [x] Valider les prerequis et variables du flux `deploy-remote` pour la preprod
     - [x] Garantir que le test public `deploy-remote-publish` cible `dev-deces.matchid.io` en preprod et non `deces.matchid.io`
+    - [x] Ajouter un declenchement manuel CD pre-merge qui garde `GIT_BRANCH=dev` et ne change que la branche clonee distante
     - [ ] Provisionner l'infra de preprod depuis le monorepo
     - [ ] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Rendre disponible en preprod l'image `backend` necessaire a l'execution du dataprep

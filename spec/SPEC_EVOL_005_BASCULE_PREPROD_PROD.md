@@ -341,6 +341,12 @@ Observabilite         | deploy-preprod          | deploy-monitor          | incl
 Regles CD:
 
 - aucun deploy preprod ne doit tourner sur `pull_request` ou branche feature;
+- le declenchement manuel `workflow_dispatch` est autorise pour valider le CD
+  avant merge, mais il doit garder `git_branch=dev`, `APP_DNS=deces.matchid.io`
+  et `REPOSITORY_BUCKET=fichier-des-personnes-decedees-elasticsearch-dev`;
+- dans ce mode pre-merge, `remote_deploy_branch` peut pointer vers la branche PR
+  pour cloner le code a valider sur l'instance; apres merge, cette valeur
+  redevient `dev` comme `git_branch`;
 - le job `deploy-preprod` doit etre dans `cd.yml`, apres les jobs de publication
   d'artefacts, pas dans `ci.yml`;
 - le job `deploy-preprod` ne doit pas reconstruire les images applicatives: il
@@ -356,12 +362,16 @@ Regles CD:
 Implementation initiale:
 
 - `cd.yml` porte le job `deploy-preprod`, declenche uniquement sur `push` vers
-  `dev` et conditionne aux changements d'artefacts detectes par `changes`;
+  `dev` ou manuellement via `workflow_dispatch`, et conditionne aux changements
+  d'artefacts detectes par `changes` sauf en validation manuelle pre-merge;
 - `deploy-preprod` appelle seulement `make deploy-remote` et injecte les secrets
   via l'environnement GitHub Actions, apres `make deploy-remote-preflight`;
 - le Makefile racine passe `REMOTE_TOOLS_*` et `REMOTE_APP_*` a `packages/tools`
   pour cloner `matchID-project/matchID` et executer `make` a la racine du
   monorepo distant;
+- `REMOTE_DEPLOY_BRANCH` vaut `GIT_BRANCH` par defaut; il permet uniquement au
+  `workflow_dispatch` pre-merge de cloner `feat/refacto-make` tout en deployant
+  la cible `dev`;
 - `packages/tools` garde le comportement historique par defaut: sans override,
   il continue a cloner `${GIT_ROOT}/${TOOLS}` et `${GIT_ROOT}/${APP}`;
 - la cible racine `config-minimal` est restauree comme prerequis minimal local
