@@ -287,7 +287,7 @@
     - [x] Definir l'environnement cible de `dev-deces.matchid.io`
     - [x] Definir la configuration preprod hors git necessaire au monorepo
     - [x] Definir explicitement le workflow CD de deploiement preprod depuis le monorepo
-    - [ ] Reconstruire le job de deploiement preprod `deploy-remote` depuis le monorepo
+    - [x] Reconstruire le job de deploiement preprod `deploy-remote` depuis le monorepo
     - [ ] Valider les prerequis et variables du flux `deploy-remote` pour la preprod
     - [ ] Provisionner l'infra de preprod depuis le monorepo
     - [ ] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
