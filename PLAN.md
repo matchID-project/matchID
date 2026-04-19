@@ -206,7 +206,7 @@
     - [x] Gate: je te presente le pipeline cible, sa couverture et les preuves de passage au vert
     - [x] Gate: tu valides que la CI monorepo est suffisante pour ouvrir le lot 7
 
-- [ ] Lot 7 - Artefacts de reference produits et publies
+- [x] Lot 7 - Artefacts de reference produits et publies
   - [x] Exec
     - [x] Definir la convention de versionnage monorepo des artefacts
     - [x] Definir les artefacts versionnes par package
