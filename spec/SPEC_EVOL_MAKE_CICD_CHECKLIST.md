@@ -304,11 +304,14 @@ deces-infra       | elasticsearch-restore   | elasticsearch-restore      | donne
 ```text
 Repo source       | Make source              | Make monorepo             | Job source        | Statut
 ------------------+--------------------------+---------------------------+-------------------+-------------
-tools             | remote-config-test       | packages/tools remote-    | actions.yml /     | lot 8
-                  |                          | config-test               | remote            |
-deces-ui          | deploy-remote            | deploy-remote             | push.yml / deploy | lot 8
-deces-ui/tools    | deploy-remote-instance   | deploy-remote-instance    | push.yml / deploy | lot 8
-deces-ui/tools    | deploy-remote-services   | deploy-remote-services    | push.yml / deploy | lot 8
+tools             | remote-config-test       | packages/tools remote-    | actions.yml /     | cible remote
+                  |                          | config-test + REMOTE_*    | remote            | parametree
+deces-ui          | deploy-remote            | cd.yml / deploy-preprod   | push.yml / deploy | job cree;
+                  |                          | -> make deploy-remote     |                   | preuve GH a venir
+deces-ui/tools    | deploy-remote-instance   | deploy-remote-instance    | push.yml / deploy | route monorepo
+                  |                          | REMOTE_TOOLS_*/APP_*      |                   | par make -qp
+deces-ui/tools    | deploy-remote-services   | deploy-remote-services    | push.yml / deploy | route monorepo
+                  |                          | REMOTE_TOOLS_*/APP_*      |                   | par make -qp
 deces-ui/tools    | deploy-remote-publish    | deploy-remote-publish     | push.yml / deploy | lot 8
 deces-ui/tools    | deploy-delete-old        | deploy-delete-old         | push.yml / deploy | lot 8
 deces-dataprep    | remote-all               | cible racine a definir    | full/push* /      | lot 8

@@ -179,3 +179,64 @@ jobs:
             /tmp/dataprep-snapshot-metadata.txt
             /tmp/dataprep-snapshot.count
             /tmp/dataprep-snapshot.sample.json
+
+  deploy-preprod:
+    name: Deploy preprod
+    needs:
+      - changes
+      - dataprep-backend
+      - dataprep-frontend
+      - deces-backend
+      - deces-ui
+      - dataprep-snapshot
+    if: >-
+      ${{
+        always() &&
+        github.ref == 'refs/heads/dev' &&
+        !cancelled() &&
+        !failure() &&
+        (
+          needs.changes.outputs.dataprep_backend == 'true' ||
+          needs.changes.outputs.dataprep_frontend == 'true' ||
+          needs.changes.outputs.deces_backend == 'true' ||
+          needs.changes.outputs.deces_ui == 'true' ||
+          needs.changes.outputs.dataprep_snapshot == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: preprod
+    permissions:
+      contents: read
+    env:
+      APP_DNS: deces.matchid.io
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+      FILES_TO_PROCESS: deces-2020.txt.gz
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy dev-deces.matchid.io
+        run: >
+          make deploy-remote
+          GIT_BRANCH=${GITHUB_REF_NAME}
+          APP_DNS=${APP_DNS}
+          REPOSITORY_BUCKET=${REPOSITORY_BUCKET}
+          FILES_TO_PROCESS=${FILES_TO_PROCESS}
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER }}
+          CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
+          CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+          MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}

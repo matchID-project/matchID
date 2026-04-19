@@ -352,6 +352,22 @@ Regles CD:
 - le premier run attendu de preuve lot 8 est un run GitHub `CD` sur `push` vers
   `dev`, suivi d'une preuve runtime sur `https://dev-deces.matchid.io`.
 
+Implementation initiale:
+
+- `cd.yml` porte le job `deploy-preprod`, declenche uniquement sur `push` vers
+  `dev` et conditionne aux changements d'artefacts detectes par `changes`;
+- `deploy-preprod` appelle seulement `make deploy-remote` et injecte les secrets
+  via l'environnement GitHub Actions;
+- le Makefile racine passe `REMOTE_TOOLS_*` et `REMOTE_APP_*` a `packages/tools`
+  pour cloner `matchID-project/matchID` et executer `make` a la racine du
+  monorepo distant;
+- `packages/tools` garde le comportement historique par defaut: sans override,
+  il continue a cloner `${GIT_ROOT}/${TOOLS}` et `${GIT_ROOT}/${APP}`;
+- la cible racine `config-minimal` est restauree comme prerequis minimal local
+  du flux `deploy-remote`;
+- preuve actuelle: parsing statique `make -qp` et presence du job CD; preuve
+  restante: run GitHub `CD` et execution preprod reelle.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel

@@ -29,6 +29,15 @@ GIT_ROOT=https://github.com/matchid-project
 GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell [ -f "/usr/bin/git" ] && git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 GIT_BRANCH_MASTER=master
 GIT_BRANCH_TAG := $(shell echo ${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
+REMOTE_TOOLS_REPOSITORY ?= ${TOOLS}
+REMOTE_TOOLS_BRANCH ?=
+REMOTE_TOOLS_PATH ?= ${APP_GROUP}/${REMOTE_TOOLS_REPOSITORY}
+REMOTE_TOOLS_MAKE_PATH ?= ${REMOTE_TOOLS_PATH}
+REMOTE_APP_REPOSITORY ?= ${APP}
+REMOTE_APP_BRANCH ?= ${GIT_BRANCH}
+REMOTE_APP_PATH ?= ${APP_GROUP}/${REMOTE_APP_REPOSITORY}
+REMOTE_APP_MAKE_PATH ?= ${REMOTE_APP_PATH}
+REMOTE_CONFIG_TARGET ?= config
 
 export DOCKER_USERNAME=$(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_DIR=${APP_PATH}
@@ -1083,9 +1092,13 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 			fi;\
 			ssh ${SSHOPTS} $$U@$$H mkdir -p ${APP_GROUP};\
 			ssh ${SSHOPTS} $$U@$$H sudo apt-get install -yq make;\
-			ssh ${SSHOPTS} $$U@$$H git clone -q ${GIT_ROOT}/${TOOLS} ${APP_GROUP}/${TOOLS};\
-			ssh ${SSHOPTS} $$U@$$H make -C ${APP_GROUP}/${TOOLS} config-init http_proxy=${remote_http_proxy} https_proxy=${remote_https_proxy};\
-			ssh ${SSHOPTS} $$U@$$H make -C ${APP_GROUP}/${TOOLS} config-next STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};\
+			REMOTE_TOOLS_BRANCH_OPT="";\
+			if [ -n "${REMOTE_TOOLS_BRANCH}" ];then\
+				REMOTE_TOOLS_BRANCH_OPT="--branch ${REMOTE_TOOLS_BRANCH}";\
+			fi;\
+			ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_TOOLS_BRANCH_OPT ${GIT_ROOT}/${REMOTE_TOOLS_REPOSITORY} ${REMOTE_TOOLS_PATH};\
+			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-init http_proxy=${remote_http_proxy} https_proxy=${remote_https_proxy};\
+			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-next STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};\
 			touch ${CONFIG_REMOTE_FILE};\
 			touch ${CONFIG_TOOLS_FILE};\
 		fi
@@ -1126,8 +1139,14 @@ ${CONFIG_APP_FILE}: ${CONFIG_REMOTE_FILE}
 			H=$$(cat ${CLOUD_HOST_FILE});\
 			U=$$(cat ${CLOUD_USER_FILE});\
 			if [ "${APP}" != "${CLOUD_CLI}" ];then\
-				ssh ${SSHOPTS} $$U@$$H git clone -q --branch ${GIT_BRANCH} ${GIT_ROOT}/${APP} ${APP_GROUP}/${APP};\
-				ssh ${SSHOPTS} $$U@$$H make -C ${APP_GROUP}/${APP} config;\
+				REMOTE_APP_BRANCH_OPT="";\
+				if [ -n "${REMOTE_APP_BRANCH}" ];then\
+					REMOTE_APP_BRANCH_OPT="--branch ${REMOTE_APP_BRANCH}";\
+				fi;\
+				if ! ssh ${SSHOPTS} $$U@$$H test -d ${REMOTE_APP_PATH}/.git;then\
+					ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_APP_BRANCH_OPT ${GIT_ROOT}/${REMOTE_APP_REPOSITORY} ${REMOTE_APP_PATH};\
+				fi;\
+				ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_APP_MAKE_PATH} ${REMOTE_CONFIG_TARGET};\
 			fi;\
 			touch ${CONFIG_APP_FILE};\
 		fi
@@ -1138,9 +1157,9 @@ remote-actions: remote-deploy
 		U=$$(cat ${CLOUD_USER_FILE});\
 		if [ "${ACTIONS}" != "" ];then\
 			if [ "${APP}" != "${CLOUD_CLI}" ];then\
-				MAKE_APP_PATH=${APP_GROUP}/${APP};\
+				MAKE_APP_PATH=${REMOTE_APP_MAKE_PATH};\
 			else\
-				MAKE_APP_PATH=${APP_GROUP}/${TOOLS};\
+				MAKE_APP_PATH=${REMOTE_TOOLS_MAKE_PATH};\
 			fi;\
 			ssh ${SSHOPTS} $$U@$$H make -C $$MAKE_APP_PATH ${ACTIONS} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} ${MAKEOVERRIDES};\
 		fi
