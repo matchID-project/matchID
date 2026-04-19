@@ -314,6 +314,44 @@ Regles:
 - la configuration distante du code est une decision fonctionnelle du lot 8:
   garder le clone historique `deces-ui` invaliderait la bascule monorepo.
 
+#### Workflow CD preprod cible
+
+```text
+Etape CD              | Job cible monorepo      | Commande make cible     | Contrat
+----------------------+-------------------------+-------------------------+--------------------------
+Declencheur           | cd.yml                  | n/a                     | uniquement `push` sur
+                      |                         |                         | branche `dev`
+Detection             | changes                 | n/a                     | conserve les filtres
+                      |                         |                         | d'artefacts lot 7
+Images dataprep       | dataprep-backend,       | artifact-build-*        | publie seulement si les
+                      | dataprep-frontend       | artifact-publish-*      | chemins changent
+Images applicatives   | deces-backend, deces-ui | artifact-build-*        | publie avant deploy
+                      |                         | artifact-publish-*      | preprod
+Snapshot ES           | dataprep-snapshot       | artifact-produce-       | bucket dev/non-prod
+                      |                         | dataprep-snapshot       | obligatoire
+Deploy preprod        | deploy-preprod          | deploy-remote           | consomme les artefacts
+                      |                         | GIT_BRANCH=dev          | monorepo publies
+Validation immediate  | deploy-preprod          | remote-test-api via     | incluse dans
+                      |                         | deploy-remote-publish   | deploy-remote
+Observabilite         | deploy-preprod          | deploy-monitor          | incluse, ou ecart
+                      |                         |                         | documente avant UAT
+```
+
+Regles CD:
+
+- aucun deploy preprod ne doit tourner sur `pull_request` ou branche feature;
+- le job `deploy-preprod` doit etre dans `cd.yml`, apres les jobs de publication
+  d'artefacts, pas dans `ci.yml`;
+- le job `deploy-preprod` ne doit pas reconstruire les images applicatives: il
+  doit consommer les images et le snapshot publies par les jobs CD precedents;
+- si un job de publication est skippe par path filter, `deploy-preprod` peut
+  consommer le dernier artefact publie pour le tag/branche cible, mais ce choix
+  doit etre visible dans les logs;
+- le job reste bloque tant que `deploy-remote` clone encore les anciens repos au
+  lieu du monorepo;
+- le premier run attendu de preuve lot 8 est un run GitHub `CD` sur `push` vers
+  `dev`, suivi d'une preuve runtime sur `https://dev-deces.matchid.io`.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel
