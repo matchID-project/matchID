@@ -119,7 +119,7 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o "StrictHostKeyChecking no" -i ${SSHKEY} ${CLOUD_SSHOPTS}
+SSHOPTS=-o "StrictHostKeyChecking no" -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
@@ -393,7 +393,7 @@ cloud-dir-delete:
 
 ${CLOUD_FIRST_USER_FILE}: ${CLOUD_DIR}
 	@if [ "${CLOUD}" == "SCW" ];then\
-		echo "root" > ${CLOUD_FIRST_USER_FILE};\
+		echo ${SCW_SSHUSER} > ${CLOUD_FIRST_USER_FILE};\
 	elif [ "${CLOUD}" == "OS" ];then\
 		echo ${OS_SSHUSER} > ${CLOUD_FIRST_USER_FILE};\
 	elif [ "${CLOUD}" == "EC2" ];then\
