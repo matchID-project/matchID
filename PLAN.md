@@ -207,7 +207,7 @@
     - [x] Gate: tu valides que la CI monorepo est suffisante pour ouvrir le lot 7
 
 - [ ] Lot 7 - Artefacts de reference produits et publies
-  - [ ] Exec
+  - [x] Exec
     - [x] Definir la convention de versionnage monorepo des artefacts
     - [x] Definir les artefacts versionnes par package
     - [x] Definir la convention de calcul et d'exposition de `DATAPREP_VERSION` et `DATA_VERSION` pour le deploiement
