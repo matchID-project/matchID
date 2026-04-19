@@ -13,12 +13,106 @@ Règles:
 - les publications d'images et de snapshots sont dans `cd.yml`, pas dans `ci.yml`;
 - `deploy-remote`, SCW et `dev-deces.matchid.io` restent lot 8.
 
+## UAT lot 7 - Presentation
+
+Cette section est le support des trois gates UAT encore ouvertes dans `PLAN.md`.
+Elle ne les ferme pas: elles seront cochees apres validation utilisateur.
+
+Preuves retenues:
+
+```text
+Preuve       | Run / origine      | Event | SHA     | Couverture                         | Statut
+-------------+--------------------+-------+---------+------------------------------------+--------
+CI monorepo  | GitHub 24616234550 | PR    | 9d2b0b6 | path filter + 6 jobs CI            | pass
+CD artefacts | GitHub 24586029288 | push  | 24aad95 | 4 images + snapshot dataprep       | pass
+Restore dev  | UAT utilisateur    | make  | n/a     | make clean elasticsearch-restore   | valide
+             |                    |       |         | dev                                |
+```
+
+Picture cible lots 6/7/8:
+
+```text
+Composant         | Lot  | Upstream                         | Monorepo                         | Preuve / statut
+------------------+------+----------------------------------+----------------------------------+------------------
+tools             | 6    | actions.yml / swift             | ci.yml / build docker swift      | CI 24616234550
+                  |      |                                  |                                  | job 71978790565
+tools             | 8    | actions.yml / remote            | remote-config-test               | a prouver lot 8
+------------------+------+----------------------------------+----------------------------------+------------------
+dataprep-backend  | 6    | pull.yml / pull request test    | ci.yml / dataprep-backend        | CI 24616234550
+                  |      |                                  | pull request test                | job 71978790566
+dataprep-backend  | 7    | push.yml / build image          | cd.yml / Publish matchid-        | CD 24586029288
+                  |      |                                  | backend image                    | job 71895732114
+dataprep-backend  | 8    | deploy.yml / deploy             | deploy-remote preprod            | a prouver lot 8
+------------------+------+----------------------------------+----------------------------------+------------------
+dataprep-frontend | 6    | pull.yml / pull request test    | ci.yml / dataprep-frontend       | CI 24616234550
+                  |      |                                  | pull request test                | job 71978790569
+dataprep-frontend | 7    | push.yml / build image          | cd.yml / Publish matchid-        | CD 24586029288
+                  |      |                                  | frontend image                   | job 71895732047
+------------------+------+----------------------------------+----------------------------------+------------------
+deces-backend     | 6    | dockerimage.yml / build image   | ci.yml / deces-backend build     | CI 24616234550
+                  |      |                                  | docker image                     | job 71978790567
+deces-backend     | 6    | dockerimage.yml / runtime tests | ci.yml / deces-ui pull request   | CI 24616234550
+                  |      |                                  | test                             | job 71978790570
+deces-backend     | 7    | dockerimage.yml / publish image | cd.yml / Publish deces-backend   | CD 24586029288
+                  |      |                                  | image                            | job 71895732033
+deces-backend     | hors | dockerimage.yml / bulk perf     | pas artefact de reference        | hors contrat lot 7
+------------------+------+----------------------------------+----------------------------------+------------------
+deces-ui          | 6    | pr.yml / Pull request test      | ci.yml / deces-ui pull request   | CI 24616234550
+                  |      |                                  | test                             | job 71978790570
+deces-ui          | 7    | push.yml / build image          | cd.yml / Publish deces-ui image  | CD 24586029288
+                  |      |                                  |                                  | job 71895732121
+deces-ui          | 8    | push.yml / deploy               | deploy-remote preprod            | a prouver lot 8
+deces-ui          | 8    | logs-full.yml / logs-update.yml | stats / observabilite            | a cadrer lot 8
+------------------+------+----------------------------------+----------------------------------+------------------
+deces-dataprep    | 6    | pr.yml / locally                | ci.yml / deces-dataprep locally  | CI 24616234550
+                  |      |                                  |                                  | job 71978790560
+deces-dataprep    | 7    | small/year/full/push* datasets  | cd.yml / Publish dataprep        | CD 24586029288
+                  |      | remote build                    | snapshot                         | job 71895732072
+deces-dataprep    | 8    | remote large datasets           | remote dataprep cible            | a prouver lot 8
+------------------+------+----------------------------------+----------------------------------+------------------
+deces-infra       | 7    | infra dispersee                 | snapshot publish/restore         | CD + UAT restore
+deces-infra       | 8    | deploy-remote infra             | preprod dev-deces.matchid.io     | a prouver lot 8
+```
+
+Artefacts publies par le run CD retenu:
+
+```text
+Artefact          | Tag / version publiee       | Make monorepo                    | Preuve
+------------------+-----------------------------+----------------------------------+------------------
+matchid-backend   | 24aad95-e4d91b              | artifact-build-dataprep-backend | CD 24586029288
+                  | digest sha256:ef5acdc5...   | artifact-publish-dataprep-      | job 71895732114
+                  |                             | backend                          |
+matchid-frontend  | 24aad95-2d96b8              | artifact-build-dataprep-        | CD 24586029288
+                  | digest sha256:93e7ae0c...   | frontend                         | job 71895732047
+                  |                             | artifact-publish-dataprep-      |
+                  |                             | frontend                         |
+deces-backend     | 24aad95                     | artifact-build-deces-backend    | CD 24586029288
+                  | digest sha256:cef2e810...   | artifact-publish-deces-backend  | job 71895732033
+deces-ui          | 24aad95                     | artifact-build-deces-ui         | CD 24586029288
+                  | digest sha256:800e61c6...   | artifact-publish-deces-ui       | job 71895732121
+dataprep snapshot | esdata_6df42346_d2d7ee21    | artifact-produce-dataprep-      | CD 24586029288
+                  | count 679573                | snapshot                         | job 71895732072
+                  |                             | artifact-publish-dataprep-      | UAT restore
+                  |                             | snapshot                         | valide
+```
+
+Decision UAT lot 7:
+
+```text
+Gate PLAN.md       | Ce qui est presente                         | Etat attendu
+-------------------+---------------------------------------------+-----------------------
+picture 6/7/8      | table lots 6/7/8 source -> monorepo          | validation utilisateur
+matrice jobs       | table job source -> job cible -> preuve      | validation utilisateur
+artefacts          | table artefacts publies + snapshot restore  | validation utilisateur
+restore dev        | make clean elasticsearch-restore dev        | deja valide
+```
+
 ## CI - Parité job par job
 
-Preuve de resolution: le run PR GitHub `24616124635` prouve le pipeline CI
-monorepo vert sur `ac511a35`. Le run `24606521819` avait déjà prouvé le retour
+Preuve CI retenue: le run PR GitHub `24616234550` prouve le pipeline CI
+monorepo vert sur `9d2b0b6`. Le run `24606521819` avait deja prouvé le retour
 au vert de `deces-ui pull request test`, incluant `Appariement Wikidata`; le run
-`24616124635` confirme cette preuve après documentation de la correction.
+`24616234550` confirme cette preuve apres documentation de la correction.
 
 Preuve spécifique `Appariement Wikidata`:
 
@@ -26,7 +120,7 @@ Preuve spécifique `Appariement Wikidata`:
 Reference | Run id      | Job id      | SHA      | Statut
 ----------+-------------+-------------+----------+-------------------------------
 upstream  | 21919067766 | 63294061207 | 08e33bb  | pass, "Costes" trouve
-monorepo  | 24616124635 | 71978514366 | ac511a3  | pass, "Costes" trouve
+monorepo  | 24616234550 | 71978790570 | 9d2b0b6  | pass, "Costes" trouve
 ```
 
 Corrections de parité associées:
@@ -42,25 +136,25 @@ Commit   | Portee        | Correction
 Repo source       | Type | Source                       | Monorepo                             | Statut
 ------------------+------+------------------------------+--------------------------------------+------------------
 tools             | make | docker-check CLOUD_CLI=swift | make -C packages/tools config       | job vert GH
-                  |      | || docker-build CLOUD_CLI=   | make -C packages/tools docker-check | 24616124635
+                  |      | || docker-build CLOUD_CLI=   | make -C packages/tools docker-check | 24616234550
                   |      | swift                        |   CLOUD_CLI=swift                   |
                   |      |                              | || make -C packages/tools           |
                   |      |                              |   docker-build CLOUD_CLI=swift      |
                   | ci   | actions.yml / build docker   | ci.yml / build docker swift         | job vert GH
-                  |      | swift                        |                                      | 24616124635
+                  |      | swift                        |                                      | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
 dataprep-backend  | make | version backend-docker-check | make -C packages/deces-dataprep     | job vert GH
-                  |      | || backend-build backend     |   config                            | 24616124635
+                  |      | || backend-build backend     |   config                            | 24616234550
                   |      | backend-stop                 | make -C packages/dataprep-backend   |
                   |      |                              |   version backend-docker-check      |
                   |      |                              | || make -C packages/dataprep-       |
                   |      |                              |   backend backend-build backend     |
                   |      |                              |   backend-stop                      |
                   | ci   | pull.yml / pull request test | ci.yml / dataprep-backend           | job vert GH
-                  |      |                              |   pull request test                 | 24616124635
+                  |      |                              |   pull request test                 | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
 dataprep-frontend | make | version-files; version       | make -C packages/deces-dataprep     | job vert GH
-                  |      | frontend-docker-check        |   config frontend-config            | 24616124635
+                  |      | frontend-docker-check        |   config frontend-config            | 24616234550
                   |      | || build backend-docker-     | make -C packages/dataprep-frontend  |
                   |      | check up                     |   version-files                     |
                   |      |                              | make -C packages/dataprep-frontend  |
@@ -71,26 +165,26 @@ dataprep-frontend | make | version-files; version       | make -C packages/deces
                   |      |                              |   frontend build backend-docker-    |
                   |      |                              |   check up                          |
                   | ci   | pull.yml / pull request test | ci.yml / dataprep-frontend          | job vert GH
-                  |      |                              |   pull request test                 | 24616124635
+                  |      |                              |   pull request test                 | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-backend     | make | backend-build-image          | make artifact-build-deces-backend   | job vert GH
                   | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | job vert GH
-                  |      |                              |   docker image                      | 24616124635
+                  |      |                              |   docker image                      | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-ui          | make | version config               | make version config                 | job vert GH
-                  |      | docker-check || build        | make frontend-docker-check          | 24616124635
+                  |      | docker-check || build        | make frontend-docker-check          | 24616234550
                   |      | deploy-local backend-test    | || make artifact-build-deces-ui     | Appariement
                   |      | frontend-test                | make artifact-build-deces-backend   | Wikidata inclus
                   |      |                              | make deploy-local backend-test      |
                   |      |                              |   frontend-test                     |
                   | ci   | pr.yml / Pull request test   | ci.yml / deces-ui pull request test | job vert GH
-                  |      |                              |                                      | 24616124635
+                  |      |                              |                                      | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-dataprep    | make | all FILES_TO_PROCESS=deces- | make -C packages/deces-dataprep all | job vert GH
-                  |      | 2020-m01.txt.gz ES_MEM=     |   FILES_TO_PROCESS=deces-2020-      | 24616124635
+                  |      | 2020-m01.txt.gz ES_MEM=     |   FILES_TO_PROCESS=deces-2020-      | 24616234550
                   |      | 4000m                        |   m01.txt.gz ES_MEM=1024m           |
                   | ci   | pr.yml / locally             | ci.yml / deces-dataprep locally     | job vert GH
-                  |      |                              |                                      | 24616124635
+                  |      |                              |                                      | 24616234550
 ```
 
 Notes de parité:
@@ -168,6 +262,9 @@ Champ            | Valeur
 run id           | 24586029288
 bucket non-prod  | fichier-des-personnes-decedees-elasticsearch-dev
 files_to_process | deces-2020.txt.gz
+snapshot_name    | esdata_6df42346_d2d7ee21
+count            | 679573
+artifact id      | 6504778931
 job              | Publish dataprep snapshot
 statut           | pass
 ```
@@ -190,14 +287,14 @@ root monorepo     | n/a                     | dev-stop                   | arret
 root monorepo     | n/a                     | docker-check               | deploy-local       | restaure
 deces-ui          | frontend-test           | frontend-test              | tests UI via make  | pass lot 5
 deces-ui          | deploy-local            | deploy-local               | CI PR + preprod    | pass GH
-                  |                         |                            |                    | 24616124635
+                  |                         |                            |                    | 24616234550
 deces-backend     | backend-test            | backend-test               | tests backend CI   | pass via
                   |                         |                            |                    | deces-ui CI
-                  |                         |                            |                    | 24616124635
+                  |                         |                            |                    | 24616234550
 deces-dataprep    | recipe-run; watch-run   | dataprep-run               | indexation via     | pass lot 5
                   |                         |                            | backend monorepo   |
 deces-dataprep    | all                     | packages/deces-dataprep    | CI PR petit        | job vert GH
-                  |                         | all                        | dataset            | 24616124635
+                  |                         | all                        | dataset            | 24616234550
 deces-infra       | elasticsearch-restore   | elasticsearch-restore      | donnees dev depuis | pass lot 5
                   |                         |                            | snapshot           |
 ```
