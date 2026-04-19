@@ -278,7 +278,7 @@
 
 - [ ] Lot 8 - Preprod `dev-deces.matchid.io` operationnelle
   - [ ] Exec
-    - [ ] Inventorier les images Docker encore pilotees par les anciens repos
+    - [x] Inventorier les images Docker encore pilotees par les anciens repos
     - [ ] Inventorier les buckets et snapshots encore pilotes par les anciens repos
     - [ ] Inventorier les volumes encore pilotes par les anciens repos
     - [ ] Inventorier DNS, certificats, monitoring et jobs de refresh encore pilotes par les anciens repos
