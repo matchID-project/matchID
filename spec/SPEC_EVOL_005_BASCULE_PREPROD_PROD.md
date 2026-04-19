@@ -86,6 +86,46 @@ Conclusion d'inventaire image:
 - les images externes runtime sont des dependances a verifier, pas des artefacts
   a republier par le monorepo.
 
+#### Inventaire initial des buckets et snapshots
+
+```text
+Bucket / snapshot       | Usage historique          | Controle monorepo       | Statut lot 8
+------------------------+---------------------------+-------------------------+--------------------------
+fichier-des-personnes-  | miroir Data.gouv utilise  | tools + deces-dataprep | conserver; verifier
+decedees                | par dataprep/backend      | data-version/s3-pull    | acces preprod
+fichier-des-personnes-  | repository ES prod par    | deces-infra repository  | cible prod; ne pas
+decedees-elasticsearch  | defaut                    | config/restore          | toucher en preprod
+fichier-des-personnes-  | repository ES non-prod    | cd.yml snapshot +       | cible preprod/dev;
+decedees-elasticsearch- | pour CI, UAT et dev       | elasticsearch-restore   | prouve lot 7
+dev                     |                           |                         |
+esdata_${DATAPREP_      | snapshot de reference     | artifact-produce/       | contrat deploy-remote;
+VERSION}_${DATA_VERSION}| dataprep                  | publish/restore         | restaurer en preprod
+matchid-backups/deces-  | logs UI historiques       | logs-restore / stats    | migration observabilite
+ui/log                  | deces-ui                  | cibles racine           | a cadrer lot 8
+matchid-backups/deces-  | base logs/stats           | stats-db-restore /      | migration observabilite
+ui/log-db               | deces-ui                  | stats-db-backup         | a cadrer lot 8
+matchid-backups/deces-  | stats publiques UI        | stats-restore/backup    | migration observabilite
+ui/stats/rpa            |                           |                         | a cadrer lot 8
+matchid-backups/deces-  | preuves backend/UI        | proofs-restore/backup   | verifier besoin preprod
+ui/proofs               |                           |                         | avant deploy
+matchid-dist            | package legacy backend    | artifact legacy package | hors chemin critique;
+                        | dataprep-backend          | si conserve             | a trancher lot 8
+SCW volume snapshots    | update-base-image via     | tools SCW-instance-     | encadrer; pas de commit
+temporaires             | tools                     | snapshot/image          | automatique
+```
+
+Conclusion d'inventaire bucket/snapshot:
+
+- la preprod doit utiliser le bucket non-prod
+  `fichier-des-personnes-decedees-elasticsearch-dev`;
+- le bucket prod `fichier-des-personnes-decedees-elasticsearch` est inventorie
+  mais exclu des validations preprod;
+- le snapshot contractuel est versionne par
+  `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`;
+- les buckets logs/stats/proofs relevent de l'observabilite lot 8, pas du
+  contrat minimal de demarrage applicatif;
+- `matchid-dist` est legacy et doit etre tranche avant substitution complete.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel
