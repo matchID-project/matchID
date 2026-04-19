@@ -57,7 +57,10 @@ elasticsearch-repository-creds: elasticsearch-start
 			"echo ${STORAGE_SECRET_KEY} | bin/elasticsearch-keystore add --stdin --force s3.client.default.secret_key";\
 		docker restart deces-elasticsearch;\
 		timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ;\
-		echo; touch elasticsearch-repository-creds ; exit $$ret;\
+		if [ "$$ret" -eq "0" ]; then\
+			timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET "localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch cluster health $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ;\
+		fi;\
+		echo; if [ "$$ret" -eq "0" ]; then touch elasticsearch-repository-plugin elasticsearch-repository-creds; fi ; exit $$ret;\
 	fi;
 
 elasticsearch-repository-config: elasticsearch-repository-creds
