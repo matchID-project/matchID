@@ -197,6 +197,11 @@ docker-check:
 		|| (echo no previous build found for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} && exit 1);\
 	fi;
 
+docker-login:
+	@if [ -n "${DOCKER_PASSWORD}" ]; then \
+		${MAKE} -C ${TOOLS_PATH} docker-login DOCKER_USERNAME=${DOCKER_USERNAME} ${MAKEOVERRIDES}; \
+	fi
+
 network-stop:
 	docker network rm ${DC_NETWORK}
 
@@ -408,9 +413,15 @@ artifact-restore-dataprep-snapshot:
 	@${MAKE} elasticsearch-restore ${MAKEOVERRIDES}
 
 show-env:
-	env | egrep 'STORAGE|BUCKET'
+	@for var in STORAGE_ACCESS_KEY STORAGE_SECRET_KEY TOOLS_STORAGE_ACCESS_KEY TOOLS_STORAGE_SECRET_KEY LOG_BUCKET LOG_DB_BUCKET STATS_BUCKET PROOFS_BUCKET REPOSITORY_BUCKET MONITOR_BUCKET; do \
+		if [ -n "$${!var}" ]; then \
+			echo "$$var=<set>"; \
+		else \
+			echo "$$var=<unset>"; \
+		fi; \
+	done
 
-deploy-local: config show-env stats-background elasticsearch-restore-async docker-check up local-test-api
+deploy-local: config show-env stats-background elasticsearch-restore-async docker-login docker-check up local-test-api
 
 # smtp:
 # 	@${MAKE} -C ${BACKEND_PATH} smtp DC_NETWORK=${DC_NETWORK}
@@ -505,6 +516,7 @@ deploy-remote-services:
 		TOOLS_STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY}\
 		LOG_BUCKET=${LOG_BUCKET} LOG_DB_BUCKET=${LOG_DB_BUCKET} STATS_BUCKET=${STATS_BUCKET} PROOFS_BUCKET=${PROOFS_BUCKET}\
 		BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
+		DOCKER_PASSWORD=${DOCKER_PASSWORD}\
 		${MAKEOVERRIDES}
 
 deploy-remote-publish:
