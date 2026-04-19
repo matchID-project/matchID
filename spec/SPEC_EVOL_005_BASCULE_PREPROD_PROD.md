@@ -382,6 +382,12 @@ Implementation initiale:
 - `deploy-remote-publish` force le `APP_DNS` calcule (`dev-deces.matchid.io`
   pour `GIT_BRANCH=dev`) apres `MAKEOVERRIDES`, afin d'eviter que la valeur
   racine `deces.matchid.io` ne surcharge le test public preprod;
+- le premier `workflow_dispatch` CD pre-merge a revele un blocage de compilation
+  de l'image `deces-backend` sur `webhook.ts`: le code etait identique a
+  `matchid-project/deces-backend@origin/dev`, mais les types Axios actuels
+  n'autorisent pas `includes` directement sur le header `content-type`; la
+  correction monorepo normalise seulement les valeurs `string` et `string[]`
+  avant le test existant, les autres types restant invalides;
 - preuve actuelle: parsing statique `make -qp` et presence du job CD; preuve
   restante: run GitHub `CD` et execution preprod reelle;
 - preuve de non-regression PR apres debut du lot 8: le run GitHub `CI`
