@@ -270,7 +270,7 @@
     - [x] Produire le tableau paddé complet lots 6/7/8 `service -> job source -> job monorepo -> lot -> preuve -> statut`
     - [x] Mettre a jour `spec/SPEC_EVOL_MAKE_CICD_CHECKLIST.md` avec les run ids GitHub CI verts apres correction
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 7
-  - [ ] UAT
+  - [x] UAT
     - [x] Gate: je te presente la picture complete lots 6/7/8 `upstream -> monorepo`, service par service, job par job, avec preuves `make` + GitHub
     - [x] Gate: je te presente la matrice exhaustive des jobs historiques, leur sort cible et les preuves `make` + GitHub associees
     - [x] Gate: je te presente les artefacts produits, leur versionnage, les jobs CD reconstruits et les preuves de publication/restauration
