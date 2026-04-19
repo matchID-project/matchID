@@ -369,6 +369,9 @@ Implementation initiale:
 - `deploy-remote-preflight` valide les variables bloquantes, la branche `dev`,
   le bucket ES dev et la cle SSH; `MONITOR_BUCKET` reste un warning parce que le
   flux historique ne le configurait pas systematiquement;
+- `deploy-remote-publish` force le `APP_DNS` calcule (`dev-deces.matchid.io`
+  pour `GIT_BRANCH=dev`) apres `MAKEOVERRIDES`, afin d'eviter que la valeur
+  racine `deces.matchid.io` ne surcharge le test public preprod;
 - preuve actuelle: parsing statique `make -qp` et presence du job CD; preuve
   restante: run GitHub `CD` et execution preprod reelle;
 - preuve de non-regression PR apres debut du lot 8: le run GitHub `CI`
