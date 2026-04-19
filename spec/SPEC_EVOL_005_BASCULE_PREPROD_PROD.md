@@ -370,7 +370,9 @@ Implementation initiale:
   le bucket ES dev et la cle SSH; `MONITOR_BUCKET` reste un warning parce que le
   flux historique ne le configurait pas systematiquement;
 - preuve actuelle: parsing statique `make -qp` et presence du job CD; preuve
-  restante: run GitHub `CD` et execution preprod reelle.
+  restante: run GitHub `CD` et execution preprod reelle;
+- preuve de non-regression PR apres debut du lot 8: le run GitHub `CI`
+  `24633751030` est vert sur `2c09453b`.
 
 ### B. Préprod monorepo
 

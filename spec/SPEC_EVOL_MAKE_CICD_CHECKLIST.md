@@ -15,8 +15,8 @@ Règles:
 
 ## UAT lot 7 - Presentation
 
-Cette section est le support des trois gates UAT encore ouvertes dans `PLAN.md`.
-Elle ne les ferme pas: elles seront cochees apres validation utilisateur.
+Cette section trace les preuves presentees pour fermer le lot 7 dans `PLAN.md`
+et ouvrir le lot 8.
 
 Preuves retenues:
 
@@ -25,6 +25,7 @@ Preuve       | Run / origine      | Event | SHA     | Couverture                
 -------------+--------------------+-------+---------+------------------------------------+--------
 CI monorepo  | GitHub 24616234550 | PR    | 9d2b0b6 | path filter + 6 jobs CI            | pass
 CD artefacts | GitHub 24586029288 | push  | 24aad95 | 4 images + snapshot dataprep       | pass
+PR actuelle  | GitHub 24633751030 | PR    | 2c09453 | 6 jobs CI apres debut lot 8        | pass
 Restore dev  | UAT utilisateur    | make  | n/a     | make clean elasticsearch-restore   | valide
              |                    |       |         | dev                                |
 ```
@@ -99,12 +100,12 @@ dataprep snapshot | esdata_6df42346_d2d7ee21    | artifact-produce-dataprep-    
 Decision UAT lot 7:
 
 ```text
-Gate PLAN.md       | Ce qui est presente                         | Etat attendu
+Gate PLAN.md       | Ce qui est presente                         | Etat
 -------------------+---------------------------------------------+-----------------------
-picture 6/7/8      | table lots 6/7/8 source -> monorepo          | validation utilisateur
-matrice jobs       | table job source -> job cible -> preuve      | validation utilisateur
-artefacts          | table artefacts publies + snapshot restore  | validation utilisateur
-restore dev        | make clean elasticsearch-restore dev        | deja valide
+picture 6/7/8      | table lots 6/7/8 source -> monorepo          | valide
+matrice jobs       | table job source -> job cible -> preuve      | valide
+artefacts          | table artefacts publies + snapshot restore  | valide
+restore dev        | make clean elasticsearch-restore dev        | valide
 ```
 
 ## CI - Parité job par job
@@ -112,7 +113,9 @@ restore dev        | make clean elasticsearch-restore dev        | deja valide
 Preuve CI retenue: le run PR GitHub `24616234550` prouve le pipeline CI
 monorepo vert sur `9d2b0b6`. Le run `24606521819` avait deja prouvé le retour
 au vert de `deces-ui pull request test`, incluant `Appariement Wikidata`; le run
-`24616234550` confirme cette preuve apres documentation de la correction.
+`24616234550` confirme cette preuve apres documentation de la correction. Le run
+PR `24633751030` prouve que le meme pipeline reste vert sur le HEAD courant
+`2c09453b` apres les premiers commits du lot 8.
 
 Preuve spécifique `Appariement Wikidata`:
 
