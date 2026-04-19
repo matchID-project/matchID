@@ -57,6 +57,8 @@ export ES_TIMEOUT ?= 120
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
 export DC := docker compose
+export GIT ?= $(shell which git || echo git)
+export ALLOW_MAKE_GIT_COMMIT ?= false
 export GIT_ORIGIN=origin
 export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 export GIT_BRANCH_MASTER = master
@@ -548,7 +550,11 @@ update-base-image: deploy-remote-instance deploy-docker-pull-base
 	cat ${APP_PATH}/Makefile | sed "s/^export SCW_IMAGE_ID=.*/export SCW_IMAGE_ID=$${SCW_IMAGE_ID}" \
 		> ${APP_PATH}/Makefile.tmp && mv ${APP_PATH}/Makefile.tmp ${APP_PATH}/Makefile;\
 	${MAKE} -C ${TOOLS_PATH} remote-clean;\
-	git add Makefile && git commit -m '⬆️  update SCW_IMAGE_ID'
+	if [ "$$ALLOW_MAKE_GIT_COMMIT" = "true" ]; then\
+		${GIT} add Makefile && ${GIT} commit -m 'chore: update SCW_IMAGE_ID';\
+	else\
+		echo "SCW_IMAGE_ID updated in Makefile; review and commit manually";\
+	fi
 
 ${LOG_DIR}:
 	@mkdir -p ${LOG_DIR};

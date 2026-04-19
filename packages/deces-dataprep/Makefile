@@ -14,6 +14,7 @@ export GIT_FRONTEND_BRANCH = dev
 export GIT_TOOLS = tools
 export MAKEBIN = $(shell which make)
 export MAKE = ${MAKEBIN} --no-print-directory -s
+export ALLOW_MAKE_GIT_COMMIT ?= false
 export ES_INDEX=deces
 export ES_HOST ?= deces-elasticsearch
 export ES_NODES=1
@@ -651,4 +652,8 @@ update-base-image: config remote-config remote-deploy remote-docker-pull-base
 	cat ${APP_PATH}/Makefile | sed "s/^export SCW_IMAGE_ID=.*/export SCW_IMAGE_ID=$${SCW_IMAGE_ID}" \
 		> ${APP_PATH}/Makefile.tmp && mv ${APP_PATH}/Makefile.tmp ${APP_PATH}/Makefile;\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-clean;\
-	git add Makefile && git commit -m '⬆️  update SCW_IMAGE_ID'
+	if [ "$$ALLOW_MAKE_GIT_COMMIT" = "true" ]; then\
+		${GIT} add Makefile && ${GIT} commit -m 'chore: update SCW_IMAGE_ID';\
+	else\
+		echo "SCW_IMAGE_ID updated in Makefile; review and commit manually";\
+	fi
