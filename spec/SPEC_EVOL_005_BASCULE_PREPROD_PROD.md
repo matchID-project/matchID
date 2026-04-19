@@ -224,6 +224,47 @@ Decision:
 - `deploy-docker-pull-base` reste une cible de verification/prechauffage, pas
   une publication d'artefact.
 
+#### Environnement cible `dev-deces.matchid.io`
+
+```text
+Element cible          | Valeur / contrat        | Source code actuelle    | Statut lot 8
+-----------------------+-------------------------+-------------------------+--------------------------
+Branche de preprod     | dev                     | GIT_BRANCH              | doit etre la branche CD
+                       |                         |                         | qui declenche le deploy
+DNS public             | dev-deces.matchid.io    | deploy-remote-publish   | derive de dev +
+                       |                         | APP_DNS/GIT_BRANCH      | deces.matchid.io
+DNS racine             | deces.matchid.io        | APP_DNS                 | valeur racine; preprod
+                       |                         |                         | prefixee par branche
+Instance remote        | matchid-deces-ui-dev    | tools CLOUD_HOSTNAME    | derive de APP_GROUP,
+                       |                         |                         | APP=deces-ui, dev
+Code distant attendu   | monorepo matchID        | a reconstruire          | gap: tools clone encore
+                       | branche dev             |                         | GIT_ROOT/APP historique
+Execution distante     | make deploy-local       | deploy-remote-services  | conserver la cible, mais
+                       | dans le checkout cible   | remote-actions          | pointer sur monorepo
+Snapshot ES            | esdata_${DATAPREP_      | deploy-remote-instance  | fourni par contrat
+                       | VERSION}_${DATA_VERSION}| + deploy-local restore  | artefact lot 7
+Bucket snapshot        | fichier-des-personnes-  | REPOSITORY_BUCKET       | valeur preprod dans
+                       | decedees-elasticsearch- |                         | artifacts hors git
+                       | dev                     |                         |
+Jeu preprod minimal    | deces-2020-m[0-1][0-9] | FILES_TO_PROCESS_DEV    | reference non-prod pour
+                       | .txt.gz                 |                         | refresh/snapshot
+Proxy nginx            | NGINX_HOST/NGINX_USER   | deploy-remote-publish   | config hors git; ne pas
+                       |                         | + tools nginx-conf-*    | exposer les valeurs
+Monitoring             | MONITOR_BUCKET +        | deploy-monitor          | a valider apres deploy
+                       | MONITOR_DIR             |                         |
+```
+
+Definition:
+
+- l'UAT lot 8 cible l'URL publique `https://dev-deces.matchid.io`;
+- le deploy preprod doit etre lance depuis la branche `dev` ou avec
+  `GIT_BRANCH=dev`, sinon le DNS publie sera prefixe par une autre branche;
+- le code execute sur l'instance preprod doit venir du monorepo, pas du repo
+  historique `deces-ui`;
+- les secrets, l'hote nginx, les credentials SCW, les buckets de logs et les
+  tokens CDN restent hors spec: la spec documente les noms de variables, pas
+  leurs valeurs.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel
