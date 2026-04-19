@@ -286,7 +286,7 @@
     - [x] Supprimer ou encadrer tout commit automatique encore declenche par une cible `make`
     - [x] Definir l'environnement cible de `dev-deces.matchid.io`
     - [x] Definir la configuration preprod hors git necessaire au monorepo
-    - [ ] Definir explicitement le workflow CD de deploiement preprod depuis le monorepo
+    - [x] Definir explicitement le workflow CD de deploiement preprod depuis le monorepo
     - [ ] Reconstruire le job de deploiement preprod `deploy-remote` depuis le monorepo
     - [ ] Valider les prerequis et variables du flux `deploy-remote` pour la preprod
     - [ ] Provisionner l'infra de preprod depuis le monorepo
