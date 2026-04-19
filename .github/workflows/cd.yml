@@ -257,8 +257,12 @@ jobs:
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
           SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
           SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
