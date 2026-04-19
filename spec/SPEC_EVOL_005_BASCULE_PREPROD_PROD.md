@@ -265,6 +265,55 @@ Definition:
   tokens CDN restent hors spec: la spec documente les noms de variables, pas
   leurs valeurs.
 
+#### Configuration preprod hors git
+
+```text
+Bloc de config         | Variables attendues       | Usage deploy-remote     | Validation lot 8
+-----------------------+---------------------------+-------------------------+--------------------------
+Branche / DNS          | GIT_BRANCH=dev            | nom d'instance, DNS     | afficher sans secret
+                       | APP_DNS=deces.matchid.io  | public, tags cloud      | avant deploy
+Source git distante    | GIT_ROOT, APP ou chemin   | clone du code sur       | doit viser le monorepo,
+                       | monorepo cible            | l'instance              | pas deces-ui historique
+Scaleway compute       | SCW_SECRET_TOKEN,         | creation instance,      | `make ... remote-config`
+                       | SCW_PROJECT_ID,           | snapshot, image, volume | doit lire les variables
+                       | SCW_ORGANIZATION_ID,      |                         |
+                       | SCW_REGION, SCW_IMAGE_ID  |                         |
+Scaleway volume        | SCW_VOLUME_SIZE,          | volume root instance    | coherents avec l'image
+                       | SCW_VOLUME_TYPE           |                         | choisie
+SSH remote             | SSHID, SSHKEY_PRIVATE,    | acces instance et proxy | cle presente sur runner
+                       | SSHOPTS                   |                         | ou poste operateur
+Proxy nginx            | NGINX_HOST, NGINX_USER    | publication upstream    | test proxy avant UAT
+Stockage donnees       | STORAGE_ACCESS_KEY,       | snapshot ES, logs,      | acces bucket dev OK
+                       | STORAGE_SECRET_KEY,       | proofs, stats           |
+                       | TOOLS_STORAGE_ACCESS_KEY, |                         |
+                       | TOOLS_STORAGE_SECRET_KEY  |                         |
+Buckets applicatifs    | REPOSITORY_BUCKET,        | restore ES, logs,       | bucket ES dev obligatoire
+                       | LOG_BUCKET, LOG_DB_BUCKET,| stats, preuves          | pour la preprod
+                       | STATS_BUCKET,             |                         |
+                       | PROOFS_BUCKET             |                         |
+Backend runtime        | BACKEND_TOKEN_KEY,        | execution backend       | API test preprod OK
+                       | BACKEND_TOKEN_PASSWORD    |                         |
+CDN                    | CDN_TOKEN, CDN_ZONE_ID    | purge apres publication | optionnel si non requis
+Monitoring             | NEW_RELIC_INGEST_KEY,     | deploy-monitor          | logs/agent visibles ou
+                       | NEW_RELIC_API_KEY,        |                         | ecart documente
+                       | NEW_RELIC_ACCOUNT_ID,     |                         |
+                       | MONITOR_BUCKET            |                         |
+Tests API              | API_TEST_PATH,            | remote-test-api         | valeurs repo par defaut
+                       | API_TEST_JSON_PATH,       |                         | sauf override motive
+                       | API_TEST_REQUEST          |                         |
+```
+
+Regles:
+
+- ces valeurs doivent etre injectees via `artifacts`, secrets GitHub ou
+  variables d'environnement operateur, jamais recopies dans la spec;
+- le bucket `REPOSITORY_BUCKET` de preprod doit rester le bucket dev/non-prod;
+- `deploy-cdn-purge-cache` et `deploy-monitor` font partie de `deploy-remote`:
+  si un secret manque, le lot 8 doit soit fournir le secret, soit documenter un
+  mode degrade explicite avant l'UAT;
+- la configuration distante du code est une decision fonctionnelle du lot 8:
+  garder le clone historique `deces-ui` invaliderait la bascule monorepo.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel
