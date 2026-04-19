@@ -196,6 +196,34 @@ Conclusion d'inventaire DNS/monitoring/refresh:
 - le refresh Data.gouv distant reste a relier au workflow cible monorepo avant
   d'ouvrir la substitution des anciens repos.
 
+#### Arbitrage initial des cibles d'image SCW
+
+```text
+Cible make             | Source historique        | Decision lot 8          | Raison
+-----------------------+--------------------------+-------------------------+--------------------------
+deploy-docker-pull-    | deces-ui Makefile        | conserver comme prewarm | ne modifie pas git; utile
+base                   |                          | apres instance          | pour verifier pulls
+update-base-image      | Make racine deces-ui     | bloquer hors chemin     | modifie `SCW_IMAGE_ID`
+                       |                          | critique preprod        | et committe aujourd'hui
+SCW-instance-snapshot  | tools Makefile           | autoriser seulement via | cible bas niveau; doit
+                       |                          | wrapper encadre         | rester sans commit git
+SCW-instance-image     | tools Makefile           | autoriser seulement via | cible bas niveau; doit
+                       |                          | wrapper encadre         | rester sans commit git
+packages/deces-        | deces-dataprep           | hors preprod deces-ui   | remote dataprep se prouve
+dataprep update-base-  | Makefile                 | initiale                | apres deploy applicatif
+image                  |                          |                         |
+```
+
+Decision:
+
+- `deploy-remote` preprod utilisera d'abord l'image SCW existante du monorepo;
+- aucune cible `make` ne doit committer automatiquement un changement de
+  `SCW_IMAGE_ID`;
+- les cibles de regeneration d'image SCW seront utilisables seulement apres
+  suppression ou encadrement explicite du commit automatique;
+- `deploy-docker-pull-base` reste une cible de verification/prechauffage, pas
+  une publication d'artefact.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel
