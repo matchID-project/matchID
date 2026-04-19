@@ -284,7 +284,7 @@
     - [x] Inventorier DNS, certificats, monitoring et jobs de refresh encore pilotes par les anciens repos
     - [x] Inventorier et trancher les cibles d'image SCW `update-base-image`, `deploy-docker-pull-base`, `SCW-instance-snapshot` et `SCW-instance-image`
     - [x] Supprimer ou encadrer tout commit automatique encore declenche par une cible `make`
-    - [ ] Definir l'environnement cible de `dev-deces.matchid.io`
+    - [x] Definir l'environnement cible de `dev-deces.matchid.io`
     - [ ] Definir la configuration preprod hors git necessaire au monorepo
     - [ ] Definir explicitement le workflow CD de deploiement preprod depuis le monorepo
     - [ ] Reconstruire le job de deploiement preprod `deploy-remote` depuis le monorepo
