@@ -281,7 +281,7 @@
     - [x] Inventorier les images Docker encore pilotees par les anciens repos
     - [x] Inventorier les buckets et snapshots encore pilotes par les anciens repos
     - [x] Inventorier les volumes encore pilotes par les anciens repos
-    - [ ] Inventorier DNS, certificats, monitoring et jobs de refresh encore pilotes par les anciens repos
+    - [x] Inventorier DNS, certificats, monitoring et jobs de refresh encore pilotes par les anciens repos
     - [ ] Inventorier et trancher les cibles d'image SCW `update-base-image`, `deploy-docker-pull-base`, `SCW-instance-snapshot` et `SCW-instance-image`
     - [ ] Supprimer ou encadrer tout commit automatique encore declenche par une cible `make`
     - [ ] Definir l'environnement cible de `dev-deces.matchid.io`
