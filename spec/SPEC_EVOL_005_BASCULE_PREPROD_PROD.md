@@ -162,6 +162,40 @@ Conclusion d'inventaire volume:
 - les fichiers `tools/cloud/*.id` sont des etats d'execution et ne doivent pas
   devenir des artefacts git.
 
+#### Inventaire initial DNS, certificats, monitoring et refresh
+
+```text
+Actif / job            | Source historique        | Controle monorepo       | Statut lot 8
+-----------------------+--------------------------+-------------------------+--------------------------
+dev-deces.matchid.io   | deces-ui push.yml        | deploy-remote-publish   | cible preprod; derive de
+                       | deploy GIT_BRANCH=dev    | APP_DNS/GIT_BRANCH      | dev + deces.matchid.io
+Nginx upstream         | tools nginx-conf-*       | tools nginx-conf-apply  | a prouver sur proxy
+/etc/nginx/conf.d      | via NGINX_HOST/USER      |                         | existant
+Certificat TLS         | proxy nginx externe      | hors repo               | verifier avant UAT; pas
+                       |                          |                         | de provision repo
+CDN purge              | deces-ui push.yml        | deploy-cdn-purge-cache  | optionnel; depend secrets
+                       | Cloudflare               |                         | CDN_*
+Monitoring New Relic   | deces-ui deploy          | deploy-monitor + tools  | a prouver; verifier
+et Fluent Bit          |                          | remote-install-monitor  | MONITOR_DIR/BUCKET
+Stats full             | deces-ui logs-full.yml   | stats-full + backup     | a reconstruire ou cadrer
+Stats update           | deces-ui logs-update.yml | stats-update + backup   | schedule a reconstruire
+Data update trigger    | deces-ui repository_     | workflow cible lot 8    | a cadrer avec dataprep
+                       | dispatch data-update     |                         |
+Refresh Data.gouv      | deces-dataprep remote    | packages/deces-dataprep | a prouver si remote
+                       | full/year/push-*         | remote-all              | dataprep conserve
+```
+
+Conclusion d'inventaire DNS/monitoring/refresh:
+
+- `dev-deces.matchid.io` est produit par `GIT_BRANCH=dev` et
+  `APP_DNS=deces.matchid.io`;
+- le certificat TLS n'est pas provisionne dans ce repo: la validation lot 8 doit
+  verifier le proxy nginx existant;
+- les jobs `logs-full` et `logs-update` restent hors contrat minimal de deploy
+  mais doivent etre cadres avant substitution complete;
+- le refresh Data.gouv distant reste a relier au workflow cible monorepo avant
+  d'ouvrir la substitution des anciens repos.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel
