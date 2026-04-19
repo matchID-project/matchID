@@ -126,6 +126,42 @@ Conclusion d'inventaire bucket/snapshot:
   contrat minimal de demarrage applicatif;
 - `matchid-dist` est legacy et doit etre tranche avant substitution complete.
 
+#### Inventaire initial des volumes
+
+```text
+Volume / chemin        | Usage historique          | Controle monorepo       | Statut lot 8
+-----------------------+---------------------------+-------------------------+--------------------------
+SCW root volume UI     | deces-ui deploy-remote    | Make racine + tools     | trancher taille/type
+SCW_VOLUME_SIZE/TYPE   | via tools SCW order       | deploy-remote-instance  | avant preprod
+SCW root volume        | deces-dataprep remote     | packages/deces-dataprep | trancher remote dataprep
+dataprep               | large datasets            | remote-config           | avant usage
+data/esdata            | Elasticsearch local       | deces-infra             | restaure depuis snapshot
+                       | deces-backend/dataprep    | elasticsearch-restore   | pour preprod
+data/redisdata         | Redis backend             | deces-infra redis       | etat runtime; non source
+                       |                           |                         | de donnees de reference
+data/proofs            | preuves backend/UI        | deces-backend           | besoin preprod a verifier
+data/jobs              | jobs bulk backend/UI      | deces-backend           | besoin preprod a verifier
+packages/deces-ui/     | stats servies par nginx   | deces-ui stats restore  | observabilite lot 8
+stats/public           |                           |                         |
+dataprep-backend/      | projets dataprep          | packages/dataprep-      | requis si remote dataprep
+projects/upload/models | upload et modeles         | backend                 | est conserve
+dataprep-backend/      | Postgres legacy dataprep  | packages/dataprep-      | hors chemin deces-ui;
+pgdata                 |                           | backend                 | verifier si encore utile
+tools/cloud/*.id       | ids instance/snapshot/    | tools remote-config     | fichiers d'etat; ne pas
+                       | image SCW                 |                         | versionner
+```
+
+Conclusion d'inventaire volume:
+
+- la preprod applicative minimale depend de `data/esdata`, `data/proofs`,
+  `data/jobs`, `data/redisdata` et du volume root SCW;
+- le volume de reference Elasticsearch doit venir du snapshot, pas d'un etat
+  residuel d'instance;
+- les volumes dataprep-backend historiques ne sont requis que si le remote
+  dataprep reste dans le chemin lot 8;
+- les fichiers `tools/cloud/*.id` sont des etats d'execution et ne doivent pas
+  devenir des artefacts git.
+
 ### B. Préprod monorepo
 
 - environnement isofonctionnel
