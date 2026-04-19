@@ -250,6 +250,16 @@ jobs:
       FILES_TO_PROCESS: ${{ github.event.inputs.files_to_process || 'deces-2020.txt.gz' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install deploy SSH key
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy dev-deces.matchid.io
         run: |
           make deploy-remote-preflight GIT_BRANCH=${GIT_BRANCH} REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
