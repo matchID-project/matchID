@@ -74,7 +74,7 @@ export KUBE_DIR=${FRONTEND_PATH}/k8s
 export KUBECONFIG=${HOME}/.kube/config
 
 export PROOFS=${DATA_DIR}/proofs
-export MONITOR_DIR = ${APP_FRONTED}/log/instances/${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH}
+export MONITOR_DIR = ${APP_FRONTEND}/log/instances/${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH}
 
 # backup dir
 export BACKUP_DIR = ${APP_PATH}/backup
@@ -95,17 +95,18 @@ export DATA_VERSION_FILE = ${APP_PATH}/.data.sha1
 export DATA_VERSION_SOURCE ?= storage
 export DATA_VERSION_INPUT_DIR ?=
 export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
-export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz # reference for test env
-export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz # reference for preprod env
+export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz
+export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz
 export ARTIFACT_RECIPE_RUN_MARKER ?= /tmp/matchid-artifact.recipe-run
 export ARTIFACT_S3_PULL_MARKER ?= /tmp/matchid-artifact.s3-pull
 export PLAYWRIGHT_VERSION ?= 1.59.1
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
-export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev # reference for non-prod env
+export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev
 
 export STORAGE_BUCKET=${DATASET}
 export SCW_VOLUME_SIZE=20000000000
 export SCW_VOLUME_TYPE=l_ssd
+export SSHKEY_PRIVATE ?= ${HOME}/.ssh/id_rsa_${APP_GROUP}
 
 #prebuild image with docker and nginx-node-elasticsearch docker images
 export SCW_IMAGE_ID=d48f33cd-127d-4315-be8e-083978c9be63
@@ -542,6 +543,64 @@ deploy-monitor:
 
 deploy-cdn-purge-cache:
 	@${MAKE} -C ${TOOLS_PATH} cdn-cache-purge
+
+DEPLOY_REMOTE_REQUIRED_VARS = \
+	APP_DNS \
+	GIT_BRANCH \
+	REPOSITORY_BUCKET \
+	STORAGE_ACCESS_KEY \
+	STORAGE_SECRET_KEY \
+	TOOLS_STORAGE_ACCESS_KEY \
+	TOOLS_STORAGE_SECRET_KEY \
+	LOG_BUCKET \
+	LOG_DB_BUCKET \
+	STATS_BUCKET \
+	PROOFS_BUCKET \
+	BACKEND_TOKEN_KEY \
+	BACKEND_TOKEN_PASSWORD \
+	SCW_SECRET_TOKEN \
+	SCW_PROJECT_ID \
+	SCW_IMAGE_ID \
+	NGINX_HOST \
+	NGINX_USER \
+	CDN_TOKEN \
+	CDN_ZONE_ID \
+	NEW_RELIC_INGEST_KEY \
+	NEW_RELIC_API_KEY \
+	NEW_RELIC_ACCOUNT_ID
+
+DEPLOY_REMOTE_OPTIONAL_VARS = \
+	MONITOR_BUCKET
+
+export $(DEPLOY_REMOTE_REQUIRED_VARS) $(DEPLOY_REMOTE_OPTIONAL_VARS)
+
+deploy-remote-preflight: config-minimal
+	@missing=0; \
+	for var in ${DEPLOY_REMOTE_REQUIRED_VARS}; do \
+		if [ -z "$${!var}" ]; then \
+			echo "missing $$var"; \
+			missing=1; \
+		fi; \
+	done; \
+	if [ "$$missing" -ne 0 ]; then exit 1; fi; \
+	if [ "${GIT_BRANCH}" != "dev" ]; then \
+		echo "GIT_BRANCH=${GIT_BRANCH} is not the preprod branch dev"; \
+		exit 1; \
+	fi; \
+	if [ "${REPOSITORY_BUCKET}" != "${REPOSITORY_BUCKET_DEV}" ]; then \
+		echo "REPOSITORY_BUCKET=${REPOSITORY_BUCKET} is not preprod bucket ${REPOSITORY_BUCKET_DEV}"; \
+		exit 1; \
+	fi; \
+	if [ ! -f "${SSHKEY_PRIVATE}" ]; then \
+		echo "missing SSH key ${SSHKEY_PRIVATE}"; \
+		exit 1; \
+	fi; \
+	for var in ${DEPLOY_REMOTE_OPTIONAL_VARS}; do \
+		if [ -z "$${!var}" ]; then \
+			echo "warning missing optional $$var"; \
+		fi; \
+	done; \
+	echo "deploy-remote preflight ok for ${GIT_BRANCH}-${APP_DNS}"
 
 deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
 

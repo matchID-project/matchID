@@ -307,7 +307,8 @@ Repo source       | Make source              | Make monorepo             | Job s
 tools             | remote-config-test       | packages/tools remote-    | actions.yml /     | cible remote
                   |                          | config-test + REMOTE_*    | remote            | parametree
 deces-ui          | deploy-remote            | cd.yml / deploy-preprod   | push.yml / deploy | job cree;
-                  |                          | -> make deploy-remote     |                   | preuve GH a venir
+                  |                          | -> preflight +            |                   | preflight local OK,
+                  |                          | deploy-remote             |                   | preuve GH a venir
 deces-ui/tools    | deploy-remote-instance   | deploy-remote-instance    | push.yml / deploy | route monorepo
                   |                          | REMOTE_TOOLS_*/APP_*      |                   | par make -qp
 deces-ui/tools    | deploy-remote-services   | deploy-remote-services    | push.yml / deploy | route monorepo

@@ -276,7 +276,6 @@ Source git distante    | GIT_ROOT, APP ou chemin   | clone du code sur       | d
                        | monorepo cible            | l'instance              | pas deces-ui historique
 Scaleway compute       | SCW_SECRET_TOKEN,         | creation instance,      | `make ... remote-config`
                        | SCW_PROJECT_ID,           | snapshot, image, volume | doit lire les variables
-                       | SCW_ORGANIZATION_ID,      |                         |
                        | SCW_REGION, SCW_IMAGE_ID  |                         |
 Scaleway volume        | SCW_VOLUME_SIZE,          | volume root instance    | coherents avec l'image
                        | SCW_VOLUME_TYPE           |                         | choisie
@@ -296,8 +295,9 @@ Backend runtime        | BACKEND_TOKEN_KEY,        | execution backend       | A
 CDN                    | CDN_TOKEN, CDN_ZONE_ID    | purge apres publication | optionnel si non requis
 Monitoring             | NEW_RELIC_INGEST_KEY,     | deploy-monitor          | logs/agent visibles ou
                        | NEW_RELIC_API_KEY,        |                         | ecart documente
-                       | NEW_RELIC_ACCOUNT_ID,     |                         |
-                       | MONITOR_BUCKET            |                         |
+                       | NEW_RELIC_ACCOUNT_ID      |                         |
+Monitoring optionnel   | MONITOR_BUCKET            | fluent-bit storage      | warning preflight si
+                       |                           |                         | absent
 Tests API              | API_TEST_PATH,            | remote-test-api         | valeurs repo par defaut
                        | API_TEST_JSON_PATH,       |                         | sauf override motive
                        | API_TEST_REQUEST          |                         |
@@ -329,8 +329,9 @@ Images applicatives   | deces-backend, deces-ui | artifact-build-*        | publ
                       |                         | artifact-publish-*      | preprod
 Snapshot ES           | dataprep-snapshot       | artifact-produce-       | bucket dev/non-prod
                       |                         | dataprep-snapshot       | obligatoire
-Deploy preprod        | deploy-preprod          | deploy-remote           | consomme les artefacts
-                      |                         | GIT_BRANCH=dev          | monorepo publies
+Deploy preprod        | deploy-preprod          | deploy-remote-          | valide les variables,
+                      |                         | preflight puis          | puis consomme les
+                      |                         | deploy-remote           | artefacts publies
 Validation immediate  | deploy-preprod          | remote-test-api via     | incluse dans
                       |                         | deploy-remote-publish   | deploy-remote
 Observabilite         | deploy-preprod          | deploy-monitor          | incluse, ou ecart
@@ -357,7 +358,7 @@ Implementation initiale:
 - `cd.yml` porte le job `deploy-preprod`, declenche uniquement sur `push` vers
   `dev` et conditionne aux changements d'artefacts detectes par `changes`;
 - `deploy-preprod` appelle seulement `make deploy-remote` et injecte les secrets
-  via l'environnement GitHub Actions;
+  via l'environnement GitHub Actions, apres `make deploy-remote-preflight`;
 - le Makefile racine passe `REMOTE_TOOLS_*` et `REMOTE_APP_*` a `packages/tools`
   pour cloner `matchID-project/matchID` et executer `make` a la racine du
   monorepo distant;
@@ -365,6 +366,9 @@ Implementation initiale:
   il continue a cloner `${GIT_ROOT}/${TOOLS}` et `${GIT_ROOT}/${APP}`;
 - la cible racine `config-minimal` est restauree comme prerequis minimal local
   du flux `deploy-remote`;
+- `deploy-remote-preflight` valide les variables bloquantes, la branche `dev`,
+  le bucket ES dev et la cle SSH; `MONITOR_BUCKET` reste un warning parce que le
+  flux historique ne le configurait pas systematiquement;
 - preuve actuelle: parsing statique `make -qp` et presence du job CD; preuve
   restante: run GitHub `CD` et execution preprod reelle.
 

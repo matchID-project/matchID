@@ -215,12 +215,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Deploy dev-deces.matchid.io
-        run: >
-          make deploy-remote
-          GIT_BRANCH=${GITHUB_REF_NAME}
-          APP_DNS=${APP_DNS}
-          REPOSITORY_BUCKET=${REPOSITORY_BUCKET}
-          FILES_TO_PROCESS=${FILES_TO_PROCESS}
+        run: |
+          make deploy-remote-preflight GIT_BRANCH=${GITHUB_REF_NAME} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
+          make deploy-remote GIT_BRANCH=${GITHUB_REF_NAME} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
@@ -228,7 +225,6 @@ jobs:
           TOOLS_STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
           SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
-          SCW_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
           SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
           NGINX_HOST: ${{ secrets.NGINX_HOST }}
           NGINX_USER: ${{ secrets.NGINX_USER }}
