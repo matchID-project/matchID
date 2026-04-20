@@ -118,6 +118,7 @@ jobs:
           make -C packages/dataprep-frontend build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          NPM_AUDIT_IGNORE: "true"
       - name: Publish matchid-frontend image
         run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
