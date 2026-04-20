@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+  workflow_dispatch:
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -62,7 +63,7 @@ jobs:
   dataprep-backend:
     name: Publish matchid-backend image
     needs: changes
-    if: needs.changes.outputs.dataprep_backend == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,7 +93,7 @@ jobs:
   dataprep-frontend:
     name: Publish matchid-frontend image
     needs: changes
-    if: needs.changes.outputs.dataprep_frontend == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -114,7 +115,7 @@ jobs:
   deces-backend:
     name: Publish deces-backend image
     needs: changes
-    if: needs.changes.outputs.deces_backend == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -133,7 +134,7 @@ jobs:
   deces-ui:
     name: Publish deces-ui image
     needs: changes
-    if: needs.changes.outputs.deces_ui == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_ui == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -152,7 +153,7 @@ jobs:
   dataprep-snapshot:
     name: Publish dataprep snapshot
     needs: changes
-    if: needs.changes.outputs.dataprep_snapshot == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_snapshot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -216,6 +217,7 @@ jobs:
         !cancelled() &&
         !failure() &&
         (
+          github.event_name == 'workflow_dispatch' ||
           needs.changes.outputs.dataprep_backend == 'true' ||
           needs.changes.outputs.dataprep_frontend == 'true' ||
           needs.changes.outputs.deces_backend == 'true' ||
