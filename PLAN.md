@@ -294,7 +294,7 @@
     - [x] Corriger le blocage TypeScript du build image `deces-backend` revele par le CD manuel sans changer le comportement webhook
     - [x] Corriger l'amorcage SSH SCW de `deploy-remote` pour utiliser l'utilisateur `SCW_SSHUSER` et la cle privee locale
     - [x] Corriger l'authentification Docker distante de `deploy-local` pour tirer les images privees publiees
-    - [ ] Provisionner l'infra de preprod depuis le monorepo
+    - [x] Provisionner l'infra de preprod depuis le monorepo
     - [ ] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Rendre disponible en preprod l'image `backend` necessaire a l'execution du dataprep
     - [ ] Deployer `deces-infra` en preprod

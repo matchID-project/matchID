@@ -382,6 +382,23 @@ Implementation initiale:
 - `deploy-remote-publish` force le `APP_DNS` calcule (`dev-deces.matchid.io`
   pour `GIT_BRANCH=dev`) apres `MAKEOVERRIDES`, afin d'eviter que la valeur
   racine `deces.matchid.io` ne surcharge le test public preprod;
+- preuve manuelle preprod du 2026-04-20:
+  `make clean elasticsearch-restore dev` et `make local-test-api` passent en
+  local, `make deploy-remote` provisionne l'instance SCW
+  `matchid-deces-ui-dev` en `51.158.99.108`, restaure
+  `esdata_fa194c98_c88006ac`, demarre backend puis UI, et les sous-cibles
+  officielles `deploy-remote-publish`, `deploy-cdn-purge-cache`,
+  `deploy-delete-old` et `deploy-monitor` publient `dev-deces.matchid.io`;
+- verification publique independante du 2026-04-20:
+  `GET https://dev-deces.matchid.io/` retourne `200` et
+  `POST https://dev-deces.matchid.io/deces/api/v1/search` retourne `200`;
+- limite constatee: le premier `make deploy-remote` a depasse le timeout nginx
+  historique de 30s dans `packages/deces-ui frontend`, puis
+  `localhost:8083` a repondu `200`; la relance complete n'est pas idempotente
+  car `elasticsearch-restore-async` retente le snapshot deja restaure;
+- consequence: la preprod est publiee et verifiee, mais la preuve "single run
+  exit 0" de `deploy-remote` sur instance fraiche reste a obtenir avant de
+  fermer l'execution de bout en bout du lot 8;
 - le premier `workflow_dispatch` CD pre-merge a revele un blocage de compilation
   de l'image `deces-backend` sur `webhook.ts`: le code etait identique a
   `matchid-project/deces-backend@origin/dev`, mais les types Axios actuels

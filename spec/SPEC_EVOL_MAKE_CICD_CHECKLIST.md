@@ -304,6 +304,44 @@ deces-infra       | elasticsearch-restore   | elasticsearch-restore      | donne
 
 ## Lot 8 - À prouver
 
+Preuve manuelle preprod du 2026-04-20:
+
+```text
+Etape             | Commande / preuve make                    | Resultat
+------------------+--------------------------------------------+-------------------------------
+Local baseline    | make clean elasticsearch-restore dev       | pass
+                  | make local-test-api                        | api localhost:8083 ok
+Remote instance   | make deploy-remote                         | instance SCW creee:
+                  |                                            | 51.158.99.108
+Remote restore    | make deploy-remote                         | snapshot restaure:
+                  |                                            | esdata_fa194c98_c88006ac
+Remote services   | make deploy-remote                         | backend demarre; nginx a
+                  |                                            | depasse le timeout 30s puis
+                  |                                            | localhost:8083 a repondu 200
+Remote API        | make -C packages/tools remote-cmd          | make local-test-api distant ok
+Publish preprod   | make deploy-remote-publish                 | upstream nginx:
+                  |                                            | 51.158.99.108:8083
+Public API        | make deploy-remote-publish                 | api public dev-deces ok
+CDN               | make deploy-cdn-purge-cache                | cache purged
+Cleanup           | make deploy-delete-old                     | no invalid server to delete
+Public check      | curl https://dev-deces.matchid.io/         | GET 200
+Public search     | curl POST /deces/api/v1/search             | POST 200, 154 bytes
+```
+
+Limite de preuve:
+
+- le premier `make deploy-remote` a echoue sur le timeout nginx historique de 30s
+  dans `packages/deces-ui frontend`, alors que le endpoint a repondu `200`
+  juste apres;
+- la relance de `make deploy-remote` n'est pas idempotente apres restore:
+  `elasticsearch-restore-async` retente le meme snapshot et echoue;
+- les sous-cibles officielles restantes (`deploy-remote-publish`,
+  `deploy-cdn-purge-cache`, `deploy-delete-old`, `deploy-monitor`) ont ete
+  executees ensuite et ont publie `dev-deces.matchid.io`;
+- il reste a obtenir un run GitHub CD ou un run local equivalent qui sorte en
+  `0` de bout en bout sur instance fraiche avant de cocher la ligne
+  `Executer le flux deploy-remote de bout en bout`.
+
 ```text
 Repo source       | Make source              | Make monorepo             | Job source        | Statut
 ------------------+--------------------------+---------------------------+-------------------+-------------
@@ -311,13 +349,15 @@ tools             | remote-config-test       | packages/tools remote-    | actio
                   |                          | config-test + REMOTE_*    | remote            | parametree
 deces-ui          | deploy-remote            | cd.yml / deploy-preprod   | push.yml / deploy | job cree;
                   |                          | -> preflight +            |                   | preflight local OK,
-                  |                          | deploy-remote             |                   | preuve GH a venir
+                  |                          | deploy-remote             |                   | preuve manuelle
+                  |                          |                           |                   | partielle; GH a venir
 deces-ui/tools    | deploy-remote-instance   | deploy-remote-instance    | push.yml / deploy | route monorepo
-                  |                          | REMOTE_TOOLS_*/APP_*      |                   | par make -qp
+                  |                          | REMOTE_TOOLS_*/APP_*      |                   | instance 51.158.99.108
 deces-ui/tools    | deploy-remote-services   | deploy-remote-services    | push.yml / deploy | route monorepo
-                  |                          | REMOTE_TOOLS_*/APP_*      |                   | par make -qp
-deces-ui/tools    | deploy-remote-publish    | deploy-remote-publish     | push.yml / deploy | lot 8
-deces-ui/tools    | deploy-delete-old        | deploy-delete-old         | push.yml / deploy | lot 8
+                  |                          | REMOTE_TOOLS_*/APP_*      |                   | services ok apres
+                  |                          |                           |                   | readiness nginx
+deces-ui/tools    | deploy-remote-publish    | deploy-remote-publish     | push.yml / deploy | public API ok
+deces-ui/tools    | deploy-delete-old        | deploy-delete-old         | push.yml / deploy | no invalid server
 deces-dataprep    | remote-all               | cible racine a definir    | full/push* /      | lot 8
                   |                          |                           | build             |
 ```
