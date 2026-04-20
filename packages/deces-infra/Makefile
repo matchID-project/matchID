@@ -64,11 +64,17 @@ elasticsearch-repository-creds: elasticsearch-start
 	fi;
 
 elasticsearch-repository-config: elasticsearch-repository-creds
-	@echo ensuring elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET} && \
-	docker exec -i ${USE_TTY} deces-elasticsearch \
-		curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
-		-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
-		| grep -q '"acknowledged":true' && touch elasticsearch-repository-config
+	@echo ensuring elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET}; \
+	timeout=${ES_TIMEOUT} ; ret=1 ; \
+	until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do \
+		docker exec -i ${USE_TTY} deces-elasticsearch \
+			curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
+			-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
+			| grep -q '"acknowledged":true'; \
+		ret=$$? ; \
+		if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch repository config $$timeout" ; fi ; \
+		((timeout--)); sleep 1 ; \
+	done ; echo; if [ "$$ret" -eq "0" ]; then touch elasticsearch-repository-config; fi ; exit $$ret
 
 elasticsearch-freeze: elasticsearch-local
 	@docker exec -i ${USE_TTY} deces-elasticsearch \
