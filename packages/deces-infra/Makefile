@@ -58,7 +58,7 @@ elasticsearch-repository-creds: elasticsearch-start
 		docker restart deces-elasticsearch;\
 		timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ;\
 		if [ "$$ret" -eq "0" ]; then\
-			timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET "localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch cluster health $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ;\
+			timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET "localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" | grep -q '"timed_out":false') ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch cluster health $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ;\
 		fi;\
 		echo; if [ "$$ret" -eq "0" ]; then touch elasticsearch-repository-plugin elasticsearch-repository-creds; fi ; exit $$ret;\
 	fi;
