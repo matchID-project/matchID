@@ -183,6 +183,7 @@ clean-local: clean-data clean-frontend clean-config
 
 clean: clean-remote clean-local
 
+export DOCKER_PULL_RETRIES ?= 3
 docker-check:
 	@if [ ! -f ".${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}" ]; then\
 		(\
@@ -191,8 +192,14 @@ docker-check:
 		)\
 		||\
 		(\
-			(docker pull ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} > /dev/null 2>&1)\
-			&& touch .${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}\
+			attempts=${DOCKER_PULL_RETRIES}; ret=1; \
+			until [ "$$attempts" -le 0 -o "$$ret" -eq "0" ]; do \
+				docker pull ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} > /dev/null 2>&1; \
+				ret=$$?; \
+				if [ "$$ret" -ne "0" ]; then echo "retrying docker pull for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ($$attempts left)"; fi; \
+				((attempts--)); sleep 5; \
+			done; \
+			[ "$$ret" -eq "0" ] && touch .${DOCKER_USERNAME}-${DC_IMAGE_NAME}:${APP_VERSION}\
 		)\
 		|| (echo no previous build found for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} && exit 1);\
 	fi;
