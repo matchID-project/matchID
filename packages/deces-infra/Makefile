@@ -200,7 +200,7 @@ elasticsearch-debug-info:
 		docker logs --tail=200 deces-elasticsearch || true;\
 	fi
 
-elasticsearch-check: elasticsearch-restore
+elasticsearch-check: elasticsearch-start
 	@timeout=${ES_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} deces-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch API to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
 
 elasticsearch: elasticsearch-check
