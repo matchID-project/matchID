@@ -343,63 +343,10 @@ artifact-versions:
 	@echo "deces-ui: $$(${MAKE} artifact-version-deces-ui)"
 	@echo "snapshot: $$(${MAKE} artifact-version-dataprep-snapshot)"
 
-artifact-build-dataprep-backend:
-	@${MAKE} -C ${DATAPREP_PATH} config ${MAKEOVERRIDES}
-	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-build ${MAKEOVERRIDES}
-
-artifact-publish-dataprep-backend:
-	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-docker-push ${MAKEOVERRIDES}
-
-artifact-build-dataprep-frontend:
-	@${MAKE} -C ${DATAPREP_PATH} config frontend-config ${MAKEOVERRIDES}
-	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend build ${MAKEOVERRIDES}
-
-artifact-publish-dataprep-frontend:
-	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend frontend-docker-push ${MAKEOVERRIDES}
-
-artifact-build-legacy-package:
-	@${MAKE} -C ${DATAPREP_PATH} config frontend-config ${MAKEOVERRIDES}
-	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend package ${MAKEOVERRIDES}
-
-artifact-publish-legacy-package:
-	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend package-publish ${MAKEOVERRIDES}
-
-artifact-build-deces-backend:
-	@set -e; \
-	TMP_BUILD_CONTEXT='${BACKEND_PATH}/artifact-build-context'; \
-	TMP_DATA_DIR="$$TMP_BUILD_CONTEXT/data"; \
-	rm -rf "$$TMP_BUILD_CONTEXT" '${BACKEND_PATH}/.artifact-build-context'; \
-	mkdir -p "$$TMP_DATA_DIR"; \
-	${MAKE} -C ${BACKEND_PATH} \
-		DATA_DIR="$$TMP_DATA_DIR" \
-		communes disposable-mail wikidata-links db-json ${MAKEOVERRIDES}; \
-	mkdir -p "$$TMP_DATA_DIR/proofs" "$$TMP_DATA_DIR/jobs"; \
-	${MAKE} -C ${BACKEND_PATH} \
-		DATA_DIR=artifact-build-context/data \
-		COMMUNES_JSON=artifact-build-context/data/communes.json \
-		DISPOSABLE_MAIL=artifact-build-context/data/disposable-mail.txt \
-		WIKIDATA_LINKS=artifact-build-context/data/wikidata.json \
-		DB_JSON=artifact-build-context/data/userDB.json \
-		PROOFS="$$TMP_DATA_DIR/proofs" \
-		JOBS="$$TMP_DATA_DIR/jobs" \
-		NPM_AUDIT_DRY_RUN=true \
-		backend-build-image ${MAKEOVERRIDES}; \
-	rm -rf "$$TMP_BUILD_CONTEXT" '${BACKEND_PATH}/.artifact-build-context'
-
-artifact-publish-deces-backend:
-	@${MAKE} -C ${BACKEND_PATH} docker-push-backend ${MAKEOVERRIDES}
-
-artifact-build-deces-ui:
-	@${MAKE} network ${MAKEOVERRIDES}
-	@APP=${APP_FRONTEND} ${MAKE} -C ${FRONTEND_PATH} frontend-build-dist ${MAKEOVERRIDES}
-	@APP=${APP_FRONTEND} ${MAKE} -C ${FRONTEND_PATH} nginx-build ${MAKEOVERRIDES}
-
-artifact-publish-deces-ui:
-	@${MAKE} -C ${FRONTEND_PATH} frontend-docker-push ${MAKEOVERRIDES}
-
 artifact-produce-dataprep-snapshot:
 	@rm -f ${ARTIFACT_RECIPE_RUN_MARKER} ${ARTIFACT_S3_PULL_MARKER}
-	@${MAKE} artifact-build-dataprep-backend ${MAKEOVERRIDES}
+	@${MAKE} -C ${DATAPREP_PATH} config ${MAKEOVERRIDES}
+	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-build ${MAKEOVERRIDES}
 	@${MAKE} dataprep-run \
 		DATAPREP_BACKEND_LOCAL_TARGET=backend \
 		DATAPREP_BACKEND_LOCAL_STOP_TARGET=backend-stop \

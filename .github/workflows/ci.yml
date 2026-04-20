@@ -140,7 +140,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build backend image
-        run: make artifact-build-deces-backend GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
 
   deces-ui-pull-request-test:
     name: deces-ui pull request test
@@ -156,11 +156,11 @@ jobs:
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Build or reuse frontend image
-        run: make frontend-docker-check GIT_BRANCH=${GIT_BRANCH} || make artifact-build-deces-ui GIT_BRANCH=${GIT_BRANCH}
+        run: make frontend-docker-check GIT_BRANCH=${GIT_BRANCH} || make APP=deces-ui build GIT_BRANCH=${GIT_BRANCH}
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Build backend image for deploy-local
-        run: make artifact-build-deces-backend GIT_BRANCH=${GIT_BRANCH}
+        run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Deploy local and run backend/frontend tests

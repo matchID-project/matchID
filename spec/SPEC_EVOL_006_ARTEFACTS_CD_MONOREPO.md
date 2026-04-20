@@ -16,12 +16,12 @@ La matrice exhaustive make/CI/CD est tenue dans
 ```text
 Artefact                    | Source monorepo                  | Make build                         | Make publish
 ----------------------------+----------------------------------+------------------------------------+--------------------------------------
-matchid-backend             | packages/dataprep-backend        | artifact-build-dataprep-backend    | artifact-publish-dataprep-backend
-matchid-frontend            | packages/dataprep-frontend       | artifact-build-dataprep-frontend   | artifact-publish-dataprep-frontend
-deces-backend               | packages/deces-backend           | artifact-build-deces-backend       | artifact-publish-deces-backend
-deces-ui                    | packages/deces-ui                | artifact-build-deces-ui            | artifact-publish-deces-ui
+matchid-backend             | packages/dataprep-backend        | backend-build                      | backend-docker-push
+matchid-frontend            | packages/dataprep-frontend       | build                              | frontend-docker-push
+deces-backend               | packages/deces-backend           | backend-build-image                | docker-push-backend
+deces-ui                    | packages/deces-ui via racine     | APP=deces-ui build                 | frontend-docker-push
 snapshot dataprep ES        | packages/deces-dataprep + infra  | artifact-produce-dataprep-snapshot | artifact-publish-dataprep-snapshot
-package legacy matchID      | packages/dataprep-backend        | artifact-build-legacy-package      | artifact-publish-legacy-package
+package legacy matchID      | packages/dataprep-backend        | package                            | package-publish
 ```
 
 ## Workflow CD cible

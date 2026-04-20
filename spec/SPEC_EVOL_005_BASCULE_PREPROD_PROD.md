@@ -323,10 +323,10 @@ Declencheur           | cd.yml                  | n/a                     | uniq
                       |                         |                         | branche `dev`
 Detection             | changes                 | n/a                     | conserve les filtres
                       |                         |                         | d'artefacts lot 7
-Images dataprep       | dataprep-backend,       | artifact-build-*        | publie seulement si les
-                      | dataprep-frontend       | artifact-publish-*      | chemins changent
-Images applicatives   | deces-backend, deces-ui | artifact-build-*        | publie avant deploy
-                      |                         | artifact-publish-*      | preprod
+Images dataprep       | dataprep-backend,       | cibles historiques      | publie seulement si les
+                      | dataprep-frontend       | build/push packages     | chemins changent
+Images applicatives   | deces-backend, deces-ui | cibles historiques      | publie avant deploy
+                      |                         | build/push packages     | preprod
 Snapshot ES           | dataprep-snapshot       | artifact-produce-       | bucket dev/non-prod
                       |                         | dataprep-snapshot       | obligatoire
 Deploy preprod        | deploy-preprod          | deploy-remote-          | valide les variables,

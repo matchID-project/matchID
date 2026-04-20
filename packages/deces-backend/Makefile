@@ -18,6 +18,7 @@ export MAKEBIN = $(shell which make)
 export MAKE = ${MAKEBIN} --no-print-directory -s
 
 # docker compose
+export DC ?= docker compose
 export DC_FILE=${BACKEND_PATH}/docker-compose
 export DC_BACKEND=${DC} -f $(DC_FILE).yml
 export DC_PREFIX := $(shell echo ${APP_BACKEND} | tr '[:upper:]' '[:lower:]' | tr '_' '-')
@@ -82,8 +83,8 @@ export DATA_DIR ?= $(if $(wildcard ${MONOREPO_ROOT}/packages/deces-backend),${MO
 export COMMUNES_JSON=${DATA_DIR}/communes.json
 export DISPOSABLE_MAIL=${DATA_DIR}/disposable-mail.txt
 export DB_JSON=${DATA_DIR}/userDB.json
-export PROOFS=${DATA_DIR}/proofs
-export JOBS=${DATA_DIR}/jobs
+export PROOFS=$(abspath ${DATA_DIR}/proofs)
+export JOBS=$(abspath ${DATA_DIR}/jobs)
 
 export DATAGOUV_CATALOG_URL = https://www.data.gouv.fr/api/1/datasets/${DATASET}/
 export DATAGOUV_RESOURCES_URL = https://static.data.gouv.fr/resources/${DATASET}
@@ -267,20 +268,31 @@ ${WIKIDATA_SRC}:
 		&& echo "done!"
 
 ${WIKIDATA_LINKS}:
-	@echo "downloading wikidata and wikipedia links";\
+	@set -euo pipefail; \
+	echo "downloading wikidata and wikipedia links";\
 	mkdir -p ${DATA_DIR};\
-	TMP_WIKIDATA_JSON=$$(mktemp "${DATA_DIR}/wikidata.XXXXXX.json"); \
-	curl --retry 5 --retry-all-errors -sS -f -G 'https://query.wikidata.org/sparql' --header "Accept: application/json" --data-urlencode query="\
-		select ?sitelink ?person ?personDescription ?img ?id where {\
-			?person wdt:P9058 ?id.\
-			OPTIONAL { ?person wdt:P18 ?img. }\
-			OPTIONAL { ?sitelink schema:isPartOf <https://fr.wikipedia.org/>;\
-			  schema:about ?person;}\
-			service wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],fr'. }\
-		}" |\
-		jq -ce '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
-		> "$$TMP_WIKIDATA_JSON"; \
-	mv "$$TMP_WIKIDATA_JSON" ${WIKIDATA_LINKS}
+	attempts=5; ret=1; \
+	while [ "$$attempts" -gt 0 ]; do \
+		TMP_WIKIDATA_JSON=$$(mktemp "${DATA_DIR}/wikidata.XXXXXX.json"); \
+		if curl --retry 5 --retry-all-errors -sS -f -G 'https://query.wikidata.org/sparql' --header "Accept: application/json" --data-urlencode query="\
+			select ?sitelink ?person ?personDescription ?img ?id where {\
+				?person wdt:P9058 ?id.\
+				OPTIONAL { ?person wdt:P18 ?img. }\
+				OPTIONAL { ?sitelink schema:isPartOf <https://fr.wikipedia.org/>;\
+				  schema:about ?person;}\
+				service wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],fr'. }\
+			}" |\
+			jq -ce '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
+			> "$$TMP_WIKIDATA_JSON"; then \
+			mv "$$TMP_WIKIDATA_JSON" ${WIKIDATA_LINKS}; \
+			ret=0; \
+			break; \
+		fi; \
+		rm -f "$$TMP_WIKIDATA_JSON"; \
+		attempts=$$((attempts - 1)); \
+		if [ "$$attempts" -gt 0 ]; then echo "retrying wikidata links download ($$attempts left)"; sleep 5; fi; \
+	done; \
+	exit $$ret
 
 wikidata-src: ${WIKIDATA_SRC}
 
@@ -304,7 +316,7 @@ communes-push: communes-pull-datagouv
 ${COMMUNES_JSON}: config
 	@echo "downloading communes geo data"
 	@make -C ${TOOLS_PATH} storage-pull\
-		FILE=communes.json DATA_DIR=${DATA_DIR}\
+		FILE=communes.json DATA_DIR=$(abspath ${DATA_DIR})\
 		STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};
 
 communes-pull: ${COMMUNES_JSON}

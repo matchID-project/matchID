@@ -83,17 +83,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build matchid-backend image
-        run: make artifact-build-dataprep-backend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: |
+          make -C packages/deces-dataprep config GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/dataprep-backend backend-build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
       - name: Publish matchid-backend image
-        run: make artifact-publish-dataprep-backend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Publish legacy matchID package on master
         if: github.ref == 'refs/heads/master'
-        run: make artifact-publish-legacy-package GIT_BRANCH=${GITHUB_REF_NAME}
+        run: |
+          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${GITHUB_REF_NAME}
+          make -C packages/dataprep-backend package-publish GIT_BRANCH=${GITHUB_REF_NAME}
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
@@ -109,11 +113,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build matchid-frontend image
-        run: make artifact-build-dataprep-frontend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: |
+          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/dataprep-frontend build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
       - name: Publish matchid-frontend image
-        run: make artifact-publish-dataprep-frontend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -128,11 +134,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build deces-backend image
-        run: make artifact-build-deces-backend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
       - name: Publish deces-backend image
-        run: make artifact-publish-deces-backend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -147,11 +153,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build deces-ui image
-        run: make artifact-build-deces-ui GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make APP=deces-ui build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
       - name: Publish deces-ui image
-        run: make artifact-publish-deces-ui GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

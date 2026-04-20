@@ -18,6 +18,7 @@ docker-compose-elasticsearch-huge.yml
 data
 esdata
 backup
+build-data
 *.tar.gz
 
 # production

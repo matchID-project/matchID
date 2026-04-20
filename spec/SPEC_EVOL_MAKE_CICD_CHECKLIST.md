@@ -80,17 +80,16 @@ Artefacts publies par le run CD retenu:
 ```text
 Artefact          | Tag / version publiee       | Make monorepo                    | Preuve
 ------------------+-----------------------------+----------------------------------+------------------
-matchid-backend   | 24aad95-e4d91b              | artifact-build-dataprep-backend | CD 24586029288
-                  | digest sha256:ef5acdc5...   | artifact-publish-dataprep-      | job 71895732114
-                  |                             | backend                          |
-matchid-frontend  | 24aad95-2d96b8              | artifact-build-dataprep-        | CD 24586029288
-                  | digest sha256:93e7ae0c...   | frontend                         | job 71895732047
-                  |                             | artifact-publish-dataprep-      |
-                  |                             | frontend                         |
-deces-backend     | 24aad95                     | artifact-build-deces-backend    | CD 24586029288
-                  | digest sha256:cef2e810...   | artifact-publish-deces-backend  | job 71895732033
-deces-ui          | 24aad95                     | artifact-build-deces-ui         | CD 24586029288
-                  | digest sha256:800e61c6...   | artifact-publish-deces-ui       | job 71895732121
+matchid-backend   | 24aad95-e4d91b              | packages/dataprep-backend       | CD 24586029288
+                  | digest sha256:ef5acdc5...   | backend-build / backend-        | job 71895732114
+                  |                             | docker-push                      |
+matchid-frontend  | 24aad95-2d96b8              | packages/dataprep-frontend      | CD 24586029288
+                  | digest sha256:93e7ae0c...   | build / frontend-docker-push    | job 71895732047
+deces-backend     | 24aad95                     | packages/deces-backend          | CD 24586029288
+                  | digest sha256:cef2e810...   | backend-build-image /           | job 71895732033
+                  |                             | docker-push-backend             |
+deces-ui          | 24aad95                     | APP=deces-ui build /            | CD 24586029288
+                  | digest sha256:800e61c6...   | frontend-docker-push            | job 71895732121
 dataprep snapshot | esdata_6df42346_d2d7ee21    | artifact-produce-dataprep-      | CD 24586029288
                   | count 679573                | snapshot                         | job 71895732072
                   |                             | artifact-publish-dataprep-      | UAT restore
@@ -170,14 +169,18 @@ dataprep-frontend | make | version-files; version       | make -C packages/deces
                   | ci   | pull.yml / pull request test | ci.yml / dataprep-frontend          | job vert GH
                   |      |                              |   pull request test                 | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-backend     | make | backend-build-image          | make artifact-build-deces-backend   | job vert GH
+deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | job vert GH
+                  |      |                              |   DATA_DIR=build-data backend-      |
+                  |      |                              |   build-image                       |
                   | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | job vert GH
                   |      |                              |   docker image                      | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-ui          | make | version config               | make version config                 | job vert GH
                   |      | docker-check || build        | make frontend-docker-check          | 24616234550
-                  |      | deploy-local backend-test    | || make artifact-build-deces-ui     | Appariement
-                  |      | frontend-test                | make artifact-build-deces-backend   | Wikidata inclus
+                  |      | deploy-local backend-test    | || make APP=deces-ui build          | Appariement
+                  |      | frontend-test                | make -C packages/deces-backend      | Wikidata inclus
+                  |      |                              |   DATA_DIR=build-data backend-      |
+                  |      |                              |   build-image                       |
                   |      |                              | make deploy-local backend-test      |
                   |      |                              |   frontend-test                     |
                   | ci   | pr.yml / Pull request test   | ci.yml / deces-ui pull request test | job vert GH
@@ -196,9 +199,8 @@ Notes de parité:
   backend + index + frontend reste couverte par le job `deces-ui pull request
   test`, comme dans le flux historique UI.
 - `deces-ui` source appelait `docker-check`; dans le monorepo, l'image frontend
-  est vérifiée par `frontend-docker-check` et construite par
-  `artifact-build-deces-ui`, pour éviter les collisions de variables introduites
-  par les `Makefile` inclus à la racine.
+  est vérifiée par `frontend-docker-check` et construite par `APP=deces-ui
+  build`, sans cible Make ad hoc.
 - `dataprep-backend` et `dataprep-frontend` gardent leurs commandes historiques;
   la CI fixe seulement `TOOLS_PATH`, `BACKEND` et les variables de projet
   dataprep pour pointer vers les packages frères du monorepo au lieu de cloner
@@ -227,23 +229,30 @@ CD       | dispatch | 24533977844 | pass   | debug snapshot + artefacts
 ```text
 Repo source       | Type | Source                       | Monorepo                             | Preuve
 ------------------+------+------------------------------+--------------------------------------+------------------
-dataprep-backend  | make | backend-build                | artifact-build-dataprep-backend     | CD vert GH
-                  | make | backend-docker-push          | artifact-publish-dataprep-backend   | 24586029288
+dataprep-backend  | make | backend-build                | make -C packages/dataprep-backend   | CD vert GH
+                  |      |                              |   backend-build                     | 24586029288
+                  | make | backend-docker-push          | make -C packages/dataprep-backend   | image publiee
+                  |      |                              |   backend-docker-push               |
                   | cd   | push.yml / build             | cd.yml / Publish matchid-backend    | image publiee
                   |      |                              | image                                |
 ------------------+------+------------------------------+--------------------------------------+------------------
-dataprep-frontend | make | build                        | artifact-build-dataprep-frontend    | CD vert GH
-                  | make | frontend-docker-push         | artifact-publish-dataprep-frontend  | 24586029288
+dataprep-frontend | make | build                        | make -C packages/dataprep-frontend  | CD vert GH
+                  |      |                              |   build                             | 24586029288
+                  | make | frontend-docker-push         | make -C packages/dataprep-frontend  | image publiee
+                  |      |                              |   frontend-docker-push              |
                   | cd   | push.yml / build             | cd.yml / Publish matchid-frontend   | image publiee
                   |      |                              | image                                |
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-backend     | make | backend-build-image          | artifact-build-deces-backend        | CD vert GH
-                  | make | docker-push-backend          | artifact-publish-deces-backend      | 24586029288
+deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | CD vert GH
+                  |      |                              |   DATA_DIR=build-data backend-      | 24586029288
+                  |      |                              |   build-image                       |
+                  | make | docker-push-backend          | make -C packages/deces-backend      | image publiee
+                  |      |                              |   docker-push-backend               |
                   | cd   | dockerimage.yml / build      | cd.yml / Publish deces-backend      | image publiee
                   |      |                              | image                                |
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-ui          | make | frontend-build; nginx-build  | artifact-build-deces-ui             | CD vert GH
-                  | make | frontend-docker-push         | artifact-publish-deces-ui           | 24586029288
+deces-ui          | make | frontend-build; nginx-build  | make APP=deces-ui build            | CD vert GH
+                  | make | frontend-docker-push         | make frontend-docker-push          | 24586029288
                   | cd   | push.yml / build             | cd.yml / Publish deces-ui image     | image publiee
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-dataprep    | make | full-check; recipe-run       | artifact-produce-dataprep-snapshot  | CD vert GH
