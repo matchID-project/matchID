@@ -4,20 +4,6 @@ on:
   push:
     branches:
       - dev
-  workflow_dispatch:
-    inputs:
-      git_branch:
-        description: "Deployment branch/DNS target; keep dev for preprod"
-        required: true
-        default: "dev"
-      remote_deploy_branch:
-        description: "Branch cloned on the remote host; use PR branch before merge, dev after merge"
-        required: false
-        default: ""
-      files_to_process:
-        description: "Dataprep input files for the snapshot"
-        required: true
-        default: "deces-2020.txt.gz"
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -76,7 +62,7 @@ jobs:
   dataprep-backend:
     name: Publish matchid-backend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_backend == 'true'
+    if: needs.changes.outputs.dataprep_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -87,11 +73,11 @@ jobs:
           make -C packages/deces-dataprep config GIT_BRANCH=${CD_GIT_BRANCH}
           make -C packages/dataprep-backend backend-build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
       - name: Publish matchid-backend image
         run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Publish legacy matchID package on master
         if: github.ref == 'refs/heads/master'
@@ -106,7 +92,7 @@ jobs:
   dataprep-frontend:
     name: Publish matchid-frontend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_frontend == 'true'
+    if: needs.changes.outputs.dataprep_frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -117,18 +103,18 @@ jobs:
           make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${CD_GIT_BRANCH}
           make -C packages/dataprep-frontend build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
           NPM_AUDIT_IGNORE: "true"
       - name: Publish matchid-frontend image
         run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   deces-backend:
     name: Publish deces-backend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_backend == 'true'
+    if: needs.changes.outputs.deces_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -137,17 +123,17 @@ jobs:
       - name: Build deces-backend image
         run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
       - name: Publish deces-backend image
         run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   deces-ui:
     name: Publish deces-ui image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_ui == 'true'
+    if: needs.changes.outputs.deces_ui == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -156,24 +142,24 @@ jobs:
       - name: Build deces-ui image
         run: make APP=deces-ui build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
       - name: Publish deces-ui image
         run: make frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   dataprep-snapshot:
     name: Publish dataprep snapshot
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_snapshot == 'true'
+    if: needs.changes.outputs.dataprep_snapshot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
     env:
-      CD_GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
-      FILES_TO_PROCESS: ${{ github.event.inputs.files_to_process || 'deces-2020.txt.gz' }}
+      CD_GIT_BRANCH: ${{ github.ref_name }}
+      FILES_TO_PROCESS: deces-2020.txt.gz
       ES_COUNT_FILE: /tmp/dataprep-snapshot.count
       ES_SAMPLE_FILE: /tmp/dataprep-snapshot.sample.json
     steps:
@@ -226,17 +212,10 @@ jobs:
     if: >-
       ${{
         always() &&
-        (
-          github.ref == 'refs/heads/dev' ||
-          (
-            github.event_name == 'workflow_dispatch' &&
-            github.event.inputs.git_branch == 'dev'
-          )
-        ) &&
+        github.ref == 'refs/heads/dev' &&
         !cancelled() &&
         !failure() &&
         (
-          github.event_name == 'workflow_dispatch' ||
           needs.changes.outputs.dataprep_backend == 'true' ||
           needs.changes.outputs.dataprep_frontend == 'true' ||
           needs.changes.outputs.deces_backend == 'true' ||
@@ -252,9 +231,8 @@ jobs:
     env:
       APP_DNS: deces.matchid.io
       REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
-      GIT_BRANCH: ${{ github.event.inputs.git_branch || github.ref_name }}
-      REMOTE_DEPLOY_BRANCH: ${{ github.event.inputs.remote_deploy_branch || github.ref_name }}
-      FILES_TO_PROCESS: ${{ github.event.inputs.files_to_process || 'deces-2020.txt.gz' }}
+      GIT_BRANCH: ${{ github.ref_name }}
+      FILES_TO_PROCESS: deces-2020.txt.gz
     steps:
       - uses: actions/checkout@v4
       - name: Install deploy SSH key
@@ -269,8 +247,8 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy dev-deces.matchid.io
         run: |
-          make deploy-remote-preflight GIT_BRANCH=${GIT_BRANCH} REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
-          make deploy-remote GIT_BRANCH=${GIT_BRANCH} REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
+          make deploy-remote-preflight GIT_BRANCH=${GIT_BRANCH} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
+          make deploy-remote GIT_BRANCH=${GIT_BRANCH} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
