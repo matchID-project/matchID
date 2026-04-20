@@ -165,7 +165,8 @@ backend-start: backend-redis backend-smtp
 
 backend-stop:
 	@echo docker-compose down backend for production ${VERSION}
-	@export EXEC_ENV=production; ${DC_BACKEND} down --remove-orphan
+	@export EXEC_ENV=production; ${DC_BACKEND} down --remove-orphans
+	@${MAKE} proofs-umount
 
 backend-test:
 	@echo Testing API parameters
@@ -345,7 +346,7 @@ proofs-mount:
 	fi;
 
 proofs-umount:
-	@ps -elf | grep "make proofs-backup" | awk '{print $$4}'  | head -1 | xargs kill || echo -n
+	@pkill -f "make .*proofs-backu[p]" > /dev/null 2>&1 || true
 
 ${JOBS}:
 	mkdir -p ${JOBS}

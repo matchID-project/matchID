@@ -224,21 +224,17 @@ network: config
 # 	@${MAKE} -C ${BACKEND_PATH} dev-stop TOOLS_PATH=${TOOLS_PATH} DC_NETWORK=${DC_NETWORK} GIT_BRANCH=${GIT_BRANCH}
 
 
-# backend-docker-check:
-# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
-# 	${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
+backend-docker-check:
+	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
 
-# backend: backend-docker-check proofs-mount elasticsearch-index-readiness
-# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
-# 	${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}\
-# 		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}
-
-# backend-stop:
-# 	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
-# 	${MAKE} -C ${BACKEND_PATH} backend-stop DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}
-# 	@make proofs-umount
-
-backend: backend-start
+backend: backend-docker-check proofs-mount elasticsearch-index-readiness
+	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=$$BACKEND_APP_VERSION GIT_BRANCH=${GIT_BRANCH}\
+		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}\
+		BACKEND_JOB_CONCURRENCY=${BACKEND_JOB_CONCURRENCY} BACKEND_CHUNK_CONCURRENCY=${BACKEND_CHUNK_CONCURRENCY}\
+		BACKEND_TOKEN_USER=${BACKEND_TOKEN_USER} BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
+		BACKEND_TMP_MAX=${BACKEND_TMP_MAX} BACKEND_TMP_DURATION=${BACKEND_TMP_DURATION} BACKEND_TMP_WINDOW=${BACKEND_TMP_WINDOW}
 
 # Frontend targets are now defined in packages/deces-ui/Makefile
 
