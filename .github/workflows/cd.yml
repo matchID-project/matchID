@@ -1,9 +1,12 @@
 name: CD
 
 on:
+  repository_dispatch:
+    types: [data-update]
   push:
     branches:
       - dev
+      - master
   workflow_dispatch:
 
 concurrency:
@@ -63,22 +66,24 @@ jobs:
   dataprep-backend:
     name: Publish matchid-backend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_backend == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || needs.changes.outputs.dataprep_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build matchid-backend image
         run: |
           make -C packages/deces-dataprep config GIT_BRANCH=${CD_GIT_BRANCH}
           make -C packages/dataprep-backend backend-build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish matchid-backend image
         run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       - name: Publish legacy matchID package on master
         if: github.ref == 'refs/heads/master'
@@ -93,78 +98,86 @@ jobs:
   dataprep-frontend:
     name: Publish matchid-frontend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_frontend == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || needs.changes.outputs.dataprep_frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build matchid-frontend image
         run: |
           make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${CD_GIT_BRANCH}
           make -C packages/dataprep-frontend build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           NPM_AUDIT_IGNORE: "true"
       - name: Publish matchid-frontend image
         run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   deces-backend:
     name: Publish deces-backend image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_backend == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || needs.changes.outputs.deces_backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build deces-backend image
         run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish deces-backend image
         run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   deces-ui:
     name: Publish deces-ui image
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.deces_ui == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || needs.changes.outputs.deces_ui == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build deces-ui image
         run: make APP=deces-ui build GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish deces-ui image
         run: make frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
         env:
-          CD_GIT_BRANCH: ${{ github.ref_name }}
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   dataprep-snapshot:
     name: Publish dataprep snapshot
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.dataprep_snapshot == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || needs.changes.outputs.dataprep_snapshot == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
     env:
-      CD_GIT_BRANCH: ${{ github.ref_name }}
+      CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       FILES_TO_PROCESS: deces-2020.txt.gz
       ES_COUNT_FILE: /tmp/dataprep-snapshot.count
       ES_SAMPLE_FILE: /tmp/dataprep-snapshot.sample.json
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Select snapshot repository bucket
         run: |
           if [ "${CD_GIT_BRANCH}" = "master" ]; then
@@ -201,8 +214,8 @@ jobs:
             /tmp/dataprep-snapshot.count
             /tmp/dataprep-snapshot.sample.json
 
-  deploy-preprod:
-    name: Deploy preprod
+  deploy:
+    name: Deploy
     needs:
       - changes
       - dataprep-backend
@@ -213,11 +226,17 @@ jobs:
     if: >-
       ${{
         always() &&
-        github.ref == 'refs/heads/dev' &&
+        (
+          github.ref == 'refs/heads/dev' ||
+          github.ref == 'refs/heads/master' ||
+          github.event.client_payload.ref == 'dev' ||
+          github.event.client_payload.ref == 'master'
+        ) &&
         !cancelled() &&
         !failure() &&
         (
           github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'repository_dispatch' ||
           needs.changes.outputs.dataprep_backend == 'true' ||
           needs.changes.outputs.dataprep_frontend == 'true' ||
           needs.changes.outputs.deces_backend == 'true' ||
@@ -227,16 +246,15 @@ jobs:
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    environment: preprod
     permissions:
       contents: read
     env:
       APP_DNS: deces.matchid.io
-      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
-      GIT_BRANCH: ${{ github.ref_name }}
-      FILES_TO_PROCESS: deces-2020.txt.gz
+      GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Install deploy SSH key
         run: |
           test -n "${SSH_PRIVATE_KEY}"
@@ -247,11 +265,52 @@ jobs:
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Deploy dev-deces.matchid.io
+      - name: Deploy deces.matchid.io
         run: |
-          make deploy-remote-preflight GIT_BRANCH=${GIT_BRANCH} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
-          make deploy-remote GIT_BRANCH=${GIT_BRANCH} APP_DNS=${APP_DNS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} FILES_TO_PROCESS=${FILES_TO_PROCESS}
+          if [[ ( "$GIT_BRANCH" == "dev" ) ]]; then
+            make deploy-remote-preflight \
+              GIT_BRANCH=$GIT_BRANCH \
+              APP_DNS=$APP_DNS \
+              FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
+              REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV
+            make deploy-remote \
+              GIT_BRANCH=$GIT_BRANCH \
+              APP_DNS=$APP_DNS \
+              FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
+              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
+              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
+              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
+              LOG_BAN_IP=$LOG_BAN_IP \
+              MMDB_TOKEN=$MMDB_TOKEN \
+              NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
+          fi
+          if [[ ( "$GIT_BRANCH" == "master" ) ]]; then
+            make deploy-remote \
+              GIT_BACKEND_BRANCH=master GIT_BRANCH=$GIT_BRANCH \
+              BACKEND_JOB_CONCURRENCY=$BACKEND_JOB_CONCURRENCY_MASTER \
+              BACKEND_CHUNK_CONCURRENCY=$BACKEND_CHUNK_CONCURRENCY_MASTER \
+              ES_MEM=$ES_MEM_MASTER \
+              SCW_FLAVOR=$SCW_FLAVOR_MASTER SCW_VOLUME_SIZE=$SCW_VOLUME_SIZE_MASTER SCW_VOLUME_TYPE=$SCW_VOLUME_TYPE_MASTER \
+              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
+              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
+              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
+              LOG_BAN_IP=$LOG_BAN_IP \
+              MMDB_TOKEN=$MMDB_TOKEN \
+              NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
+          fi
         env:
+          FILES_TO_PROCESS_DEV: deces-2020-m[0-1][0-9].txt.gz
+          REPOSITORY_BUCKET_DEV: fichier-des-personnes-decedees-elasticsearch-dev
+          BACKEND_JOB_CONCURRENCY_MASTER: 6
+          BACKEND_CHUNK_CONCURRENCY_MASTER: 3
+          ES_MEM_MASTER: 8192m
+          SCW_FLAVOR_MASTER: GP1-XS
+          SCW_VOLUME_SIZE_MASTER: 60000000000
+          SCW_VOLUME_TYPE_MASTER: l_ssd
+          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
+          GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
@@ -263,12 +322,25 @@ jobs:
           SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
           SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
           NGINX_HOST: ${{ secrets.NGINX_HOST }}
           NGINX_USER: ${{ secrets.NGINX_USER }}
           CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
           CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
+          BLOCK_DEPLOY: ${{ secrets.BLOCK_DEPLOY }}
           BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
           BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PWD: ${{ secrets.SMTP_PWD }}
+          LOG_BAN_IP: ${{ secrets.LOG_BAN_IP }}
+          MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
           NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
           NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
           NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
