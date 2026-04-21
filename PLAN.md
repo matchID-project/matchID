@@ -295,20 +295,20 @@
     - [x] Corriger l'amorcage SSH SCW de `deploy-remote` pour utiliser l'utilisateur `SCW_SSHUSER` et la cle privee locale
     - [x] Corriger l'authentification Docker distante de `deploy-local` pour tirer les images privees publiees
     - [x] Provisionner l'infra de preprod depuis le monorepo
-    - [ ] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
+    - [x] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
     - [ ] Rendre disponible en preprod l'image `backend` necessaire a l'execution du dataprep
-    - [ ] Deployer `deces-infra` en preprod
-    - [ ] Deployer l'image `deces-backend` en preprod
-    - [ ] Deployer l'image `deces-ui` en preprod
+    - [x] Deployer `deces-infra` en preprod
+    - [x] Deployer l'image `deces-backend` en preprod
+    - [x] Deployer l'image `deces-ui` en preprod
     - [ ] Executer le flux `deploy-remote` de bout en bout pour la preprod
-    - [ ] Publier la configuration d'acces `dev-deces.matchid.io`
+    - [x] Publier la configuration d'acces `dev-deces.matchid.io`
   - [ ] Tests
-    - [ ] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
-    - [ ] Valider le test API en preprod
-    - [ ] Valider le test UI en preprod
-    - [ ] Valider la chaine dataprep -> index -> backend -> ui en preprod
+    - [x] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
+    - [x] Valider le test API en preprod
+    - [x] Valider le test UI en preprod
+    - [x] Valider la chaine dataprep -> index -> backend -> ui en preprod
     - [ ] Valider l'observabilite preprod
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 8
+    - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 8
   - [ ] UAT
     - [ ] Gate: je te presente la preprod `dev-deces.matchid.io`, son etat, les preuves de deploiement et les resultats de test
     - [ ] Gate: tu valides que la preprod monorepo est acceptable et qu'on peut ouvrir le lot 9

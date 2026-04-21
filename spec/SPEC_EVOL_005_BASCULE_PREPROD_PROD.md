@@ -329,12 +329,12 @@ Images applicatives   | deces-backend, deces-ui | cibles historiques      | publ
                       |                         | build/push packages     | preprod
 Snapshot ES           | dataprep-snapshot       | artifact-produce-       | bucket dev/non-prod
                       |                         | dataprep-snapshot       | obligatoire
-Deploy preprod        | deploy-preprod          | deploy-remote-          | valide les variables,
+Deploy preprod        | deploy                  | deploy-remote-          | valide les variables,
                       |                         | preflight puis          | puis consomme les
                       |                         | deploy-remote           | artefacts publies
-Validation immediate  | deploy-preprod          | remote-test-api via     | incluse dans
+Validation immediate  | deploy                  | remote-test-api via     | incluse dans
                       |                         | deploy-remote-publish   | deploy-remote
-Observabilite         | deploy-preprod          | deploy-monitor          | incluse, ou ecart
+Observabilite         | deploy                  | deploy-monitor          | incluse, ou ecart
                       |                         |                         | documente avant UAT
 ```
 
@@ -347,11 +347,11 @@ Regles CD:
 - dans ce mode pre-merge, `remote_deploy_branch` peut pointer vers la branche PR
   pour cloner le code a valider sur l'instance; apres merge, cette valeur
   redevient `dev` comme `git_branch`;
-- le job `deploy-preprod` doit etre dans `cd.yml`, apres les jobs de publication
+- le job `deploy` doit etre dans `cd.yml`, apres les jobs de publication
   d'artefacts, pas dans `ci.yml`;
-- le job `deploy-preprod` ne doit pas reconstruire les images applicatives: il
+- le job `deploy` ne doit pas reconstruire les images applicatives: il
   doit consommer les images et le snapshot publies par les jobs CD precedents;
-- si un job de publication est skippe par path filter, `deploy-preprod` peut
+- si un job de publication est skippe par path filter, `deploy` peut
   consommer le dernier artefact publie pour le tag/branche cible, mais ce choix
   doit etre visible dans les logs;
 - le job reste bloque tant que `deploy-remote` clone encore les anciens repos au
@@ -361,10 +361,10 @@ Regles CD:
 
 Implementation initiale:
 
-- `cd.yml` porte le job `deploy-preprod`, declenche uniquement sur `push` vers
+- `cd.yml` porte le job `deploy`, declenche uniquement sur `push` vers
   `dev` ou manuellement via `workflow_dispatch`, et conditionne aux changements
   d'artefacts detectes par `changes` sauf en validation manuelle pre-merge;
-- `deploy-preprod` appelle seulement `make deploy-remote` et injecte les secrets
+- `deploy` appelle seulement `make deploy-remote` et injecte les secrets
   via l'environnement GitHub Actions, apres `make deploy-remote-preflight`;
 - le Makefile racine passe `REMOTE_TOOLS_*` et `REMOTE_APP_*` a `packages/tools`
   pour cloner `matchID-project/matchID` et executer `make` a la racine du
@@ -382,20 +382,24 @@ Implementation initiale:
 - `deploy-remote-publish` force le `APP_DNS` calcule (`dev-deces.matchid.io`
   pour `GIT_BRANCH=dev`) apres `MAKEOVERRIDES`, afin d'eviter que la valeur
   racine `deces.matchid.io` ne surcharge le test public preprod;
-- preuve manuelle preprod du 2026-04-20:
-  `make clean elasticsearch-restore dev` et `make local-test-api` passent en
-  local, `make deploy-remote` provisionne l'instance SCW
-  `matchid-deces-ui-dev` en `51.158.99.108`, restaure
-  `esdata_fa194c98_c88006ac`, demarre backend puis UI, et les sous-cibles
-  officielles `deploy-remote-publish`, `deploy-cdn-purge-cache`,
-  `deploy-delete-old` et `deploy-monitor` publient `dev-deces.matchid.io`;
-- verification publique independante du 2026-04-20:
-  `GET https://dev-deces.matchid.io/` retourne `200` et
-  `POST https://dev-deces.matchid.io/deces/api/v1/search` retourne `200`;
-- limite constatee: le premier `make deploy-remote` a depasse le timeout nginx
-  historique de 30s dans `packages/deces-ui frontend`, puis
-  `localhost:8083` a repondu `200`; la relance complete n'est pas idempotente
-  car `elasticsearch-restore-async` retente le snapshot deja restaure;
+- preuve manuelle preprod du 2026-04-21:
+  `make deploy-remote` provisionne l'instance SCW `matchid-deces-ui-dev`
+  `bbc27157-6c9c-428b-9a00-90a41ec13363` en `51.158.99.108`, restaure
+  `esdata_fa194c98_e0735a1a`, demarre backend puis UI, et valide le test API
+  VPC;
+- la publication nginx a ete terminee par les sous-cibles officielles
+  `nginx-conf-apply`, `remote-test-api`, `deploy-cdn-purge-cache`,
+  `deploy-delete-old` et `deploy-monitor`, avec upstream
+  `51.158.99.108:8083`;
+- verification publique independante du 2026-04-21:
+  `GET https://dev-deces.matchid.io/` retourne `200`, le healthcheck public
+  retourne `200`, `POST https://dev-deces.matchid.io/deces/api/v1/search`
+  retourne `200`, Elasticsearch est `green`, et l'index `deces` contient
+  `679573` documents;
+- limite constatee: le premier `make deploy-remote` a bloque au publish nginx
+  sur l'authentification SSH locale du serveur nginx (`Too many authentication
+  failures`), sans echec applicatif ni echec HTTPS; la publication a ete
+  reprise via les memes sous-cibles Make avec la configuration nginx correcte;
 - consequence: la preprod est publiee et verifiee, mais la preuve "single run
   exit 0" de `deploy-remote` sur instance fraiche reste a obtenir avant de
   fermer l'execution de bout en bout du lot 8;
@@ -405,8 +409,9 @@ Implementation initiale:
   n'autorisent pas `includes` directement sur le header `content-type`; la
   correction monorepo normalise seulement les valeurs `string` et `string[]`
   avant le test existant, les autres types restant invalides;
-- preuve actuelle: parsing statique `make -qp` et presence du job CD; preuve
-  restante: run GitHub `CD` et execution preprod reelle;
+- preuve actuelle: job CD present, preuve preprod manuelle publiee et verifiee;
+  preuve restante: run GitHub `CD` ou run local strictement equivalent qui sort
+  en `0` de bout en bout sur instance fraiche;
 - preuve de non-regression PR apres debut du lot 8: le run GitHub `CI`
   `24633751030` est vert sur `2c09453b`.
 

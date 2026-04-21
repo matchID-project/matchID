@@ -173,7 +173,10 @@ Les correctifs de harness nécessaires pour rendre ce scénario reproductible sa
 
 - `make dataprep-run` attend explicitement `watch-run`
 - `make dataprep-run` purge les logs dataprep avant un nouveau lancement
-- la racine et `deces-infra` partagent désormais le même contrat `ES_MEM=1024m` pour la chaîne complète
+- la racine et `deces-infra` partagent le même contrat `ES_MEM`; la valeur par
+  défaut runtime distante est revenue à `512m`, alignée avec `deces-ui`
+  upstream, et les jobs lourds peuvent toujours surcharger explicitement cette
+  valeur
 - `elasticsearch-start` réutilise une instance locale déjà démarrée au lieu de la recréer pendant `make dev`
 
 Le scénario revalidé via `make` uniquement est:
