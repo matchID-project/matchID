@@ -382,48 +382,47 @@ Implementation initiale:
 - `deploy-remote-publish` force le `APP_DNS` calcule (`dev-deces.matchid.io`
   pour `GIT_BRANCH=dev`) apres `MAKEOVERRIDES`, afin d'eviter que la valeur
   racine `deces.matchid.io` ne surcharge le test public preprod;
-- preuve manuelle preprod du 2026-04-21:
-  `make deploy-remote` provisionne l'instance SCW `matchid-deces-ui-dev`
-  `bbc27157-6c9c-428b-9a00-90a41ec13363` en `51.158.99.108`, restaure
-  `esdata_fa194c98_e0735a1a`, demarre backend puis UI, et valide le test API
-  VPC;
-- la publication nginx a ete terminee par les sous-cibles officielles
-  `nginx-conf-apply`, `remote-test-api`, `deploy-cdn-purge-cache`,
-  `deploy-delete-old` et `deploy-monitor`, avec upstream
-  `51.158.99.108:8083`;
-- verification publique independante du 2026-04-21:
+- preuve manuelle preprod du 2026-04-22:
+  `make deploy-remote` sort en `0` avec `GIT_BRANCH=dev`,
+  `REMOTE_DEPLOY_BRANCH=feat/refacto-make`,
+  `REPOSITORY_BUCKET=fichier-des-personnes-decedees-elasticsearch-dev` et
+  `FILES_TO_PROCESS=deces-2020-m[0-1][0-9].txt.gz`;
+- l'instance SCW cible est `matchid-deces-ui-dev`
+  `a593eb34-0eb0-420c-8750-3ac85386295f` en `51.15.247.64`;
+- le clone distant est au commit `eb28f06a`;
+- images publiees pour le run manuel:
+  `matchid/deces-backend:0.4.0-4348-geb28f06a`
+  (`sha256:4ca9c43f643d0a11e32ce100adecc7cfae4553bb1e53a3a82a177e30765a99c6`)
+  et `matchid/deces-ui:0.4.0-4348-geb28f06a`
+  (`sha256:f58b5ed3ce240b8fcf7f20259efbd632fe95f9c11420c9716b03a04da6ee2e38`);
+- `deploy-remote` restaure `esdata_fa194c98_e0735a1a`, demarre les services,
+  valide `localhost:8083/deces/api/v1/search`, valide le test VPC sur
+  `51.15.247.64`, valide le test public
+  `https://dev-deces.matchid.io/deces/api/v1/search`, purge le CDN, execute le
+  cleanup et execute `deploy-monitor`;
+- verification publique independante du 2026-04-22:
   `GET https://dev-deces.matchid.io/` retourne `200`, le healthcheck public
-  retourne `200`, `POST https://dev-deces.matchid.io/deces/api/v1/search`
-  retourne `200`, Elasticsearch est `green`, et l'index `deces` contient
-  `679573` documents;
-- limite constatee: le premier `make deploy-remote` a bloque au publish nginx
-  sur l'authentification SSH locale du serveur nginx (`Too many authentication
-  failures`), sans echec applicatif ni echec HTTPS; la publication a ete
-  reprise via les memes sous-cibles Make avec la configuration nginx correcte;
-- consequence: la preprod est publiee et verifiee, mais la preuve "single run
-  exit 0" de `deploy-remote` sur instance fraiche reste a obtenir avant de
-  fermer l'execution de bout en bout du lot 8;
-- tentative de redeploiement manuel du 2026-04-22:
-  - l'ancien marqueur local SCW pointait une instance supprimee
-    `bbc27157-6c9c-428b-9a00-90a41ec13363`;
-  - le marqueur a ete resynchronise sur l'instance dev active
-    `a593eb34-0eb0-420c-8750-3ac85386295f` en `51.15.247.64`;
-  - le conteneur legacy distant `deces-ui-elasticsearch`, non pilote par le
-    Makefile monorepo, a ete supprime apres `make stop`;
-  - `make deploy-remote` a restaure `esdata_fa194c98_e0735a1a` puis a bloque
-    sur l'absence d'image publiee
-    `matchid/deces-ui:0.4.0-4347-gb4a6e2fc`;
-  - le redeploiement complet reste donc ouvert jusqu'a publication explicite
-    des images `deces-ui` et `deces-backend` du commit courant.
+  retourne `200`, et `POST https://dev-deces.matchid.io/deces/api/v1/search`
+  retourne une reponse contenant `response`;
+- verification Elasticsearch distante du 2026-04-22:
+  `GET localhost:9200/deces/_count` via `make -C packages/tools remote-cmd`
+  retourne `679573` documents;
+- config locale hors git corrigee pour reproduire le run sans override CLI:
+  `CLOUD_SSHOPTS=-J ubuntu@bastion -o IdentitiesOnly=yes`,
+  `SSHKEY_PRIVATE=/home/antoinefa/.ssh/id_ecdsa` et `NGINX_USER=ubuntu`;
+- limite restante: `MONITOR_BUCKET` reste absent et signale comme optionnel par
+  `deploy-remote-preflight`; l'observabilite fonctionnelle reste donc a valider
+  explicitement hors simple exit `0` de `deploy-monitor`.
 - le premier `workflow_dispatch` CD pre-merge a revele un blocage de compilation
   de l'image `deces-backend` sur `webhook.ts`: le code etait identique a
   `matchid-project/deces-backend@origin/dev`, mais les types Axios actuels
   n'autorisent pas `includes` directement sur le header `content-type`; la
   correction monorepo normalise seulement les valeurs `string` et `string[]`
   avant le test existant, les autres types restant invalides;
-- preuve actuelle: job CD present, preuve preprod manuelle publiee et verifiee;
-  preuve restante: run GitHub `CD` ou run local strictement equivalent qui sort
-  en `0` de bout en bout sur instance fraiche;
+- preuve actuelle: job CD present, preuve preprod manuelle stricte publiee et
+  verifiee avec `make deploy-remote` en exit `0`;
+- preuves restantes: run GitHub `CD` apres merge `dev`, jobs dataprep
+  `small`/`year`/`full`, et validation d'observabilite preprod.
 - preuve de non-regression PR apres debut du lot 8: le run GitHub `CI`
   `24633751030` est vert sur `2c09453b`.
 

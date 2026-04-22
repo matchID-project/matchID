@@ -300,7 +300,7 @@
     - [x] Deployer `deces-infra` en preprod
     - [x] Deployer l'image `deces-backend` en preprod
     - [x] Deployer l'image `deces-ui` en preprod
-    - [ ] Executer le flux `deploy-remote` de bout en bout pour la preprod
+    - [x] Executer le flux `deploy-remote` de bout en bout pour la preprod
     - [x] Publier la configuration d'acces `dev-deces.matchid.io`
     - [x] Rattraper l'evolution upstream `deces-ui` securite + art85 depuis `fix/art-85`
     - [ ] Corriger les ecarts CI/CD arbitres M1, H4, H5 et H6 sans changer le contrat upstream valide

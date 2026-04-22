@@ -445,20 +445,20 @@ deces-infra       | elasticsearch-restore   | elasticsearch-restore      | donne
 
 ## Lot 8 - À prouver
 
-Preuve manuelle preprod du 2026-04-21:
+Preuve manuelle preprod du 2026-04-22:
 
 ```text
 Etape             | Commande / preuve make                    | Resultat
 ------------------+--------------------------------------------+-------------------------------
-Commit deploye    | git describe / git rev-parse               | 0.4.0-4339-g039223f5
+Commit deploye    | git describe / git rev-parse               | 0.4.0-4348-geb28f06a
 Images            | make backend-build-image/docker-push       | deces-backend publie:
-                  | make build/frontend-docker-push            | sha256:ff8db4a9443...
+                  | make build/frontend-docker-push            | sha256:4ca9c43f643...
                   |                                            | deces-ui publie:
-                  |                                            | sha256:07d9d565b2...
+                  |                                            | sha256:f58b5ed3ce...
 Remote instance   | make deploy-remote                         | instance SCW:
-                  |                                            | bbc27157-6c9c-428b-
-                  |                                            | 9a00-90a41ec13363
-                  |                                            | 51.158.99.108
+                  |                                            | a593eb34-0eb0-420c-
+                  |                                            | 8750-3ac85386295f
+                  |                                            | 51.15.247.64
 Remote restore    | make deploy-remote                         | snapshot restaure:
                   |                                            | esdata_fa194c98_e0735a1a
 Elasticsearch     | make -C packages/tools remote-cmd          | cluster green;
@@ -467,7 +467,7 @@ Remote services   | make deploy-remote                         | backend demarre
                   |                                            | all components started
 Remote API VPC    | make deploy-remote                         | localhost:8083 search ok
 Publish preprod   | make -C packages/tools nginx-conf-apply    | upstream nginx:
-                  |                                            | 51.158.99.108:8083
+                  |                                            | 51.15.247.64:8083
 Public API        | make -C packages/tools remote-test-api     | api public dev-deces ok
 CDN               | make deploy-cdn-purge-cache                | cache purged
 Cleanup           | make deploy-delete-old                     | no invalid server to delete
@@ -477,35 +477,26 @@ Public search     | curl POST /deces/api/v1/search             | POST 200 applic
 Monitoring        | make deploy-monitor                        | cible executee sans erreur
 ```
 
-Limite de preuve:
+Preuve de redeploiement manuel du 2026-04-22:
 
-- `make deploy-remote` a provisionne l'instance, restaure le snapshot et demarre
-  les services; l'etape `deploy-remote-publish` a ensuite bloque localement sur
-  l'authentification SSH du serveur nginx (`Too many authentication failures`),
-  sans echec applicatif ni echec HTTPS;
-- les sous-cibles officielles restantes (`deploy-remote-publish`,
-  `deploy-cdn-purge-cache`, `deploy-delete-old`, `deploy-monitor`) ont ete
-  executees ensuite avec l'utilisateur et la cle nginx corrects, puis ont publie
-  `dev-deces.matchid.io`;
-- il reste a obtenir un run GitHub CD ou un run local strictement equivalent qui
-  sorte en `0` de bout en bout sur instance fraiche avant de cocher la ligne
-  `Executer le flux deploy-remote de bout en bout`.
-
-Reprise manuelle du 2026-04-22:
-
-- les marqueurs locaux SCW etaient obsoletes apres suppression d'instance:
-  l'ID `bbc27157-6c9c-428b-9a00-90a41ec13363` n'existe plus cote SCW;
-- l'instance dev active identifiee est
-  `a593eb34-0eb0-420c-8750-3ac85386295f` avec l'IP `51.15.247.64`;
-- `make stop` a ete execute sur l'instance, puis le conteneur legacy
-  `deces-ui-elasticsearch` restant a ete supprime car il n'est plus pilote par
-  les cibles monorepo et empechait Elasticsearch de demarrer de maniere stable;
-- `make deploy-remote` a ensuite restaure le snapshot
-  `esdata_fa194c98_e0735a1a`;
-- le run bloque maintenant sur l'absence de l'image publiee
-  `matchid/deces-ui:0.4.0-4347-gb4a6e2fc`; la fermeture de la preuve attend la
-  publication explicite des images du commit courant, puis une relance
-  `make deploy-remote`.
+- `make deploy-remote-preflight` sort en `0` avec deux warnings attendus:
+  `REMOTE_DEPLOY_BRANCH=feat/refacto-make` differe de `GIT_BRANCH=dev`, et
+  `MONITOR_BUCKET` est absent.
+- `make deploy-remote` sort en `0` sans override CLI apres correction de la
+  config locale ignoree: `CLOUD_SSHOPTS=-J ubuntu@bastion -o IdentitiesOnly=yes`,
+  `SSHKEY_PRIVATE=/home/antoinefa/.ssh/id_ecdsa`, `NGINX_USER=ubuntu`.
+- Le run restaure `esdata_fa194c98_e0735a1a`, demarre backend + UI, valide
+  `localhost:8083/deces/api/v1/search`, valide le test VPC sur `51.15.247.64`,
+  valide `https://dev-deces.matchid.io/deces/api/v1/search`, purge le CDN,
+  execute `deploy-delete-old` puis `deploy-monitor`.
+- Verifications independantes apres run: `GET /deces/api/v1/healthcheck` en
+  `200`, `GET /` en `200`, `POST /deces/api/v1/search` avec `.response`
+  present, `GET localhost:9200/deces/_count` a `679573`, clone distant au
+  commit `eb28f06a`.
+- L'instance SCW reutilisee a ete retaguee pour refleter l'artefact servi:
+  `ui:0.4.0-4348-geb28f06a-backend:0.4.0-4348-geb28f06a-data:fa194c98-e0735a1a`.
+- Limite restante: `deploy-monitor` sort en `0`, mais l'observabilite preprod
+  reste a valider fonctionnellement car `MONITOR_BUCKET` est absent.
 
 ```text
 Repo source       | Make source              | Make monorepo             | Job source        | Statut
