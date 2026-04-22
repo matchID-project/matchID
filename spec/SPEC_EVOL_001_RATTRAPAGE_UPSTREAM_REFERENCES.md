@@ -136,6 +136,18 @@ Portage retenu dans le monorepo:
   revalide apres preuve CI du build Node 22, car il ne doit pas masquer une
   exemption permanente.
 
+Validation du 2026-04-22:
+
+- `matchID-project/deces-ui@origin/dev` contient maintenant le merge upstream
+  `fix/art-85`;
+- `packages/deces-ui/src/components/tools/dataCorrections.js`,
+  `package.json`, `package-lock.json` et `rollup.config.js` sont alignes sur
+  les changements upstream securite + art85;
+- le Dockerfile reprend le pin Node `22.22.2-alpine3.23` tout en conservant
+  l'adaptation monorepo `APP_FRONTEND`;
+- la CI GitHub `24757200408` est verte sur `feat/refacto-make` apres ce
+  rattrapage.
+
 ## Critères d'acceptation
 
 - chaque package cible est ramené à la référence upstream choisie

@@ -302,7 +302,7 @@
     - [x] Deployer l'image `deces-ui` en preprod
     - [ ] Executer le flux `deploy-remote` de bout en bout pour la preprod
     - [x] Publier la configuration d'acces `dev-deces.matchid.io`
-    - [ ] Rattraper l'evolution upstream `deces-ui` securite + art85 depuis `fix/art-85`
+    - [x] Rattraper l'evolution upstream `deces-ui` securite + art85 depuis `fix/art-85`
     - [ ] Corriger les ecarts CI/CD arbitres M1, H4, H5 et H6 sans changer le contrat upstream valide
     - [x] Documenter la passe d'arbitrage H1/H2/H3/H7 avant tout changement supplementaire de Makefile ou Dockerfile
     - [x] Restaurer la sequence CI upstream de `deces-backend`: `backend-build-image`, `deploy-dependencies`, `backend-test-vitest`
@@ -316,7 +316,7 @@
     - [x] Valider la chaine dataprep -> index -> backend -> ui en preprod
     - [x] Valider statiquement les workflows CI/CD apres correction des ecarts arbitres
     - [x] Prouver sur GitHub Actions la CI complete apres correction H5/H7: run `24757045362`
-    - [ ] Prouver sur GitHub Actions la CI apres rattrapage upstream `deces-ui`
+    - [x] Prouver sur GitHub Actions la CI apres rattrapage upstream `deces-ui`: run `24757200408`
     - [ ] Prouver sur GitHub Actions les jobs CD dataprep `small`, `year` et `full` reconstruits
     - [ ] Valider l'observabilite preprod
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 8

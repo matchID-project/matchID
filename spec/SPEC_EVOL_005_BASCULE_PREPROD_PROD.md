@@ -403,6 +403,18 @@ Implementation initiale:
 - consequence: la preprod est publiee et verifiee, mais la preuve "single run
   exit 0" de `deploy-remote` sur instance fraiche reste a obtenir avant de
   fermer l'execution de bout en bout du lot 8;
+- tentative de redeploiement manuel du 2026-04-22:
+  - l'ancien marqueur local SCW pointait une instance supprimee
+    `bbc27157-6c9c-428b-9a00-90a41ec13363`;
+  - le marqueur a ete resynchronise sur l'instance dev active
+    `a593eb34-0eb0-420c-8750-3ac85386295f` en `51.15.247.64`;
+  - le conteneur legacy distant `deces-ui-elasticsearch`, non pilote par le
+    Makefile monorepo, a ete supprime apres `make stop`;
+  - `make deploy-remote` a restaure `esdata_fa194c98_e0735a1a` puis a bloque
+    sur l'absence d'image publiee
+    `matchid/deces-ui:0.4.0-4347-gb4a6e2fc`;
+  - le redeploiement complet reste donc ouvert jusqu'a publication explicite
+    des images `deces-ui` et `deces-backend` du commit courant.
 - le premier `workflow_dispatch` CD pre-merge a revele un blocage de compilation
   de l'image `deces-backend` sur `webhook.ts`: le code etait identique a
   `matchid-project/deces-backend@origin/dev`, mais les types Axios actuels

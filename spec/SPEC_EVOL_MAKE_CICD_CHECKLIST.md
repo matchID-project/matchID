@@ -491,6 +491,22 @@ Limite de preuve:
   sorte en `0` de bout en bout sur instance fraiche avant de cocher la ligne
   `Executer le flux deploy-remote de bout en bout`.
 
+Reprise manuelle du 2026-04-22:
+
+- les marqueurs locaux SCW etaient obsoletes apres suppression d'instance:
+  l'ID `bbc27157-6c9c-428b-9a00-90a41ec13363` n'existe plus cote SCW;
+- l'instance dev active identifiee est
+  `a593eb34-0eb0-420c-8750-3ac85386295f` avec l'IP `51.15.247.64`;
+- `make stop` a ete execute sur l'instance, puis le conteneur legacy
+  `deces-ui-elasticsearch` restant a ete supprime car il n'est plus pilote par
+  les cibles monorepo et empechait Elasticsearch de demarrer de maniere stable;
+- `make deploy-remote` a ensuite restaure le snapshot
+  `esdata_fa194c98_e0735a1a`;
+- le run bloque maintenant sur l'absence de l'image publiee
+  `matchid/deces-ui:0.4.0-4347-gb4a6e2fc`; la fermeture de la preuve attend la
+  publication explicite des images du commit courant, puis une relance
+  `make deploy-remote`.
+
 ```text
 Repo source       | Make source              | Make monorepo             | Job source        | Statut
 ------------------+--------------------------+---------------------------+-------------------+-------------
