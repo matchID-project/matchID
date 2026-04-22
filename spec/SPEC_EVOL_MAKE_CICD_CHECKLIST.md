@@ -87,9 +87,12 @@ upstream historique    | `backend-build-all`, puis `deploy-dependencies`, puis
 monorepo avant fix     | `backend-build-image`, puis `backend-test-vitest`
 preuve d'ecart         | CI 24756045556: image OK, Redis/SMTP OK, echec vitest apres
                        | `tsoa`; la phase source qui restaure l'index manquait
+preuve intermediaire   | CI 24756469461: `deploy-dependencies` passe; echec restant
+                       | dans `backend-test-vitest`, avec commande test non upstream
 decision appliquee     | restaurer la cible historique `deploy-dependencies` dans
                        | `packages/deces-backend` en deleguant l'Elasticsearch a
-                       | `packages/deces-infra`, puis l'appeler avant Vitest en CI
+                       | `packages/deces-infra`, puis l'appeler avant Vitest en CI;
+                       | realigner Vitest sur `npm run test --verbose`
 ```
 
 Garde-fou CD H6:

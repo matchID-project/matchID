@@ -306,6 +306,7 @@
     - [ ] Corriger les ecarts CI/CD arbitres M1, H4, H5 et H6 sans changer le contrat upstream valide
     - [x] Documenter la passe d'arbitrage H1/H2/H3/H7 avant tout changement supplementaire de Makefile ou Dockerfile
     - [x] Restaurer la sequence CI upstream de `deces-backend`: `backend-build-image`, `deploy-dependencies`, `backend-test-vitest`
+    - [x] Realigner la commande Vitest `deces-backend` sur l'upstream `npm run test --verbose`
     - [x] Corriger H7 en remplacant le contournement `DATA_DIR=build-data` par le repertoire package-local upstream `DATA_DIR=data`
   - [ ] Tests
     - [x] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
