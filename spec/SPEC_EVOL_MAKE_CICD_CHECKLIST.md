@@ -68,13 +68,11 @@ Point                  | Constat
 upstream historique    | `COPY ${DATA_DIR}/communes.json`, `disposable-mail.txt`,
                        | `wikidata.json` dans l'image `deces-backend`
 monorepo courant       | `COPY ${DATA_DIR} ./data`
-CI/CD courant          | force `DATA_DIR=build-data` pour rester dans le contexte Docker
+CI/CD corrige          | force `DATA_DIR=data` pour rester dans le contexte Docker
 risque                 | `DATA_DIR` designe a la fois le repertoire runtime canonique
                        | racine et le repertoire de contexte build image
-option a valider       | separer le nom de variable build image, ou revenir a une
-                       | preparation explicite de `build-data` sans surcharger
-                       | semantiquement `DATA_DIR`
-decision courante      | ne pas modifier le Dockerfile/Makefile avant validation humaine
+decision appliquee     | revenir au repertoire package-local upstream `data`, deja
+                       | ignore, sans introduire `build-data`
 ```
 
 Garde-fou CD H6:
@@ -243,10 +241,10 @@ dataprep-frontend | make | version-files; version       | make -C packages/deces
                   |      |                              |   pull request test                 | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | a prouver apres
-                  |      |                              |   DATA_DIR=build-data backend-      |
+                  |      |                              |   DATA_DIR=data backend-            |
                   |      |                              |   build-image                       |
                   | make | backend-test-vitest          | make -C packages/deces-backend      | correction H5
-                  |      |                              |   DATA_DIR=build-data backend-      |
+                  |      |                              |   DATA_DIR=data backend-            |
                   |      |                              |   test-vitest                       |
                   | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | a prouver apres
                   |      | + vitest                     | docker image and tests              | correction H5
@@ -255,7 +253,7 @@ deces-ui          | make | version config               | make version config   
                   |      | docker-check || build        | make frontend-docker-check          | 24616234550
                   |      | deploy-local backend-test    | || make APP=deces-ui build          | Appariement
                   |      | frontend-test                | make -C packages/deces-backend      | Wikidata inclus
-                  |      |                              |   DATA_DIR=build-data backend-      |
+                  |      |                              |   DATA_DIR=data backend-            |
                   |      |                              |   build-image                       |
                   |      |                              | make deploy-local backend-test      |
                   |      |                              |   frontend-test                     |
@@ -330,7 +328,7 @@ dataprep-frontend | make | build                        | make -C packages/datap
                   |      |                              | image                                |
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | CD vert GH
-                  |      |                              |   DATA_DIR=build-data backend-      | 24586029288
+                  |      |                              |   DATA_DIR=data backend-            | correction H7
                   |      |                              |   build-image                       |
                   | make | docker-push-backend          | make -C packages/deces-backend      | image publiee
                   |      |                              |   docker-push-backend               |

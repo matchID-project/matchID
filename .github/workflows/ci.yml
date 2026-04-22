@@ -139,12 +139,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build backend image
-        run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
       - name: Run backend vitest tests
-        run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-test-vitest GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-test-vitest GIT_BRANCH=${GITHUB_REF_NAME}
       - name: Stop backend test dependencies
         if: always()
-        run: make -C packages/deces-backend DATA_DIR=build-data backend-redis-stop backend-smtp-stop GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend DATA_DIR=data backend-redis-stop backend-smtp-stop GIT_BRANCH=${GITHUB_REF_NAME}
 
   deces-ui-pull-request-test:
     name: deces-ui pull request test
@@ -164,7 +164,7 @@ jobs:
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Build backend image for deploy-local
-        run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Deploy local and run backend/frontend tests

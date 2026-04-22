@@ -26,8 +26,8 @@ Composant         | Workflow source                 | Job monorepo              
 tools             | actions.yml / build docker swift| ci.yml / build docker swift               | make -C packages/tools docker-check CLOUD_CLI=swift || make -C packages/tools docker-build CLOUD_CLI=swift
 dataprep-backend  | pull.yml / pull request test    | ci.yml / dataprep-backend pull request test | make -C packages/deces-dataprep config; make -C packages/dataprep-backend version backend-docker-check || make -C packages/dataprep-backend backend-build backend tests backend-stop
 dataprep-frontend | pull.yml / pull request test    | ci.yml / dataprep-frontend pull request test | make -C packages/deces-dataprep config frontend-config; make -C packages/dataprep-frontend version-files version; make -C packages/dataprep-frontend frontend-docker-check || make -C packages/dataprep-frontend build backend-docker-check up
-deces-backend     | dockerimage.yml / build         | ci.yml / deces-backend build docker image and tests | make -C packages/deces-backend DATA_DIR=build-data backend-build-image; make -C packages/deces-backend DATA_DIR=build-data backend-test-vitest
-deces-ui          | pr.yml / Pull request test      | ci.yml / deces-ui pull request test       | make version config; make frontend-docker-check || make APP=deces-ui build; make -C packages/deces-backend DATA_DIR=build-data backend-build-image; make deploy-local backend-test frontend-test
+deces-backend     | dockerimage.yml / build         | ci.yml / deces-backend build docker image and tests | make -C packages/deces-backend DATA_DIR=data backend-build-image; make -C packages/deces-backend DATA_DIR=data backend-test-vitest
+deces-ui          | pr.yml / Pull request test      | ci.yml / deces-ui pull request test       | make version config; make frontend-docker-check || make APP=deces-ui build; make -C packages/deces-backend DATA_DIR=data backend-build-image; make deploy-local backend-test frontend-test
 deces-dataprep    | pr.yml / locally                | ci.yml / deces-dataprep locally           | make -C packages/deces-dataprep all FILES_TO_PROCESS=deces-2020-m01.txt.gz ...
 ```
 

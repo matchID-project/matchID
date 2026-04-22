@@ -142,7 +142,7 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build deces-backend image
-        run: make -C packages/deces-backend DATA_DIR=build-data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish deces-backend image

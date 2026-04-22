@@ -305,7 +305,7 @@
     - [ ] Rattraper l'evolution upstream `deces-ui` securite + art85 depuis `fix/art-85`
     - [ ] Corriger les ecarts CI/CD arbitres M1, H4, H5 et H6 sans changer le contrat upstream valide
     - [ ] Documenter la passe d'arbitrage H1/H2/H3/H7 avant tout changement supplementaire de Makefile ou Dockerfile
-    - [ ] Trancher H7 sur le contrat `DATA_DIR` build image vs runtime avant une eventuelle correction de code
+    - [x] Corriger H7 en remplacant le contournement `DATA_DIR=build-data` par le repertoire package-local upstream `DATA_DIR=data`
   - [ ] Tests
     - [x] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
     - [x] Valider le test API en preprod
