@@ -302,11 +302,18 @@
     - [x] Deployer l'image `deces-ui` en preprod
     - [ ] Executer le flux `deploy-remote` de bout en bout pour la preprod
     - [x] Publier la configuration d'acces `dev-deces.matchid.io`
+    - [ ] Rattraper l'evolution upstream `deces-ui` securite + art85 depuis `fix/art-85`
+    - [ ] Corriger les ecarts CI/CD arbitres M1, H4, H5 et H6 sans changer le contrat upstream valide
+    - [ ] Documenter la passe d'arbitrage H1/H2/H3/H7 avant tout changement supplementaire de Makefile ou Dockerfile
+    - [ ] Trancher H7 sur le contrat `DATA_DIR` build image vs runtime avant une eventuelle correction de code
   - [ ] Tests
     - [x] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
     - [x] Valider le test API en preprod
     - [x] Valider le test UI en preprod
     - [x] Valider la chaine dataprep -> index -> backend -> ui en preprod
+    - [ ] Valider statiquement les workflows CI/CD apres correction des ecarts arbitres
+    - [ ] Prouver sur GitHub Actions la CI apres rattrapage upstream `deces-ui`
+    - [ ] Prouver sur GitHub Actions les jobs CD dataprep `small`, `year` et `full` reconstruits
     - [ ] Valider l'observabilite preprod
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 8
   - [ ] UAT
@@ -319,6 +326,7 @@
     - [ ] Ecrire le runbook de rollback
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
+    - [ ] Statuer et reconstruire si necessaire le job lourd `deces-backend` upstream `bulk` / artillery (`backend-perf-clinic`, `test-perf-v1`) avant la substitution finale
     - [ ] Passer les anciens repos en lecture seule ou archive
     - [ ] Mettre a jour la documentation de gouvernance et d'exploitation
   - [ ] Tests

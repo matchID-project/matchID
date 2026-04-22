@@ -84,15 +84,18 @@ SHAs importés de référence:
 - dépendance structurelle à la normalisation runtime du monorepo
 - écarts résiduels actuellement conservés après rattrapage upstream:
   - le rattrapage upstream de `FILES_TO_PROCESS` a été importé `as is`, puis harmonisé dans un commit monorepo séparé vers une forme POSIX-compatible (`[0-9]`) pour rester cohérent entre shell et Python
+  - la regex 2026 est acceptée comme décision fonctionnelle actée; elle reste alignée avec le rattrapage upstream et la forme monorepo compatible shell/Python
   - les dépendances implicites du package à la structure historique multi-repos restent hors périmètre du lot 1 et seront traitées dans [SPEC_EVOL_002](SPEC_EVOL_002_NORMALISATION_RUNTIME_MONOREPO.md)
-  - le `frontend` historique utilisé par `deces-dataprep` est lancé en dev local avec `NPM_AUDIT_IGNORE=true` pour éviter qu'un audit npm bloque la validation `make` du lot 1
+  - le `frontend` historique utilisé par `deces-dataprep` est lancé en dev local avec `NPM_AUDIT_IGNORE=true` pour éviter qu'un audit npm bloque la validation `make` du lot 1; cet ignore est temporaire pendant l'alignement sécurité et ne doit pas devenir une exemption permanente
 
 ### `deces-backend`
 
 - changements concentrés sur mail, score, lockfile et Makefile
 - impact fonctionnel direct sur les flux OTP / bulk / validation
 - écarts résiduels actuellement conservés après rattrapage upstream:
-  - aucun écart fonctionnel volontaire conservé dans `packages/deces-backend` après clôture du lot 2
+  - `API_EMAIL=contact@matchid.io` est accepté comme contact applicatif cible, conformément au rattrapage upstream
+  - le header webhook `content-type` est conservé tel quel comme compatibilité TypeScript/Axios, sans changement de comportement runtime
+  - aucun autre écart fonctionnel volontaire conservé dans `packages/deces-backend` après clôture du lot 2
 
 ### `deces-ui`
 
@@ -103,7 +106,35 @@ SHAs importés de référence:
   - aucun écart fonctionnel volontaire conservé dans `packages/deces-ui` après exécution du lot 3
   - les changements upstream `deces-ui` qui ciblaient le `Makefile` racine du dépôt source ont été transposés vers le `Makefile` racine du monorepo, car les variables correspondantes n'existent plus dans `packages/deces-ui/Makefile`
   - le support `year 2026` a été transposé dans la racine avec une forme monorepo compatible avec le filtre shell déjà utilisé (`deces-([0-9]{4}|202[56]-m[0-9]{2}).txt.gz`)
+  - la valeur `API_EMAIL=contact@matchid.io` est acceptée côté UI comme contact cible exposé aux utilisateurs
   - la cible `make frontend-test` a été rendue compatible monorepo sans changer le périmètre fonctionnel UI: elle pointe explicitement sur `docker-compose-test.yml`, réexpose l'alias `FRONTEND` attendu par le compose de test et cible `nginx-development` pendant la validation locale du lot 3
+
+### Rattrapage additionnel `deces-ui` du 2026-04-21
+
+La branche upstream locale `../deces-ui` pointe sur `fix/art-85`, avec trois
+commits postérieurs à `origin/dev`:
+
+```text
+Commit  | Role
+--------+------------------------------------------------------------
+b0cf43d | ajout art85 `sc92Si15N-ef`
+1962006 | pin de l'image Node 22 Alpine
+03beadd | resolution des vulnerabilites npm hautes
+```
+
+Portage retenu dans le monorepo:
+
+- `packages/deces-ui/src/components/tools/dataCorrections.js` reprend l'entrée
+  art85 `sc92Si15N-ef`;
+- `packages/deces-ui/Dockerfile` reprend uniquement le changement d'image de
+  base Node 22, sans revenir sur le contrat monorepo `APP_FRONTEND`;
+- `packages/deces-ui/package.json`, `package-lock.json` et
+  `rollup.config.js` reprennent le remplacement de `rollup-plugin-terser` par
+  `@rollup/plugin-terser`, `rollup-plugin-workbox@^8.1.3`,
+  `diff@^4.0.4` et l'override `serialize-javascript@7.0.5`;
+- l'ecart temporaire `NPM_AUDIT_IGNORE=true` reste documente mais doit etre
+  revalide apres preuve CI du build Node 22, car il ne doit pas masquer une
+  exemption permanente.
 
 ## Critères d'acceptation
 

@@ -26,8 +26,15 @@ package legacy matchID      | packages/dataprep-backend        | package        
 
 ## Workflow CD cible
 
-`cd.yml` est déclenché par `workflow_dispatch` et par `push` sur
-`feat/refacto-make`, `dev`, `master`.
+`cd.yml` est déclenché par `repository_dispatch`, `workflow_dispatch` et par
+`push` sur `dev` et `master`.
+
+Le dispatch manuel expose `dataprep_scope`; son défaut est `small` pour éviter
+un run `full`/prod implicite. Les scopes `year`, `full` et `all` restent
+disponibles seulement sur choix explicite.
+
+Pour `repository_dispatch`, les scopes dataprep restent attachés à la branche
+portée par `client_payload.ref`: `small`/`year` sur `dev`, `full` sur `master`.
 
 ```text
 Job CD monorepo                  | Rôle
@@ -36,7 +43,19 @@ Publish matchid-backend image    | build/push image historique du backend datapr
 Publish matchid-frontend image   | build/push image historique du frontend dataprep
 Publish deces-backend image      | build/push image backend applicatif deces
 Publish deces-ui image           | build/push image frontend applicatif deces
-Publish dataprep snapshot        | produire, publier et tracer le snapshot Elasticsearch
+Publish dataprep small snapshot  | produire, publier et tracer le snapshot Elasticsearch petit jeu dev
+Publish dataprep year snapshot   | produire, publier et tracer le snapshot Elasticsearch annuel dev
+Publish dataprep full snapshot   | produire, publier et tracer le snapshot Elasticsearch full master
+```
+
+Scopes dataprep:
+
+```text
+Job CD monorepo | Branche push | Upstream aligne          | FILES_TO_PROCESS
+----------------+--------------+--------------------------+------------------------------------------------------------
+dataprep-small  | dev          | small.yml                | deces-2020-m01.txt.gz
+dataprep-year   | dev          | year.yml, push-dev.yml   | deces-2020-m[0-1][0-9].txt.gz
+dataprep-full   | master       | full.yml, push-master.yml| deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
 ```
 
 ## Preuves CD acquises
@@ -56,6 +75,7 @@ dataprep-frontend | Publish matchid-frontend image   | CD push 24586029288 pass
 deces-backend     | Publish deces-backend image      | CD push 24586029288 pass
 deces-ui          | Publish deces-ui image           | CD push 24586029288 pass
 deces-dataprep    | Publish dataprep snapshot        | CD push 24586029288 pass
+deces-dataprep    | dataprep-small/year/full         | à prouver après correction H6
 ```
 
 Snapshot de référence non-prod:
@@ -79,7 +99,7 @@ dataprep-backend  | pull.yml / test; push.yml / build; deploy.yml     | ci.yml /
 dataprep-frontend | pull.yml / test; push.yml / build                 | ci.yml / dataprep-frontend pull request test; cd.yml / Publish matchid-frontend image
 deces-backend     | dockerimage.yml / build                           | ci.yml / deces-backend build docker image; cd.yml / Publish deces-backend image
 deces-ui          | pr.yml / test; push.yml / build; push.yml / deploy| ci.yml / deces-ui pull request test; cd.yml / Publish deces-ui image; deploy lot 8
-deces-dataprep    | pr.yml/small/year/full/push-*                     | ci.yml / deces-dataprep locally; cd.yml / Publish dataprep snapshot; remote lot 8
+deces-dataprep    | pr.yml/small/year/full/push-*                     | ci.yml / deces-dataprep locally; cd.yml / dataprep-small, dataprep-year, dataprep-full; remote lot 8
 ```
 
 ## Écarts assumés
@@ -93,6 +113,10 @@ deces-dataprep    | pr.yml/small/year/full/push-*                     | ci.yml /
   nécessaires en CI, sans cible intermédiaire.
 - Les jobs de déploiement distant restent exclus du lot 7 et seront prouvés sur
   `dev-deces.matchid.io` au lot 8.
+- Le CD dataprep ne masque plus les scopes historiques derrière un unique job
+  snapshot: `dataprep-small`, `dataprep-year` et `dataprep-full` restent
+  visibles dans le workflow, tout en appelant les cibles Make racine existantes
+  `artifact-produce-dataprep-snapshot` et `artifact-publish-dataprep-snapshot`.
 
 ## UAT lot 7
 

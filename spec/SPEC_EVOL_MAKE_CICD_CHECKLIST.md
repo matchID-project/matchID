@@ -13,6 +13,79 @@ Règles:
 - les publications d'images et de snapshots sont dans `cd.yml`, pas dans `ci.yml`;
 - `deploy-remote`, SCW et `dev-deces.matchid.io` restent lot 8.
 
+## Passe de revalidation arbitree du 2026-04-21
+
+Cette section trace les ecarts issus de la revue H/M/P et leur decision. Aucun
+point ne doit etre corrige implicitement hors decision ci-dessous.
+
+```text
+ID    | Sujet                         | Constat                                    | Decision / etat
+------+-------------------------------+--------------------------------------------+------------------------------
+M1    | trigger CI feat/refacto-make   | absent du contrat upstream cible           | supprimer de `ci.yml`
+H4    | dataprep-backend tests         | upstream lance `backend tests backend-stop`| restaurer `tests`
+H5    | deces-backend CI               | build image seul insuffisant               | ajouter `backend-test-vitest`
+H6    | CD dataprep                    | upstream separe small/year/full/push-*     | reconstruire small/year/full
+M3    | NPM_AUDIT_IGNORE               | ecart temporaire de build UI/front dataprep| garder temporaire, revalider
+M4    | regex 2026 `[0-9]`             | decision deja acceptee                     | conserver et loguer
+M5    | contact@matchid.io             | decision fonctionnelle acceptee            | conserver
+P2    | OTP 6h + rate limit            | commits backend deja repris au lot 2       | rien a corriger, loguer
+P5    | birthDate                      | pas de `birtDate` residuel trouve          | rien a corriger, surveiller
+P6    | webhook content-type           | compat TypeScript/Axios acceptee           | conserver
+H1/H2 | noms artefacts UI              | herite du split Makefile monorepo          | focus ci-dessous
+H3    | `user: ${UID}:${GID}`          | deja present dans `origin/dev`             | conserver
+H7    | `DATA_DIR` image backend       | surcharge build/runtime ambigue            | a trancher avant code
+```
+
+Focus H1/H2:
+
+```text
+Point                  | Constat
+-----------------------+------------------------------------------------------------
+origine                | `packages/deces-ui/Makefile` n'existe pas dans `origin/dev`
+premiere apparition    | branche de split monorepo `feat/makefile-split`
+contrat courant        | CI/CD appellent `make APP=deces-ui build`
+risque                 | un `make build` racine sans `APP=deces-ui` peut produire des
+                       | noms d'artefacts incoherents avec l'UI
+decision courante      | ne pas changer le code avant arbitrage; documenter que le
+                       | contrat prouve est `make APP=deces-ui build`
+```
+
+Focus H3:
+
+```text
+Point                  | Constat
+-----------------------+------------------------------------------------------------
+source                 | `origin/dev:packages/deces-ui/docker-compose-build.yml`
+preuve                 | `user: ${UID}:${GID}` deja present upstream dev
+decision               | conserver, car cela evite des fichiers root-owned en build
+```
+
+Focus H7:
+
+```text
+Point                  | Constat
+-----------------------+------------------------------------------------------------
+upstream historique    | `COPY ${DATA_DIR}/communes.json`, `disposable-mail.txt`,
+                       | `wikidata.json` dans l'image `deces-backend`
+monorepo courant       | `COPY ${DATA_DIR} ./data`
+CI/CD courant          | force `DATA_DIR=build-data` pour rester dans le contexte Docker
+risque                 | `DATA_DIR` designe a la fois le repertoire runtime canonique
+                       | racine et le repertoire de contexte build image
+option a valider       | separer le nom de variable build image, ou revenir a une
+                       | preparation explicite de `build-data` sans surcharger
+                       | semantiquement `DATA_DIR`
+decision courante      | ne pas modifier le Dockerfile/Makefile avant validation humaine
+```
+
+Garde-fou CD H6:
+
+- `workflow_dispatch` ne lance que `dataprep-small` par defaut; `year`, `full`
+  ou `all` demandent un choix explicite;
+- `repository_dispatch` ne lance `dataprep-small` et `dataprep-year` que si
+  `client_payload.ref == 'dev'`;
+- `repository_dispatch` ne lance `dataprep-full` que si
+  `client_payload.ref == 'master'`.
+
 ## UAT lot 7 - Presentation
 
 Cette section trace les preuves presentees pour fermer le lot 7 dans `PLAN.md`
@@ -50,13 +123,13 @@ dataprep-frontend | 6    | pull.yml / pull request test    | ci.yml / dataprep-f
 dataprep-frontend | 7    | push.yml / build image          | cd.yml / Publish matchid-        | CD 24586029288
                   |      |                                  | frontend image                   | job 71895732047
 ------------------+------+----------------------------------+----------------------------------+------------------
-deces-backend     | 6    | dockerimage.yml / build image   | ci.yml / deces-backend build     | CI 24616234550
-                  |      |                                  | docker image                     | job 71978790567
+deces-backend     | 6    | dockerimage.yml / build image   | ci.yml / deces-backend build     | a prouver apres
+                  |      | + backend-test-vitest           | docker image and tests           | correction H5
 deces-backend     | 6    | dockerimage.yml / runtime tests | ci.yml / deces-ui pull request   | CI 24616234550
-                  |      |                                  | test                             | job 71978790570
+                  |      | avec index restaure             | test                             | job 71978790570
 deces-backend     | 7    | dockerimage.yml / publish image | cd.yml / Publish deces-backend   | CD 24586029288
                   |      |                                  | image                            | job 71895732033
-deces-backend     | hors | dockerimage.yml / bulk perf     | pas artefact de reference        | hors contrat lot 7
+deces-backend     | 9    | dockerimage.yml / bulk perf     | a statuer/reconstruire           | reste avant lot 9
 ------------------+------+----------------------------------+----------------------------------+------------------
 deces-ui          | 6    | pr.yml / Pull request test      | ci.yml / deces-ui pull request   | CI 24616234550
                   |      |                                  | test                             | job 71978790570
@@ -67,8 +140,8 @@ deces-ui          | 8    | logs-full.yml / logs-update.yml | stats / observabili
 ------------------+------+----------------------------------+----------------------------------+------------------
 deces-dataprep    | 6    | pr.yml / locally                | ci.yml / deces-dataprep locally  | CI 24616234550
                   |      |                                  |                                  | job 71978790560
-deces-dataprep    | 7    | small/year/full/push* datasets  | cd.yml / Publish dataprep        | CD 24586029288
-                  |      | remote build                    | snapshot                         | job 71895732072
+deces-dataprep    | 7    | small/year/full/push* datasets  | cd.yml / dataprep-small,         | a prouver apres
+                  |      | remote build                    | dataprep-year, dataprep-full     | correction H6
 deces-dataprep    | 8    | remote large datasets           | remote dataprep cible            | a prouver lot 8
 ------------------+------+----------------------------------+----------------------------------+------------------
 deces-infra       | 7    | infra dispersee                 | snapshot publish/restore         | CD + UAT restore
@@ -145,13 +218,13 @@ tools             | make | docker-check CLOUD_CLI=swift | make -C packages/tools
                   | ci   | actions.yml / build docker   | ci.yml / build docker swift         | job vert GH
                   |      | swift                        |                                      | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
-dataprep-backend  | make | version backend-docker-check | make -C packages/deces-dataprep     | job vert GH
+dataprep-backend  | make | version backend-docker-check | make -C packages/deces-dataprep     | a prouver apres
                   |      | || backend-build backend     |   config                            | 24616234550
                   |      | backend-stop                 | make -C packages/dataprep-backend   |
                   |      |                              |   version backend-docker-check      |
                   |      |                              | || make -C packages/dataprep-       |
                   |      |                              |   backend backend-build backend     |
-                  |      |                              |   backend-stop                      |
+                  |      |                              |   tests backend-stop                |
                   | ci   | pull.yml / pull request test | ci.yml / dataprep-backend           | job vert GH
                   |      |                              |   pull request test                 | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
@@ -169,11 +242,14 @@ dataprep-frontend | make | version-files; version       | make -C packages/deces
                   | ci   | pull.yml / pull request test | ci.yml / dataprep-frontend          | job vert GH
                   |      |                              |   pull request test                 | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | job vert GH
+deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | a prouver apres
                   |      |                              |   DATA_DIR=build-data backend-      |
                   |      |                              |   build-image                       |
-                  | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | job vert GH
-                  |      |                              |   docker image                      | 24616234550
+                  | make | backend-test-vitest          | make -C packages/deces-backend      | correction H5
+                  |      |                              |   DATA_DIR=build-data backend-      |
+                  |      |                              |   test-vitest                       |
+                  | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | a prouver apres
+                  |      | + vitest                     | docker image and tests              | correction H5
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-ui          | make | version config               | make version config                 | job vert GH
                   |      | docker-check || build        | make frontend-docker-check          | 24616234550
@@ -195,9 +271,17 @@ deces-dataprep    | make | all FILES_TO_PROCESS=deces- | make -C packages/deces-
 
 Notes de parité:
 
-- `deces-backend` est validé en CI par le build de l'image; l'exécution runtime
-  backend + index + frontend reste couverte par le job `deces-ui pull request
-  test`, comme dans le flux historique UI.
+- `deces-backend` est validé en CI par le build de l'image puis par la cible
+  Make existante `backend-test-vitest`; l'exécution runtime backend + index +
+  frontend reste aussi couverte par le job `deces-ui pull request test`, comme
+  dans le flux historique UI.
+- La cible upstream `deploy-dependencies` de `deces-backend/dev` n'existe pas
+  dans `packages/deces-backend/Makefile`; le job monorepo conserve l'intention
+  build/dependances/vitest via `backend-build-image` et les prérequis
+  Redis/SMTP de `backend-test-vitest`.
+- Le job lourd upstream `bulk` / artillery (`backend-perf-clinic`,
+  `test-perf-v1`) reste volontairement hors CI courte et doit être statué avant
+  le lot 9.
 - `deces-ui` source appelait `docker-check`; dans le monorepo, l'image frontend
   est vérifiée par `frontend-docker-check` et construite par `APP=deces-ui
   build`, sans cible Make ad hoc.
@@ -205,9 +289,10 @@ Notes de parité:
   la CI fixe seulement `TOOLS_PATH`, `BACKEND` et les variables de projet
   dataprep pour pointer vers les packages frères du monorepo au lieu de cloner
   des repos.
-- `dataprep-frontend` utilise `NPM_AUDIT_IGNORE=true` en CI pour neutraliser la
-  vulnérabilité low severity déjà connue dans l'image historique, sans appel npm
-  direct hors make.
+- `dataprep-frontend` utilise temporairement `NPM_AUDIT_IGNORE=true` en CI pour
+  neutraliser la vulnérabilité low severity déjà connue dans l'image historique,
+  sans appel npm direct hors make; cette exemption doit disparaître à
+  l'alignement sécurité.
 - `deces-dataprep` garde le rôle du job PR `locally`; seul `ES_MEM` est adapté à
   la capacité du runner GitHub, pas à la logique d'indexation.
 - `tools` ne publie pas l'image dans `ci.yml`; la publication éventuelle d'image
@@ -224,6 +309,7 @@ Workflow | Event    | Run id      | Statut | Commentaire
 ---------+----------+-------------+--------+------------------------------
 CD       | push     | 24586029288 | pass   | images + snapshot dataprep
 CD       | dispatch | 24533977844 | pass   | debug snapshot + artefacts
+CD       | n/a      | n/a         | a prouver | H6 separe dataprep-small/year/full
 ```
 
 ```text
@@ -255,14 +341,20 @@ deces-ui          | make | frontend-build; nginx-build  | make APP=deces-ui buil
                   | make | frontend-docker-push         | make frontend-docker-push          | 24586029288
                   | cd   | push.yml / build             | cd.yml / Publish deces-ui image     | image publiee
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-dataprep    | make | full-check; recipe-run       | artifact-produce-dataprep-snapshot  | CD vert GH
-                  | cd   | year/full/push* / build      | cd.yml / Publish dataprep snapshot  | 24586029288
-                  |      |                              |                                      | snapshot publie
+deces-dataprep    | make | small.yml / all petit jeu    | artifact-produce-dataprep-snapshot  | a prouver apres
+                  |      |                              | FILES_TO_PROCESS=deces-2020-m01     | correction H6
+                  | cd   | small.yml / build            | cd.yml / dataprep-small             | snapshot publie
+deces-dataprep    | make | year.yml, push-dev.yml       | artifact-produce-dataprep-snapshot  | a prouver apres
+                  |      | / full-check + remote-all    | FILES_TO_PROCESS=deces-2020-m*      | correction H6
+                  | cd   | year.yml / build             | cd.yml / dataprep-year              | snapshot publie
+deces-dataprep    | make | full.yml, push-master.yml    | artifact-produce-dataprep-snapshot  | a prouver apres
+                  |      | / full-check + remote-all    | FILES_TO_PROCESS=full regex         | correction H6
+                  | cd   | full.yml / build             | cd.yml / dataprep-full              | snapshot publie
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-infra       | make | elasticsearch-repository-    | artifact-publish-dataprep-snapshot  | CD vert GH
                   |      | backup                       |                                      | 24586029288
                   | make | elasticsearch-restore        | artifact-restore-dataprep-snapshot  | pass lot 5
-                  | cd   | year/full/push* / build      | cd.yml / Publish dataprep snapshot  | snapshot publie
+                  | cd   | small/year/full / build      | cd.yml / dataprep-small/year/full   | a prouver apres H6
                   | cd   | aucun                        | restore local                       | preuve locale
 ```
 
@@ -279,6 +371,16 @@ count            | 679573
 artifact id      | 6504778931
 job              | Publish dataprep snapshot
 statut           | pass
+```
+
+Correction H6 à prouver:
+
+```text
+Job monorepo   | Branche push | Scope upstream       | Files / bucket
+---------------+--------------+----------------------+---------------------------------------
+dataprep-small | dev          | small.yml            | deces-2020-m01.txt.gz / bucket dev
+dataprep-year  | dev          | year.yml, push-dev   | deces-2020-m[0-1][0-9].txt.gz / bucket dev
+dataprep-full  | master       | full.yml, push-master| regex full 1970-2024 + 2025/2026 monthly / bucket prod
 ```
 
 Preuve UAT lot 7:

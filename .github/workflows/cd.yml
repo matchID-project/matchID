@@ -8,6 +8,17 @@ on:
       - dev
       - master
   workflow_dispatch:
+    inputs:
+      dataprep_scope:
+        description: Dataprep CD scope to run
+        required: false
+        default: small
+        type: choice
+        options:
+          - all
+          - small
+          - year
+          - full
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -161,58 +172,209 @@ jobs:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
-  dataprep-snapshot:
-    name: Publish dataprep snapshot
+  dataprep-small:
+    name: Publish dataprep small snapshot
     needs: changes
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch' || needs.changes.outputs.dataprep_snapshot == 'true'
+    if: >-
+      ${{
+        (
+          github.event_name == 'repository_dispatch' &&
+          github.event.client_payload.ref == 'dev'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            inputs.dataprep_scope == 'all' ||
+            inputs.dataprep_scope == 'small'
+          )
+        ) ||
+        (
+          github.ref == 'refs/heads/dev' &&
+          needs.changes.outputs.dataprep_snapshot == 'true'
+        )
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
     env:
       CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
-      FILES_TO_PROCESS: deces-2020.txt.gz
-      ES_COUNT_FILE: /tmp/dataprep-snapshot.count
-      ES_SAMPLE_FILE: /tmp/dataprep-snapshot.sample.json
+      FILES_TO_PROCESS: deces-2020-m01.txt.gz
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+      CHUNK_SIZE: 5000
+      ES_THREADS: 2
+      RECIPE_THREADS: 2
+      ES_MEM: 4000m
+      ES_COUNT_FILE: /tmp/dataprep-small-snapshot.count
+      ES_SAMPLE_FILE: /tmp/dataprep-small-snapshot.sample.json
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
-      - name: Select snapshot repository bucket
-        run: |
-          if [ "${CD_GIT_BRANCH}" = "master" ]; then
-            echo "REPOSITORY_BUCKET=fichier-des-personnes-decedees-elasticsearch" >> "${GITHUB_ENV}"
-          else
-            echo "REPOSITORY_BUCKET=fichier-des-personnes-decedees-elasticsearch-dev" >> "${GITHUB_ENV}"
-          fi
-      - name: Produce dataprep snapshot
-        run: make artifact-produce-dataprep-snapshot GIT_BRANCH=${CD_GIT_BRANCH} FILES_TO_PROCESS=${FILES_TO_PROCESS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET}
+      - name: Produce dataprep small snapshot
+        run: make artifact-produce-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-      - name: Export dataprep snapshot metadata
+      - name: Export dataprep small snapshot metadata
         run: |
           make -C packages/deces-infra elasticsearch-index-export ES_INDEX=deces ES_COUNT_FILE=${ES_COUNT_FILE} ES_SAMPLE_FILE=${ES_SAMPLE_FILE} ES_SAMPLE_SIZE=25 ES_SAMPLE_SEED=424242
-          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS=${FILES_TO_PROCESS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET} | tail -1)
+          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" | tail -1)
           {
             echo "snapshot_name=${SNAPSHOT_NAME}"
             echo "repository_bucket=${REPOSITORY_BUCKET}"
             echo "files_to_process=${FILES_TO_PROCESS}"
             echo "count=$(cat ${ES_COUNT_FILE})"
-          } | tee /tmp/dataprep-snapshot-metadata.txt
-      - name: Publish dataprep snapshot
-        run: make artifact-publish-dataprep-snapshot GIT_BRANCH=${CD_GIT_BRANCH} FILES_TO_PROCESS=${FILES_TO_PROCESS} REPOSITORY_BUCKET=${REPOSITORY_BUCKET}
+          } | tee /tmp/dataprep-small-snapshot-metadata.txt
+      - name: Publish dataprep small snapshot
+        run: make artifact-publish-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-      - name: Upload dataprep snapshot metadata
+      - name: Upload dataprep small snapshot metadata
         uses: actions/upload-artifact@v4
         with:
-          name: dataprep-snapshot-metadata
+          name: dataprep-small-snapshot-metadata
           path: |
-            /tmp/dataprep-snapshot-metadata.txt
-            /tmp/dataprep-snapshot.count
-            /tmp/dataprep-snapshot.sample.json
+            /tmp/dataprep-small-snapshot-metadata.txt
+            /tmp/dataprep-small-snapshot.count
+            /tmp/dataprep-small-snapshot.sample.json
+
+  dataprep-year:
+    name: Publish dataprep year snapshot
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'repository_dispatch' &&
+          github.event.client_payload.ref == 'dev'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            inputs.dataprep_scope == 'all' ||
+            inputs.dataprep_scope == 'year'
+          )
+        ) ||
+        (
+          github.ref == 'refs/heads/dev' &&
+          needs.changes.outputs.dataprep_snapshot == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      FILES_TO_PROCESS: deces-2020-m[0-1][0-9].txt.gz
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+      CHUNK_SIZE: 75000
+      ES_THREADS: 14
+      RECIPE_THREADS: 16
+      ES_MEM: 30000m
+      ES_COUNT_FILE: /tmp/dataprep-year-snapshot.count
+      ES_SAMPLE_FILE: /tmp/dataprep-year-snapshot.sample.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Produce dataprep year snapshot
+        run: make artifact-produce-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Export dataprep year snapshot metadata
+        run: |
+          make -C packages/deces-infra elasticsearch-index-export ES_INDEX=deces ES_COUNT_FILE=${ES_COUNT_FILE} ES_SAMPLE_FILE=${ES_SAMPLE_FILE} ES_SAMPLE_SIZE=25 ES_SAMPLE_SEED=424242
+          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" | tail -1)
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "repository_bucket=${REPOSITORY_BUCKET}"
+            echo "files_to_process=${FILES_TO_PROCESS}"
+            echo "count=$(cat ${ES_COUNT_FILE})"
+          } | tee /tmp/dataprep-year-snapshot-metadata.txt
+      - name: Publish dataprep year snapshot
+        run: make artifact-publish-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Upload dataprep year snapshot metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataprep-year-snapshot-metadata
+          path: |
+            /tmp/dataprep-year-snapshot-metadata.txt
+            /tmp/dataprep-year-snapshot.count
+            /tmp/dataprep-year-snapshot.sample.json
+
+  dataprep-full:
+    name: Publish dataprep full snapshot
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'repository_dispatch' &&
+          github.event.client_payload.ref == 'master'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            inputs.dataprep_scope == 'all' ||
+            inputs.dataprep_scope == 'full'
+          )
+        ) ||
+        (
+          github.ref == 'refs/heads/master' &&
+          needs.changes.outputs.dataprep_snapshot == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      FILES_TO_PROCESS: 'deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz'
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+      CHUNK_SIZE: 75000
+      ES_THREADS: 30
+      RECIPE_THREADS: 32
+      ES_MEM: 62000m
+      ES_COUNT_FILE: /tmp/dataprep-full-snapshot.count
+      ES_SAMPLE_FILE: /tmp/dataprep-full-snapshot.sample.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Produce dataprep full snapshot
+        run: make artifact-produce-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Export dataprep full snapshot metadata
+        run: |
+          make -C packages/deces-infra elasticsearch-index-export ES_INDEX=deces ES_COUNT_FILE=${ES_COUNT_FILE} ES_SAMPLE_FILE=${ES_SAMPLE_FILE} ES_SAMPLE_SIZE=25 ES_SAMPLE_SEED=424242
+          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" | tail -1)
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "repository_bucket=${REPOSITORY_BUCKET}"
+            echo "files_to_process=${FILES_TO_PROCESS}"
+            echo "count=$(cat ${ES_COUNT_FILE})"
+          } | tee /tmp/dataprep-full-snapshot-metadata.txt
+      - name: Publish dataprep full snapshot
+        run: make artifact-publish-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Upload dataprep full snapshot metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataprep-full-snapshot-metadata
+          path: |
+            /tmp/dataprep-full-snapshot-metadata.txt
+            /tmp/dataprep-full-snapshot.count
+            /tmp/dataprep-full-snapshot.sample.json
 
   deploy:
     name: Deploy
@@ -222,7 +384,9 @@ jobs:
       - dataprep-frontend
       - deces-backend
       - deces-ui
-      - dataprep-snapshot
+      - dataprep-small
+      - dataprep-year
+      - dataprep-full
     if: >-
       ${{
         always() &&
