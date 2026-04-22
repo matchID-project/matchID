@@ -149,6 +149,14 @@ backend-build-image: ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${DB_
 
 backend-build-all: network backend-build-image
 
+deploy-dependencies: config
+	@${MAKE} -C ${INFRA_PATH} elasticsearch-restore-async \
+		DATAPREP_VERSION_FILE=${MONOREPO_ROOT}/.dataprep.sha1 \
+		DATA_VERSION_FILE=${MONOREPO_ROOT}/.data.sha1 ${MAKEOVERRIDES}
+	@${MAKE} docker-check-backend ${MAKEOVERRIDES}
+	@${MAKE} ${BACKEND_PATH}/tests/clients_test.csv ${MAKEOVERRIDES}
+	@${MAKE} -C ${INFRA_PATH} elasticsearch-index-readiness ${MAKEOVERRIDES}
+
 # production mode
 backend-start: backend-redis backend-smtp
 	@echo docker-compose up backend for production ${VERSION}

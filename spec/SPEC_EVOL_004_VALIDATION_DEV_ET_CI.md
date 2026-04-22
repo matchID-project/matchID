@@ -26,7 +26,7 @@ Composant         | Workflow source                 | Job monorepo              
 tools             | actions.yml / build docker swift| ci.yml / build docker swift               | make -C packages/tools docker-check CLOUD_CLI=swift || make -C packages/tools docker-build CLOUD_CLI=swift
 dataprep-backend  | pull.yml / pull request test    | ci.yml / dataprep-backend pull request test | make -C packages/deces-dataprep config; make -C packages/dataprep-backend version backend-docker-check || make -C packages/dataprep-backend backend-build backend tests backend-stop
 dataprep-frontend | pull.yml / pull request test    | ci.yml / dataprep-frontend pull request test | make -C packages/deces-dataprep config frontend-config; make -C packages/dataprep-frontend version-files version; make -C packages/dataprep-frontend frontend-docker-check || make -C packages/dataprep-frontend build backend-docker-check up
-deces-backend     | dockerimage.yml / build         | ci.yml / deces-backend build docker image and tests | make -C packages/deces-backend DATA_DIR=data backend-build-image; make -C packages/deces-backend backend-test-vitest
+deces-backend     | dockerimage.yml / build         | ci.yml / deces-backend build docker image and tests | make -C packages/deces-backend DATA_DIR=data backend-build-image; make -C packages/deces-backend deploy-dependencies; make -C packages/deces-backend backend-test-vitest
 deces-ui          | pr.yml / Pull request test      | ci.yml / deces-ui pull request test       | make version config; make frontend-docker-check || make APP=deces-ui build; make -C packages/deces-backend DATA_DIR=data backend-build-image; make deploy-local backend-test frontend-test
 deces-dataprep    | pr.yml / locally                | ci.yml / deces-dataprep locally           | make -C packages/deces-dataprep all FILES_TO_PROCESS=deces-2020-m01.txt.gz ...
 ```
@@ -40,10 +40,8 @@ deces-dataprep    | pr.yml / locally                | ci.yml / deces-dataprep lo
   (`TOOLS_PATH`, `BACKEND`, `DATAPREP_PROJECT_SOURCE_PATH`) au lieu de cloner ou
   deviner des repos frères.
 - Le job `deces-backend build docker image and tests` prouve la construction de
-  l'image puis les tests backend Vitest via la cible Make existante
-  `backend-test-vitest`; la cible upstream `deploy-dependencies` n'existe pas
-  dans le Makefile monorepo courant, et les dépendances runtime immédiates
-  Redis/SMTP sont portées par les prérequis de `backend-test-vitest`.
+  l'image puis restaure les dépendances historiques via `deploy-dependencies`
+  avant les tests backend Vitest `backend-test-vitest`.
 - Le runtime backend avec index restauré reste aussi prouvé par le job
   historique `deces-ui pull request test`.
 - Le job lourd upstream `bulk` / artillery (`backend-perf-clinic`,

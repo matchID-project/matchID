@@ -140,6 +140,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build backend image
         run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
+      - name: Make deploy dependencies
+        run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true deploy-dependencies GIT_BRANCH=${GITHUB_REF_NAME}
+        env:
+          FILES_TO_PROCESS: deces-2020-m01.txt.gz
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+          ES_MEM: 1024m
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Run backend vitest tests
         run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true backend-test-vitest GIT_BRANCH=${GITHUB_REF_NAME}
       - name: Stop backend test dependencies

@@ -23,7 +23,8 @@ ID    | Sujet                         | Constat                                 
 ------+-------------------------------+--------------------------------------------+------------------------------
 M1    | trigger CI feat/refacto-make   | absent du contrat upstream cible           | supprimer de `ci.yml`
 H4    | dataprep-backend tests         | upstream lance `backend tests backend-stop`| restaurer `tests`
-H5    | deces-backend CI               | build image seul insuffisant               | ajouter `backend-test-vitest`
+H5    | deces-backend CI               | build image seul insuffisant               | restaurer `deploy-dependencies`
+      |                               |                                            | puis `backend-test-vitest`
 H6    | CD dataprep                    | upstream separe small/year/full/push-*     | reconstruire small/year/full
 M3    | NPM_AUDIT_IGNORE               | ecart temporaire de build UI/front dataprep| garder temporaire, revalider
 M4    | regex 2026 `[0-9]`             | decision deja acceptee                     | conserver et loguer
@@ -74,6 +75,21 @@ risque                 | `DATA_DIR` designe a la fois le repertoire runtime cano
 decision appliquee     | revenir au repertoire package-local upstream `data`, deja
                        | ignore, sans introduire `build-data`; conserver le
                        | `DATA_DIR` runtime absolu par defaut pour les tests Compose
+```
+
+Focus H5:
+
+```text
+Point                  | Constat
+-----------------------+------------------------------------------------------------
+upstream historique    | `backend-build-all`, puis `deploy-dependencies`, puis
+                       | `backend-test-vitest`
+monorepo avant fix     | `backend-build-image`, puis `backend-test-vitest`
+preuve d'ecart         | CI 24756045556: image OK, Redis/SMTP OK, echec vitest apres
+                       | `tsoa`; la phase source qui restaure l'index manquait
+decision appliquee     | restaurer la cible historique `deploy-dependencies` dans
+                       | `packages/deces-backend` en deleguant l'Elasticsearch a
+                       | `packages/deces-infra`, puis l'appeler avant Vitest en CI
 ```
 
 Garde-fou CD H6:
@@ -244,6 +260,8 @@ dataprep-frontend | make | version-files; version       | make -C packages/deces
 deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | a prouver apres
                   |      |                              |   DATA_DIR=data backend-            |
                   |      |                              |   build-image                       |
+                  | make | deploy-dependencies          | make -C packages/deces-backend      | correction H5
+                  |      |                              |   deploy-dependencies               |
                   | make | backend-test-vitest          | make -C packages/deces-backend      | correction H5
                   |      |                              |   backend-test-vitest               |
                   | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | a prouver apres
@@ -270,13 +288,12 @@ deces-dataprep    | make | all FILES_TO_PROCESS=deces- | make -C packages/deces-
 Notes de parité:
 
 - `deces-backend` est validé en CI par le build de l'image puis par la cible
-  Make existante `backend-test-vitest`; l'exécution runtime backend + index +
-  frontend reste aussi couverte par le job `deces-ui pull request test`, comme
-  dans le flux historique UI.
-- La cible upstream `deploy-dependencies` de `deces-backend/dev` n'existe pas
-  dans `packages/deces-backend/Makefile`; le job monorepo conserve l'intention
-  build/dependances/vitest via `backend-build-image` et les prérequis
-  Redis/SMTP de `backend-test-vitest`.
+  Make historique `deploy-dependencies`, puis par `backend-test-vitest`; le
+  runtime backend + index + frontend reste aussi couvert par le job
+  `deces-ui pull request test`, comme dans le flux historique UI.
+- `deploy-dependencies` est restauré côté `packages/deces-backend` comme cible
+  historique; l'implémentation monorepo délègue la restauration Elasticsearch et
+  le readiness check à `packages/deces-infra`.
 - Le job lourd upstream `bulk` / artillery (`backend-perf-clinic`,
   `test-perf-v1`) reste volontairement hors CI courte et doit être statué avant
   le lot 9.
