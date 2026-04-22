@@ -314,7 +314,8 @@
     - [x] Valider le test API en preprod
     - [x] Valider le test UI en preprod
     - [x] Valider la chaine dataprep -> index -> backend -> ui en preprod
-    - [ ] Valider statiquement les workflows CI/CD apres correction des ecarts arbitres
+    - [x] Valider statiquement les workflows CI/CD apres correction des ecarts arbitres
+    - [x] Prouver sur GitHub Actions la CI complete apres correction H5/H7: run `24757045362`
     - [ ] Prouver sur GitHub Actions la CI apres rattrapage upstream `deces-ui`
     - [ ] Prouver sur GitHub Actions les jobs CD dataprep `small`, `year` et `full` reconstruits
     - [ ] Valider l'observabilite preprod

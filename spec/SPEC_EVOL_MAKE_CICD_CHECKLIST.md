@@ -96,6 +96,10 @@ preuve H7              | CI 24756715376: `deploy-dependencies` passe et les jobs
                        | `deces-ui`, `dataprep-backend`, `dataprep-frontend`,
                        | `deces-dataprep` passent; `backend-test-vitest` echoue car
                        | `wikidata` est absent du `DATA_DIR` runtime Compose
+preuve finale          | CI 24757045362 sur 74ca822f: tous les jobs passent,
+                       | dont `deces-backend build docker image and tests`,
+                       | `deces-ui pull request test`, `dataprep-backend`,
+                       | `dataprep-frontend`, `deces-dataprep` et `tools`
 decision appliquee     | restaurer la cible historique `deploy-dependencies` dans
                        | `packages/deces-backend` en deleguant l'Elasticsearch a
                        | `packages/deces-infra`, puis l'appeler avant Vitest en CI;
