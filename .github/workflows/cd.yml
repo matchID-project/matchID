@@ -443,7 +443,7 @@ jobs:
           SSHPWD: ${{ secrets.SSHPWD }}
           SSHPUB: ${{ secrets.SSHPUB }}
       - name: Check dataprep full snapshot
-        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
@@ -451,7 +451,6 @@ jobs:
         run: |
           make -C packages/deces-dataprep remote-all \
             GIT_BRANCH="${CD_GIT_BRANCH}" \
-            FILES_TO_PROCESS="${FILES_TO_PROCESS}" \
             REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
             SCW_FLAVOR="${SCW_FLAVOR}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE}" \
             CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}" RECIPE_QUEUE="${RECIPE_QUEUE}" \
@@ -475,7 +474,7 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
       - name: Export dataprep full snapshot metadata
         run: |
-          make -C packages/deces-dataprep repository-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+          make -C packages/deces-dataprep repository-check GIT_BRANCH="${CD_GIT_BRANCH}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
           test -s packages/deces-dataprep/repository-check
           SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
           {
