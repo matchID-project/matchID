@@ -68,11 +68,12 @@ Point                  | Constat
 upstream historique    | `COPY ${DATA_DIR}/communes.json`, `disposable-mail.txt`,
                        | `wikidata.json` dans l'image `deces-backend`
 monorepo courant       | `COPY ${DATA_DIR} ./data`
-CI/CD corrige          | force `DATA_DIR=data` pour rester dans le contexte Docker
+CI/CD corrige          | force `DATA_DIR=data` seulement pour le build image Docker
 risque                 | `DATA_DIR` designe a la fois le repertoire runtime canonique
                        | racine et le repertoire de contexte build image
 decision appliquee     | revenir au repertoire package-local upstream `data`, deja
-                       | ignore, sans introduire `build-data`
+                       | ignore, sans introduire `build-data`; conserver le
+                       | `DATA_DIR` runtime absolu par defaut pour les tests Compose
 ```
 
 Garde-fou CD H6:
@@ -244,8 +245,7 @@ deces-backend     | make | backend-build-image          | make -C packages/deces
                   |      |                              |   DATA_DIR=data backend-            |
                   |      |                              |   build-image                       |
                   | make | backend-test-vitest          | make -C packages/deces-backend      | correction H5
-                  |      |                              |   DATA_DIR=data backend-            |
-                  |      |                              |   test-vitest                       |
+                  |      |                              |   backend-test-vitest               |
                   | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | a prouver apres
                   |      | + vitest                     | docker image and tests              | correction H5
 ------------------+------+------------------------------+--------------------------------------+------------------
