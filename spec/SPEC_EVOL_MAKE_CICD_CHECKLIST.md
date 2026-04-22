@@ -69,12 +69,15 @@ Point                  | Constat
 upstream historique    | `COPY ${DATA_DIR}/communes.json`, `disposable-mail.txt`,
                        | `wikidata.json` dans l'image `deces-backend`
 monorepo courant       | `COPY ${DATA_DIR} ./data`
-CI/CD corrige          | force `DATA_DIR=data` seulement pour le build image Docker
+CI/CD corrige          | force `DATA_DIR=data` seulement pour le build image Docker,
+                       | puis `DATA_DIR=${GITHUB_WORKSPACE}/packages/deces-backend/data`
+                       | pour le runtime Vitest Compose
 risque                 | `DATA_DIR` designe a la fois le repertoire runtime canonique
                        | racine et le repertoire de contexte build image
 decision appliquee     | revenir au repertoire package-local upstream `data`, deja
-                       | ignore, sans introduire `build-data`; conserver le
-                       | `DATA_DIR` runtime absolu par defaut pour les tests Compose
+                       | ignore, sans introduire `build-data`; monter ce meme
+                       | repertoire en chemin absolu pour les tests Compose, car
+                       | `DATA_DIR=data` serait interprete comme volume Docker nomme
 ```
 
 Focus H5:
@@ -89,10 +92,15 @@ preuve d'ecart         | CI 24756045556: image OK, Redis/SMTP OK, echec vitest a
                        | `tsoa`; la phase source qui restaure l'index manquait
 preuve intermediaire   | CI 24756469461: `deploy-dependencies` passe; echec restant
                        | dans `backend-test-vitest`, avec commande test non upstream
+preuve H7              | CI 24756715376: `deploy-dependencies` passe et les jobs
+                       | `deces-ui`, `dataprep-backend`, `dataprep-frontend`,
+                       | `deces-dataprep` passent; `backend-test-vitest` echoue car
+                       | `wikidata` est absent du `DATA_DIR` runtime Compose
 decision appliquee     | restaurer la cible historique `deploy-dependencies` dans
                        | `packages/deces-backend` en deleguant l'Elasticsearch a
                        | `packages/deces-infra`, puis l'appeler avant Vitest en CI;
-                       | realigner Vitest sur `npm run test --verbose`
+                       | realigner Vitest sur `npm run test --verbose`; monter le
+                       | `DATA_DIR` package-local absolu pour Vitest
 ```
 
 Garde-fou CD H6:

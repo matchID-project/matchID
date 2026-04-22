@@ -308,6 +308,7 @@
     - [x] Restaurer la sequence CI upstream de `deces-backend`: `backend-build-image`, `deploy-dependencies`, `backend-test-vitest`
     - [x] Realigner la commande Vitest `deces-backend` sur l'upstream `npm run test --verbose`
     - [x] Corriger H7 en remplacant le contournement `DATA_DIR=build-data` par le repertoire package-local upstream `DATA_DIR=data`
+    - [x] Corriger le montage Vitest CI de `deces-backend` pour reutiliser en absolu le repertoire `packages/deces-backend/data`
   - [ ] Tests
     - [x] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
     - [x] Valider le test API en preprod
