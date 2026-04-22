@@ -330,9 +330,12 @@ Notes de parité:
 
 ## CD - Artefacts publiés
 
-Déclenchement cible: `cd.yml` publie automatiquement uniquement sur `push` vers
-`dev`. Les runs listés ci-dessous prouvent l'exécution technique des jobs CD
+Déclenchement cible: `cd.yml` publie automatiquement sur `push` vers `dev` ou
+`master`. Les runs listés ci-dessous prouvent l'exécution technique des jobs CD
 déjà reconstruits; ils ne changent pas la règle de déclenchement cible.
+Les dispatchs manuels `dataprep_scope=small|year|full` ne publient pas les
+images Docker par effet de bord; seul `dataprep_scope=all` relance toute la
+chaine artefacts.
 
 ```text
 Workflow | Event    | Run id      | Statut | Commentaire
@@ -371,14 +374,17 @@ deces-ui          | make | frontend-build; nginx-build  | make APP=deces-ui buil
                   | make | frontend-docker-push         | make frontend-docker-push          | 24586029288
                   | cd   | push.yml / build             | cd.yml / Publish deces-ui image     | image publiee
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-dataprep    | make | small.yml / all petit jeu    | artifact-produce-dataprep-snapshot  | a prouver apres
-                  |      |                              | FILES_TO_PROCESS=deces-2020-m01     | correction H6
+deces-dataprep    | make | small.yml / all petit jeu    | artifact-produce-dataprep-snapshot  | code aligne H6;
+                  |      | deces-2020-m01 + deaths      | + artifact-publish-dataprep-        | preuve GH a
+                  |      |                              | snapshot, matrix 2 datasets         | lancer
                   | cd   | small.yml / build            | cd.yml / dataprep-small             | snapshot publie
-deces-dataprep    | make | year.yml, push-dev.yml       | artifact-produce-dataprep-snapshot  | a prouver apres
-                  |      | / full-check + remote-all    | FILES_TO_PROCESS=deces-2020-m*      | correction H6
+deces-dataprep    | make | year.yml, push-dev.yml       | packages/deces-dataprep clean       | code aligne H6;
+                  |      | / full-check + remote-all    | full-check puis remote-all SCW      | preuve GH a
+                  |      |                              | REMOTE_* -> monorepo                | lancer
                   | cd   | year.yml / build             | cd.yml / dataprep-year              | snapshot publie
-deces-dataprep    | make | full.yml, push-master.yml    | artifact-produce-dataprep-snapshot  | a prouver apres
-                  |      | / full-check + remote-all    | FILES_TO_PROCESS=full regex         | correction H6
+deces-dataprep    | make | full.yml, push-master.yml    | packages/deces-dataprep clean       | code aligne H6;
+                  |      | / full-check + remote-all    | full-check puis remote-all SCW      | preuve GH a
+                  |      |                              | REMOTE_* -> monorepo                | lancer
                   | cd   | full.yml / build             | cd.yml / dataprep-full              | snapshot publie
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-infra       | make | elasticsearch-repository-    | artifact-publish-dataprep-snapshot  | CD vert GH
@@ -406,11 +412,20 @@ statut           | pass
 Correction H6 à prouver:
 
 ```text
-Job monorepo   | Branche push | Scope upstream       | Files / bucket
----------------+--------------+----------------------+---------------------------------------
-dataprep-small | dev          | small.yml            | deces-2020-m01.txt.gz / bucket dev
-dataprep-year  | dev          | year.yml, push-dev   | deces-2020-m[0-1][0-9].txt.gz / bucket dev
-dataprep-full  | master       | full.yml, push-master| regex full 1970-2024 + 2025/2026 monthly / bucket prod
+Job monorepo   | Branche push | Scope upstream        | Cible make monorepo
+---------------+--------------+-----------------------+---------------------------------------
+dataprep-small | dev          | small.yml             | artifact-produce-dataprep-snapshot
+               |              |                       | + artifact-publish-dataprep-snapshot
+               |              |                       | matrix: deces-2020-m01.txt.gz,
+               |              |                       | deaths.txt.gz / bucket dev
+dataprep-year  | dev          | year.yml, push-dev    | make -C packages/deces-dataprep
+               |              |                       | clean full-check puis remote-all
+               |              |                       | deces-2020-m[0-1][0-9].txt.gz
+               |              |                       | / bucket dev / SCW PRO2-M
+dataprep-full  | master       | full.yml, push-master | make -C packages/deces-dataprep
+               |              |                       | clean full-check puis remote-all
+               |              |                       | regex full 1970-2024 + 2025/2026
+               |              |                       | monthly / bucket prod / SCW PRO2-L
 ```
 
 Preuve UAT lot 7:
@@ -515,6 +530,7 @@ deces-ui/tools    | deploy-remote-services   | deploy-remote-services    | push.
                   |                          |                           |                   | readiness nginx
 deces-ui/tools    | deploy-remote-publish    | deploy-remote-publish     | push.yml / deploy | public API ok
 deces-ui/tools    | deploy-delete-old        | deploy-delete-old         | push.yml / deploy | no invalid server
-deces-dataprep    | remote-all               | cible racine a definir    | full/push* /      | lot 8
-                  |                          |                           | build             |
+deces-dataprep    | remote-all               | packages/deces-dataprep   | full/push* /      | code aligne;
+                  |                          | remote-all + REMOTE_*     | build             | preuve GH a
+                  |                          | vers monorepo matchID     |                   | lancer
 ```

@@ -303,7 +303,10 @@
     - [x] Executer le flux `deploy-remote` de bout en bout pour la preprod
     - [x] Publier la configuration d'acces `dev-deces.matchid.io`
     - [x] Rattraper l'evolution upstream `deces-ui` securite + art85 depuis `fix/art-85`
-    - [ ] Corriger les ecarts CI/CD arbitres M1, H4, H5 et H6 sans changer le contrat upstream valide
+    - [x] Corriger les ecarts CI/CD arbitres M1, H4, H5 et H6 sans changer le contrat upstream valide
+    - [x] Rebrancher le CD `dataprep-small` sur les deux datasets upstream `deces-2020-m01.txt.gz` et `deaths.txt.gz`
+    - [x] Rebrancher le CD `dataprep-year` sur `full-check` + `remote-all` SCW, en clonant le monorepo et en executant `packages/deces-dataprep`
+    - [x] Rebrancher le CD `dataprep-full` sur `full-check` + `remote-all` SCW, en clonant le monorepo et en executant `packages/deces-dataprep`
     - [x] Documenter la passe d'arbitrage H1/H2/H3/H7 avant tout changement supplementaire de Makefile ou Dockerfile
     - [x] Restaurer la sequence CI upstream de `deces-backend`: `backend-build-image`, `deploy-dependencies`, `backend-test-vitest`
     - [x] Realigner la commande Vitest `deces-backend` sur l'upstream `npm run test --verbose`
