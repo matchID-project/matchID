@@ -322,30 +322,20 @@ jobs:
       RECIPE_THREADS: 16
       RECIPE_QUEUE: 18
       ES_MEM: 30000m
-      SSH_AUTH_SOCK: /tmp/ssh_agent.sock
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Install dataprep deploy SSH key
         run: |
+          test -n "${SSH_PRIVATE_KEY}"
           install -m 700 -d "${HOME}/.ssh"
-          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
-          echo "${SSHENC}" | base64 -d | gpg -d --passphrase "${SSHPWD}" --batch > "${HOME}/.ssh/id_rsa_matchID"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
-          ssh-add "${HOME}/.ssh/id_rsa_matchID"
-          echo "${SSHPUB}" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          {
-            printf 'Host * !%s\n' "${BASTION_HOST}"
-            printf '   ProxyCommand ssh -o StrictHostKeyChecking=no %s@%s nc %%h %%p\n' "${BASTION_USER}" "${BASTION_HOST}"
-          } > "${HOME}/.ssh/config"
         env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER }}
-          SSHENC: ${{ secrets.SSHENC }}
-          SSHPWD: ${{ secrets.SSHPWD }}
-          SSHPUB: ${{ secrets.SSHPUB }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep year snapshot
         run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
@@ -368,11 +358,9 @@ jobs:
           remote_http_proxy: ${{ secrets.remote_http_proxy }}
           remote_https_proxy: ${{ secrets.remote_https_proxy }}
           remote_no_proxy: localhost
-          SCW_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
           SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
           SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
-          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Export dataprep year snapshot metadata
@@ -430,30 +418,20 @@ jobs:
       RECIPE_THREADS: 32
       RECIPE_QUEUE: 34
       ES_MEM: 62000m
-      SSH_AUTH_SOCK: /tmp/ssh_agent.sock
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Install dataprep deploy SSH key
         run: |
+          test -n "${SSH_PRIVATE_KEY}"
           install -m 700 -d "${HOME}/.ssh"
-          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
-          echo "${SSHENC}" | base64 -d | gpg -d --passphrase "${SSHPWD}" --batch > "${HOME}/.ssh/id_rsa_matchID"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
-          ssh-add "${HOME}/.ssh/id_rsa_matchID"
-          echo "${SSHPUB}" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          {
-            printf 'Host * !%s\n' "${BASTION_HOST}"
-            printf '   ProxyCommand ssh -o StrictHostKeyChecking=no %s@%s nc %%h %%p\n' "${BASTION_USER}" "${BASTION_HOST}"
-          } > "${HOME}/.ssh/config"
         env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER }}
-          SSHENC: ${{ secrets.SSHENC }}
-          SSHPWD: ${{ secrets.SSHPWD }}
-          SSHPUB: ${{ secrets.SSHPUB }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep full snapshot
         run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
@@ -476,11 +454,9 @@ jobs:
           remote_http_proxy: ${{ secrets.remote_http_proxy }}
           remote_https_proxy: ${{ secrets.remote_https_proxy }}
           remote_no_proxy: localhost
-          SCW_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
           SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
           SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
-          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
