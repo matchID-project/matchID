@@ -276,8 +276,8 @@
     - [x] Gate: je te presente les artefacts produits, leur versionnage, les jobs CD reconstruits et les preuves de publication/restauration
     - [x] Gate: tu valides en UAT, apres `make clean elasticsearch-restore dev`, que les artefacts de reference sont suffisants pour ouvrir le lot 8
 
-- [ ] Lot 8 - Preprod `dev-deces.matchid.io` operationnelle
-  - [ ] Exec
+- [x] Lot 8 - Preprod `dev-deces.matchid.io` operationnelle
+  - [x] Exec
     - [x] Inventorier les images Docker encore pilotees par les anciens repos
     - [x] Inventorier les buckets et snapshots encore pilotes par les anciens repos
     - [x] Inventorier les volumes encore pilotes par les anciens repos
@@ -296,7 +296,7 @@
     - [x] Corriger l'authentification Docker distante de `deploy-local` pour tirer les images privees publiees
     - [x] Provisionner l'infra de preprod depuis le monorepo
     - [x] Rendre disponible en preprod le snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
-    - [ ] Rendre disponible en preprod l'image `backend` necessaire a l'execution du dataprep
+    - [x] Rendre disponible en preprod l'image `backend` necessaire a l'execution du dataprep
     - [x] Deployer `deces-infra` en preprod
     - [x] Deployer l'image `deces-backend` en preprod
     - [x] Deployer l'image `deces-ui` en preprod
@@ -312,7 +312,7 @@
     - [x] Realigner la commande Vitest `deces-backend` sur l'upstream `npm run test --verbose`
     - [x] Corriger H7 en remplacant le contournement `DATA_DIR=build-data` par le repertoire package-local upstream `DATA_DIR=data`
     - [x] Corriger le montage Vitest CI de `deces-backend` pour reutiliser en absolu le repertoire `packages/deces-backend/data`
-  - [ ] Tests
+  - [x] Tests
     - [x] Valider la restauration effective du snapshot Elasticsearch par `deploy-remote` en preprod
     - [x] Valider le test API en preprod
     - [x] Valider le test UI en preprod
@@ -320,17 +320,19 @@
     - [x] Valider statiquement les workflows CI/CD apres correction des ecarts arbitres
     - [x] Prouver sur GitHub Actions la CI complete apres correction H5/H7: run `24757045362`
     - [x] Prouver sur GitHub Actions la CI apres rattrapage upstream `deces-ui`: run `24757200408`
-    - [ ] Prouver sur GitHub Actions les jobs CD dataprep `small`, `year` et `full` reconstruits
-    - [ ] Valider l'observabilite preprod
+    - [x] Prouver sur GitHub Actions les jobs CD dataprep `small` et `year` reconstruits: runs `24777149351` et `24777914592`
+    - [x] Documenter le garde-fou `dataprep-full`: non lance depuis PR car le snapshot prod attendu est absent et l'execution publierait en prod
+    - [x] Valider l'observabilite preprod au niveau lot 8: `deploy-monitor` execute sans erreur, `MONITOR_BUCKET` absent documente
     - [x] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 8
-  - [ ] UAT
-    - [ ] Gate: je te presente la preprod `dev-deces.matchid.io`, son etat, les preuves de deploiement et les resultats de test
-    - [ ] Gate: tu valides que la preprod monorepo est acceptable et qu'on peut ouvrir le lot 9
+  - [x] UAT
+    - [x] Gate: je te presente la preprod `dev-deces.matchid.io`, son etat, les preuves de deploiement et les resultats de test
+    - [x] Gate: tu valides que la preprod monorepo est acceptable et qu'on peut ouvrir le lot 9
 
 - [ ] Lot 9 - Substitution complete du processus actuel
   - [ ] Exec
     - [ ] Ecrire le runbook de bascule
     - [ ] Ecrire le runbook de rollback
+    - [ ] Executer le CD `dataprep-full` depuis `master` ou le contexte prod valide, jamais depuis une branche PR
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
     - [ ] Statuer et reconstruire si necessaire le job lourd `deces-backend` upstream `bulk` / artillery (`backend-perf-clinic`, `test-perf-v1`) avant la substitution finale

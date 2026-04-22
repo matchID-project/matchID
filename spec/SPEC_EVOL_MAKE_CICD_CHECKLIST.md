@@ -140,20 +140,22 @@ Composant         | Lot  | Upstream                         | Monorepo          
 ------------------+------+----------------------------------+----------------------------------+------------------
 tools             | 6    | actions.yml / swift             | ci.yml / build docker swift      | CI 24616234550
                   |      |                                  |                                  | job 71978790565
-tools             | 8    | actions.yml / remote            | remote-config-test               | a prouver lot 8
+tools             | 8    | actions.yml / remote            | remote-config-test               | preuve manuelle
+                  |      |                                  |                                  | deploy-remote
 ------------------+------+----------------------------------+----------------------------------+------------------
 dataprep-backend  | 6    | pull.yml / pull request test    | ci.yml / dataprep-backend        | CI 24616234550
                   |      |                                  | pull request test                | job 71978790566
 dataprep-backend  | 7    | push.yml / build image          | cd.yml / Publish matchid-        | CD 24586029288
                   |      |                                  | backend image                    | job 71895732114
-dataprep-backend  | 8    | deploy.yml / deploy             | deploy-remote preprod            | a prouver lot 8
+dataprep-backend  | 8    | deploy.yml / deploy             | deploy-remote preprod            | image backend
+                  |      |                                  |                                  | disponible
 ------------------+------+----------------------------------+----------------------------------+------------------
 dataprep-frontend | 6    | pull.yml / pull request test    | ci.yml / dataprep-frontend       | CI 24616234550
                   |      |                                  | pull request test                | job 71978790569
 dataprep-frontend | 7    | push.yml / build image          | cd.yml / Publish matchid-        | CD 24586029288
                   |      |                                  | frontend image                   | job 71895732047
 ------------------+------+----------------------------------+----------------------------------+------------------
-deces-backend     | 6    | dockerimage.yml / build image   | ci.yml / deces-backend build     | a prouver apres
+deces-backend     | 6    | dockerimage.yml / build image   | ci.yml / deces-backend build     | CI 24759718808
                   |      | + backend-test-vitest           | docker image and tests           | correction H5
 deces-backend     | 6    | dockerimage.yml / runtime tests | ci.yml / deces-ui pull request   | CI 24616234550
                   |      | avec index restaure             | test                             | job 71978790570
@@ -165,17 +167,20 @@ deces-ui          | 6    | pr.yml / Pull request test      | ci.yml / deces-ui p
                   |      |                                  | test                             | job 71978790570
 deces-ui          | 7    | push.yml / build image          | cd.yml / Publish deces-ui image  | CD 24586029288
                   |      |                                  |                                  | job 71895732121
-deces-ui          | 8    | push.yml / deploy               | deploy-remote preprod            | a prouver lot 8
-deces-ui          | 8    | logs-full.yml / logs-update.yml | stats / observabilite            | a cadrer lot 8
+deces-ui          | 8    | push.yml / deploy               | deploy-remote preprod            | preuve manuelle
+                  |      |                                  |                                  | dev-deces OK
+deces-ui          | 8    | logs-full.yml / logs-update.yml | stats / observabilite            | deploy-monitor
+                  |      |                                  |                                  | OK; bucket absent
 ------------------+------+----------------------------------+----------------------------------+------------------
 deces-dataprep    | 6    | pr.yml / locally                | ci.yml / deces-dataprep locally  | CI 24616234550
                   |      |                                  |                                  | job 71978790560
-deces-dataprep    | 7    | small/year/full/push* datasets  | cd.yml / dataprep-small,         | a prouver apres
-                  |      | remote build                    | dataprep-year, dataprep-full     | correction H6
-deces-dataprep    | 8    | remote large datasets           | remote dataprep cible            | a prouver lot 8
+deces-dataprep    | 7    | small/year/full/push* datasets  | cd.yml / dataprep-small,         | small/year
+                  |      | remote build                    | dataprep-year, dataprep-full     | passes GH;
+                  |      |                                  |                                  | full lot 9
+deces-dataprep    | 8    | remote large datasets           | remote dataprep cible            | year pass GH
 ------------------+------+----------------------------------+----------------------------------+------------------
 deces-infra       | 7    | infra dispersee                 | snapshot publish/restore         | CD + UAT restore
-deces-infra       | 8    | deploy-remote infra             | preprod dev-deces.matchid.io     | a prouver lot 8
+deces-infra       | 8    | deploy-remote infra             | preprod dev-deces.matchid.io     | preuve manuelle
 ```
 
 Artefacts publies par le run CD retenu:
@@ -248,7 +253,7 @@ tools             | make | docker-check CLOUD_CLI=swift | make -C packages/tools
                   | ci   | actions.yml / build docker   | ci.yml / build docker swift         | job vert GH
                   |      | swift                        |                                      | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
-dataprep-backend  | make | version backend-docker-check | make -C packages/deces-dataprep     | a prouver apres
+dataprep-backend  | make | version backend-docker-check | make -C packages/deces-dataprep     | job vert GH
                   |      | || backend-build backend     |   config                            | 24616234550
                   |      | backend-stop                 | make -C packages/dataprep-backend   |
                   |      |                              |   version backend-docker-check      |
@@ -272,14 +277,14 @@ dataprep-frontend | make | version-files; version       | make -C packages/deces
                   | ci   | pull.yml / pull request test | ci.yml / dataprep-frontend          | job vert GH
                   |      |                              |   pull request test                 | 24616234550
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | a prouver apres
+deces-backend     | make | backend-build-image          | make -C packages/deces-backend      | CI 24759718808
                   |      |                              |   DATA_DIR=data backend-            |
                   |      |                              |   build-image                       |
                   | make | deploy-dependencies          | make -C packages/deces-backend      | correction H5
                   |      |                              |   deploy-dependencies               |
                   | make | backend-test-vitest          | make -C packages/deces-backend      | correction H5
                   |      |                              |   backend-test-vitest               |
-                  | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | a prouver apres
+                  | ci   | dockerimage.yml / build      | ci.yml / deces-backend build        | CI 24759718808
                   |      | + vitest                     | docker image and tests              | correction H5
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-ui          | make | version config               | make version config                 | job vert GH
@@ -342,7 +347,9 @@ Workflow | Event    | Run id      | Statut | Commentaire
 ---------+----------+-------------+--------+------------------------------
 CD       | push     | 24586029288 | pass   | images + snapshot dataprep
 CD       | dispatch | 24533977844 | pass   | debug snapshot + artefacts
-CD       | n/a      | n/a         | a prouver | H6 separe dataprep-small/year/full
+CD       | dispatch | 24777149351 | pass   | dataprep-small, 2 datasets
+CD       | dispatch | 24777914592 | pass   | dataprep-year, remote-all
+CD       | n/a      | n/a         | reporte| dataprep-full reserve lot 9/prod
 ```
 
 ```text
@@ -374,23 +381,26 @@ deces-ui          | make | frontend-build; nginx-build  | make APP=deces-ui buil
                   | make | frontend-docker-push         | make frontend-docker-push          | 24586029288
                   | cd   | push.yml / build             | cd.yml / Publish deces-ui image     | image publiee
 ------------------+------+------------------------------+--------------------------------------+------------------
-deces-dataprep    | make | small.yml / all petit jeu    | artifact-produce-dataprep-snapshot  | code aligne H6;
-                  |      | deces-2020-m01 + deaths      | + artifact-publish-dataprep-        | preuve GH a
-                  |      |                              | snapshot, matrix 2 datasets         | lancer
-                  | cd   | small.yml / build            | cd.yml / dataprep-small             | snapshot publie
+deces-dataprep    | make | small.yml / all petit jeu    | artifact-produce-dataprep-snapshot  | GH pass
+                  |      | deces-2020-m01 + deaths      | + artifact-publish-dataprep-        | 24777149351
+                  |      |                              | snapshot, matrix 2 datasets         |
+                  | cd   | small.yml / build            | cd.yml / dataprep-small             | 2 snapshots
+                  |      |                              |                                      | publies
 deces-dataprep    | make | year.yml, push-dev.yml       | packages/deces-dataprep clean       | code aligne H6;
-                  |      | / full-check + remote-all    | full-check puis remote-all SCW      | preuve GH a
-                  |      |                              | REMOTE_* -> monorepo                | lancer
-                  | cd   | year.yml / build             | cd.yml / dataprep-year              | snapshot publie
+                  |      | / full-check + remote-all    | full-check puis remote-all SCW      | GH pass
+                  |      |                              | REMOTE_* -> monorepo                | 24777914592
+                  | cd   | year.yml / build             | cd.yml / dataprep-year              | snapshot dev
+                  |      |                              |                                      | trouve
 deces-dataprep    | make | full.yml, push-master.yml    | packages/deces-dataprep clean       | code aligne H6;
-                  |      | / full-check + remote-all    | full-check puis remote-all SCW      | preuve GH a
-                  |      |                              | REMOTE_* -> monorepo                | lancer
-                  | cd   | full.yml / build             | cd.yml / dataprep-full              | snapshot publie
+                  |      | / full-check + remote-all    | full-check puis remote-all SCW      | execution
+                  |      |                              | REMOTE_* -> monorepo                | reportee lot 9
+                  | cd   | full.yml / build             | cd.yml / dataprep-full              | lot 9/prod
 ------------------+------+------------------------------+--------------------------------------+------------------
 deces-infra       | make | elasticsearch-repository-    | artifact-publish-dataprep-snapshot  | CD vert GH
                   |      | backup                       |                                      | 24586029288
                   | make | elasticsearch-restore        | artifact-restore-dataprep-snapshot  | pass lot 5
-                  | cd   | small/year/full / build      | cd.yml / dataprep-small/year/full   | a prouver apres H6
+                  | cd   | small/year/full / build      | cd.yml / dataprep-small/year/full   | small/year
+                  |      |                              |                                      | prouves; full lot 9
                   | cd   | aucun                        | restore local                       | preuve locale
 ```
 
@@ -409,7 +419,23 @@ job              | Publish dataprep snapshot
 statut           | pass
 ```
 
-Correction H6 à prouver:
+Preuve CD dataprep H6:
+
+```text
+Job               | Run id      | Job id      | Statut | Snapshot / resultat
+------------------+-------------+-------------+--------+--------------------------------
+dataprep-small    | 24777149351 | 72498296120 | pass   | esdata_fa194c98_c88006ac
+deces-2020-m01    |             |             |        | count=60557, artifact 6577579269
+dataprep-small    | 24777149351 | 72498296125 | pass   | esdata_fa194c98_74bab91a
+deaths            |             |             |        | count=1355728, artifact 6577715452
+dataprep-year     | 24777914592 | 72500946799 | pass   | esdata_fa194c98_e0735a1a
+                  |             |             |        | remote-all, artifact 6577838420
+dataprep-full     | n/a         | n/a         | lot 9  | precheck local: snapshot prod
+                  |             |             |        | esdata_fa194c98_c88006ac absent;
+                  |             |             |        | dispatch PR bloqué volontairement
+```
+
+Correction H6:
 
 ```text
 Job monorepo   | Branche push | Scope upstream        | Cible make monorepo
@@ -510,8 +536,8 @@ Preuve de redeploiement manuel du 2026-04-22:
   commit `eb28f06a`.
 - L'instance SCW reutilisee a ete retaguee pour refleter l'artefact servi:
   `ui:0.4.0-4348-geb28f06a-backend:0.4.0-4348-geb28f06a-data:fa194c98-e0735a1a`.
-- Limite restante: `deploy-monitor` sort en `0`, mais l'observabilite preprod
-  reste a valider fonctionnellement car `MONITOR_BUCKET` est absent.
+- Observabilite lot 8: `deploy-monitor` sort en `0`; `MONITOR_BUCKET` reste
+  absent et est documente comme limite non bloquante de preprod.
 
 ```text
 Repo source       | Make source              | Make monorepo             | Job source        | Statut
@@ -530,7 +556,7 @@ deces-ui/tools    | deploy-remote-services   | deploy-remote-services    | push.
                   |                          |                           |                   | readiness nginx
 deces-ui/tools    | deploy-remote-publish    | deploy-remote-publish     | push.yml / deploy | public API ok
 deces-ui/tools    | deploy-delete-old        | deploy-delete-old         | push.yml / deploy | no invalid server
-deces-dataprep    | remote-all               | packages/deces-dataprep   | full/push* /      | code aligne;
-                  |                          | remote-all + REMOTE_*     | build             | preuve GH a
-                  |                          | vers monorepo matchID     |                   | lancer
+deces-dataprep    | remote-all               | packages/deces-dataprep   | year/push-dev /   | GH pass
+                  |                          | remote-all + REMOTE_*     | build             | 24777914592
+                  |                          | vers monorepo matchID     | full/push-master  | full lot 9
 ```
