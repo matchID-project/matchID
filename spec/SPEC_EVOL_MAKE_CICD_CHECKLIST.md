@@ -484,10 +484,14 @@ push-dev.yml     | 21831591181 | push              | dev     | e0489f1  | pass  
 push-master.yml  | 21837559650 | push              | master  | 364f71b  | pass   | push master -> full
 ```
 
-Protocole monorepo ajoute:
+Preuve detaillee:
+
+- [SPEC_EVOL_007_PREUVE_PARITE_DATAPREP](SPEC_EVOL_007_PREUVE_PARITE_DATAPREP.md)
+
+Protocole temporaire execute sur le commit `41c099bb`:
 
 ```text
-Commande make
+Commande make historique
 --------------------------------------------------------------------------------
 make dataprep-parity-contract DATAPREP_PARITY_FILES_TO_PROCESS=deces-2020-m01.txt.gz
 make dataprep-parity-contract DATAPREP_PARITY_FILES_TO_PROCESS=deaths.txt.gz
@@ -507,6 +511,9 @@ Contrat compare:
 - sample: 10000 documents deterministes, seed `424242`;
 - validation finale: comparaison byte-a-byte du count, mapping, types de
   champs sources et sample.
+
+Cet outillage temporaire a ete retire du tronc courant apres acceptation de la
+preuve. Il reste consultable dans l'historique git via le commit `41c099bb`.
 
 ```text
 Dataset              | Count original | Count monorepo | Sample 10000 | Mapping/types | Statut

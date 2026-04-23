@@ -330,8 +330,9 @@
 
 - [ ] Lot 9 - Substitution complete du processus actuel
   - [ ] Exec
-    - [x] Ajouter le protocole `make` de non-regression data original-vs-monorepo pour `deces-dataprep`
+    - [x] Executer le protocole `make` temporaire de non-regression data original-vs-monorepo pour `deces-dataprep`
     - [x] Ancrer la reference de non-regression data sur les derniers jobs upstream `small`, `year`, `full`, `push-dev` et `push-master`
+    - [x] Tracer la preuve acceptee dans `spec/SPEC_EVOL_007_PREUVE_PARITE_DATAPREP.md` et retirer l'outillage temporaire du tronc courant
     - [ ] Conserver le comportement upstream cible: `dataprep-full` produit le snapshot, le deploiement UI prod reste declenche separement et explicitement
     - [ ] Ecrire le runbook de bascule
     - [ ] Ecrire le runbook de rollback
@@ -342,9 +343,9 @@
     - [ ] Passer les anciens repos en lecture seule ou archive
     - [ ] Mettre a jour la documentation de gouvernance et d'exploitation
   - [ ] Tests
-    - [x] Valider le protocole de contrat Elasticsearch via `make dataprep-parity-contract-test`
-    - [x] Valider la parite data original-vs-monorepo sur `deces-2020-m01.txt.gz`: count `60557`, sample deterministe `10000`, mapping et types
-    - [x] Valider la parite data original-vs-monorepo sur `deaths.txt.gz`: count `1355728`, sample deterministe `10000`, mapping et types
+    - [x] Valider sur le commit de preuve `41c099bb` le protocole temporaire de contrat Elasticsearch
+    - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deces-2020-m01.txt.gz`: count `60557`, sample deterministe `10000`, mapping et types
+    - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deaths.txt.gz`: count `1355728`, sample deterministe `10000`, mapping et types
     - [ ] Valider le runbook de bascule
     - [ ] Valider le runbook de rollback
     - [ ] Valider que le processus monorepo couvre bien `deces-dataprep` et `deces-ui`

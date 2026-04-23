@@ -11,7 +11,6 @@ elasticsearch-*
 data
 log
 log-db
-__pycache__/
 
 # misc
 .DS_Store
