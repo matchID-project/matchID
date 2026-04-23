@@ -100,6 +100,17 @@ export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz
 export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz
 export ARTIFACT_RECIPE_RUN_MARKER ?= /tmp/matchid-artifact.recipe-run
 export ARTIFACT_S3_PULL_MARKER ?= /tmp/matchid-artifact.s3-pull
+export DATAPREP_PARITY_FILES_TO_PROCESS ?= ${FILES_TO_PROCESS_TEST}
+export DATAPREP_PARITY_DATASET_ID ?= $(shell echo '${DATAPREP_PARITY_FILES_TO_PROCESS}' | sed 's/[^A-Za-z0-9._-]/_/g')
+export DATAPREP_PARITY_DIR ?= ${APP_PATH}/.matchid/parity/deces-dataprep/${DATAPREP_PARITY_DATASET_ID}
+export DATAPREP_PARITY_DATA_DIR ?= ${APP_PATH}/.matchid/datagouv-refresh
+export DATAPREP_PARITY_ORIGINAL_ES_DATA ?= ${APP_PATH}/.matchid/esdata/original
+export DATAPREP_PARITY_MONOREPO_ES_DATA ?= ${APP_PATH}/.matchid/esdata/monorepo
+export DATAPREP_PARITY_SAMPLE_SIZE ?= 10000
+export DATAPREP_PARITY_SAMPLE_SEED ?= 424242
+export DATAPREP_PARITY_ORIGINAL_DIR ?= ${DATAPREP_PARITY_DIR}/original
+export DATAPREP_PARITY_MONOREPO_DIR ?= ${DATAPREP_PARITY_DIR}/monorepo
+export DATAPREP_PARITY_REPORT ?= ${DATAPREP_PARITY_DIR}/contract-report.json
 export PLAYWRIGHT_VERSION ?= 1.59.1
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
 export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev
@@ -359,6 +370,38 @@ artifact-publish-dataprep-snapshot:
 
 artifact-restore-dataprep-snapshot:
 	@${MAKE} elasticsearch-restore ${MAKEOVERRIDES}
+
+dataprep-parity-contract-test:
+	@python3 -m unittest scripts.test_es_index_contract
+
+dataprep-parity-data:
+	@mkdir -p ${DATAPREP_PARITY_DATA_DIR}
+	@${MAKE} -C ${TOOLS_PATH} storage-pull \
+		DATA_DIR=${DATAPREP_PARITY_DATA_DIR} \
+		STORAGE_BUCKET=${STORAGE_BUCKET} \
+		FILE=${DATAPREP_PARITY_FILES_TO_PROCESS} \
+		${MAKEOVERRIDES}
+
+dataprep-parity-contract: dataprep-parity-contract-test dataprep-parity-data
+	@rm -rf ${DATAPREP_PARITY_ORIGINAL_DIR} ${DATAPREP_PARITY_MONOREPO_DIR} ${DATAPREP_PARITY_REPORT}
+	@mkdir -p ${DATAPREP_PARITY_ORIGINAL_DIR} ${DATAPREP_PARITY_MONOREPO_DIR}
+	@ES_CONTRACT_EXPORT=true ${MAKE} -C ${DATAPREP_PATH} parity-compare \
+		PARITY_DIR=${DATAPREP_PARITY_DIR} \
+		PARITY_DATA_DIR=${DATAPREP_PARITY_DATA_DIR} \
+		PARITY_ORIGINAL_ES_DATA=${DATAPREP_PARITY_ORIGINAL_ES_DATA} \
+		PARITY_MONOREPO_ES_DATA=${DATAPREP_PARITY_MONOREPO_ES_DATA} \
+		PARITY_FILES_TO_PROCESS='${DATAPREP_PARITY_FILES_TO_PROCESS}' \
+		PARITY_SAMPLE_SIZE=${DATAPREP_PARITY_SAMPLE_SIZE} \
+		PARITY_SAMPLE_SEED=${DATAPREP_PARITY_SAMPLE_SEED} \
+		PARITY_ORIGINAL_COUNT_FILE=${DATAPREP_PARITY_ORIGINAL_DIR}/count.txt \
+		PARITY_ORIGINAL_SAMPLE_FILE=${DATAPREP_PARITY_ORIGINAL_DIR}/sample.json \
+		PARITY_MONOREPO_COUNT_FILE=${DATAPREP_PARITY_MONOREPO_DIR}/count.txt \
+		PARITY_MONOREPO_SAMPLE_FILE=${DATAPREP_PARITY_MONOREPO_DIR}/sample.json \
+		${MAKEOVERRIDES}
+	@python3 scripts/es_index_contract.py compare \
+		--reference-dir ${DATAPREP_PARITY_ORIGINAL_DIR} \
+		--candidate-dir ${DATAPREP_PARITY_MONOREPO_DIR} \
+		--report-file ${DATAPREP_PARITY_REPORT}
 
 show-env:
 	@for var in STORAGE_ACCESS_KEY STORAGE_SECRET_KEY TOOLS_STORAGE_ACCESS_KEY TOOLS_STORAGE_SECRET_KEY LOG_BUCKET LOG_DB_BUCKET STATS_BUCKET PROOFS_BUCKET REPOSITORY_BUCKET MONITOR_BUCKET; do \

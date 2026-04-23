@@ -330,6 +330,9 @@
 
 - [ ] Lot 9 - Substitution complete du processus actuel
   - [ ] Exec
+    - [x] Ajouter le protocole `make` de non-regression data original-vs-monorepo pour `deces-dataprep`
+    - [x] Ancrer la reference de non-regression data sur les derniers jobs upstream `small`, `year`, `full`, `push-dev` et `push-master`
+    - [ ] Conserver le comportement upstream cible: `dataprep-full` produit le snapshot, le deploiement UI prod reste declenche separement et explicitement
     - [ ] Ecrire le runbook de bascule
     - [ ] Ecrire le runbook de rollback
     - [ ] Executer le CD `dataprep-full` depuis `master` ou le contexte prod valide, jamais depuis une branche PR
@@ -339,6 +342,9 @@
     - [ ] Passer les anciens repos en lecture seule ou archive
     - [ ] Mettre a jour la documentation de gouvernance et d'exploitation
   - [ ] Tests
+    - [x] Valider le protocole de contrat Elasticsearch via `make dataprep-parity-contract-test`
+    - [x] Valider la parite data original-vs-monorepo sur `deces-2020-m01.txt.gz`: count `60557`, sample deterministe `10000`, mapping et types
+    - [x] Valider la parite data original-vs-monorepo sur `deaths.txt.gz`: count `1355728`, sample deterministe `10000`, mapping et types
     - [ ] Valider le runbook de bascule
     - [ ] Valider le runbook de rollback
     - [ ] Valider que le processus monorepo couvre bien `deces-dataprep` et `deces-ui`

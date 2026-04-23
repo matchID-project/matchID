@@ -2,10 +2,18 @@
 
 import argparse
 import json
-import random
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+from es_index_contract import (
+    infer_source_types,
+    merge_source_types,
+    normalize_mapping,
+    select_sample,
+    write_contract,
+)
 
 
 def run_curl(container: str, method: str, path: str, body: dict | None = None) -> dict:
@@ -80,21 +88,42 @@ def normalize_docs(container: str, index: str, page_size: int) -> list[dict]:
     return docs
 
 
-def write_outputs(count_file: Path, sample_file: Path, docs: list[dict], sample_size: int, seed: int) -> None:
+def infer_all_source_types(docs: list[dict]) -> dict[str, list[str]]:
+    merged_types: dict[str, set[str]] = {}
+    for doc in docs:
+        merge_source_types(merged_types, infer_source_types(doc.get("_source", {})))
+    return {key: sorted(values) for key, values in sorted(merged_types.items())}
+
+
+def write_outputs(
+    count_file: Path,
+    sample_file: Path,
+    docs: list[dict],
+    sample_size: int,
+    seed: int,
+    mapping: dict | None = None,
+) -> None:
     count_file.parent.mkdir(parents=True, exist_ok=True)
     sample_file.parent.mkdir(parents=True, exist_ok=True)
 
+    sample = select_sample(docs, sample_size, seed)
+    if os.environ.get("ES_CONTRACT_EXPORT") == "true":
+        if count_file.name != "count.txt" or sample_file.name != "sample.json":
+            raise SystemExit(
+                "ES_CONTRACT_EXPORT=true requires count-file=count.txt and sample-file=sample.json"
+            )
+        write_contract(
+            count_file.parent,
+            count=len(docs),
+            mapping=mapping or {},
+            source_types=infer_all_source_types(docs),
+            sample=sample,
+            metadata={"sample_size": sample_size, "seed": seed},
+        )
+        return
+
     with count_file.open("w", encoding="ascii") as fh:
         fh.write(f"{len(docs)}\n")
-
-    if len(docs) <= sample_size:
-        sample = docs
-    else:
-        rng = random.Random(seed)
-        sample_indexes = sorted(rng.sample(range(len(docs)), sample_size))
-        sample = [docs[index] for index in sample_indexes]
-        sample.sort(key=lambda doc: doc["_id"])
-
     with sample_file.open("w", encoding="utf-8") as fh:
         json.dump(sample, fh, ensure_ascii=True, sort_keys=True, indent=2)
         fh.write("\n")
@@ -113,6 +142,9 @@ def main() -> None:
 
     run_curl(args.container, "POST", f"/{args.index}/_refresh")
     reported_count = run_curl(args.container, "GET", f"/{args.index}/_count").get("count", 0)
+    mapping = {}
+    if os.environ.get("ES_CONTRACT_EXPORT") == "true":
+        mapping = normalize_mapping(run_curl(args.container, "GET", f"/{args.index}/_mapping"), args.index)
     docs = normalize_docs(args.container, args.index, args.page_size)
 
     if reported_count != len(docs):
@@ -120,7 +152,7 @@ def main() -> None:
             f"count mismatch for {args.index}: _count={reported_count}, scanned={len(docs)}"
         )
 
-    write_outputs(Path(args.count_file), Path(args.sample_file), docs, args.sample_size, args.seed)
+    write_outputs(Path(args.count_file), Path(args.sample_file), docs, args.sample_size, args.seed, mapping)
 
 
 if __name__ == "__main__":

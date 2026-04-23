@@ -11,6 +11,7 @@ elasticsearch-*
 data
 log
 log-db
+__pycache__/
 
 # misc
 .DS_Store
@@ -19,4 +20,3 @@ log-db
 .env.development.local
 .env.test.local
 .env.production.local
-

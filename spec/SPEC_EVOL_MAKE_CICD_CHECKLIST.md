@@ -349,7 +349,7 @@ CD       | push     | 24586029288 | pass   | images + snapshot dataprep
 CD       | dispatch | 24533977844 | pass   | debug snapshot + artefacts
 CD       | dispatch | 24777149351 | pass   | dataprep-small, 2 datasets
 CD       | dispatch | 24777914592 | pass   | dataprep-year, remote-all
-CD       | n/a      | n/a         | reporte| dataprep-full reserve lot 9/prod
+CD       | n/a      | n/a         | reporte| dataprep-full reserve prod/master
 ```
 
 ```text
@@ -430,9 +430,9 @@ dataprep-small    | 24777149351 | 72498296125 | pass   | esdata_fa194c98_74bab91
 deaths            |             |             |        | count=1355728, artifact 6577715452
 dataprep-year     | 24777914592 | 72500946799 | pass   | esdata_fa194c98_e0735a1a
                   |             |             |        | remote-all, artifact 6577838420
-dataprep-full     | n/a         | n/a         | lot 9  | precheck local: snapshot prod
-                  |             |             |        | esdata_fa194c98_c88006ac absent;
-                  |             |             |        | dispatch PR bloqué volontairement
+dataprep-full     | n/a         | n/a         | lot 9  | non lance depuis PR; a executer
+                  |             |             |        | depuis master/contexte prod valide
+                  |             |             |        | avant bascule
 ```
 
 Correction H6:
@@ -453,6 +453,72 @@ dataprep-full  | master       | full.yml, push-master | make -C packages/deces-d
                |              |                       | regex full 1970-2024 + 2025/2026
                |              |                       | monthly / bucket prod / SCW PRO2-L
 ```
+
+Clarification `dataprep-full` / deploiement:
+
+- dans l'upstream, `small.yml`, `year.yml`, `full.yml`, `push-dev.yml` et
+  `push-master.yml` sont des workflows de production du snapshot Elasticsearch
+  dataprep, pas des workflows de deploiement UI;
+- le deploiement `deces-ui` reste un workflow separe et manuel tant que la
+  bascule prod monorepo n'est pas validee;
+- si les fichiers entrant dans `DATAPREP_VERSION` et `DATA_VERSION` sont
+  identiques entre `dev` et `master`, le nom de snapshot calcule reste
+  identique; il n'y a donc pas de mismatch inherent entre snapshot produit en
+  dev et snapshot attendu en master;
+- cible proposee lot 9, sans changement de comportement a ce stade: permettre
+  le run `full` pour produire/verifier le snapshot, puis declencher le deploy
+  prod manuellement et explicitement une fois le snapshot valide.
+
+## Lot 9 - Non-regression data dataprep
+
+Reference upstream verifiee le 2026-04-22 via GitHub Actions
+`matchID-project/deces-dataprep`:
+
+```text
+Workflow source  | Dernier run | Event             | Branche | SHA      | Statut | Role
+-----------------+-------------+-------------------+---------+----------+--------+-----------------------------
+small.yml        | 24749206517 | workflow_dispatch | dev     | e0489f1  | pass   | deces-2020-m01 + deaths
+year.yml         | 24755391159 | schedule          | dev     | e0489f1  | pass   | jeu annuel dev
+full.yml         | 24273064744 | schedule          | dev     | e0489f1  | pass   | jeu complet planifie
+push-dev.yml     | 21831591181 | push              | dev     | e0489f1  | pass   | push dev -> year
+push-master.yml  | 21837559650 | push              | master  | 364f71b  | pass   | push master -> full
+```
+
+Protocole monorepo ajoute:
+
+```text
+Commande make
+--------------------------------------------------------------------------------
+make dataprep-parity-contract DATAPREP_PARITY_FILES_TO_PROCESS=deces-2020-m01.txt.gz
+make dataprep-parity-contract DATAPREP_PARITY_FILES_TO_PROCESS=deaths.txt.gz
+```
+
+Contrat compare:
+
+- source data: fichier exact recupere depuis le miroir S3 via `packages/tools`
+  et `storage-pull`;
+- original: `packages/deces-dataprep` avec backend historique tire par
+  `backend-docker-pull`;
+- monorepo: `packages/deces-dataprep` avec l'image backend construite depuis
+  `packages/dataprep-backend`;
+- artefacts locaux non commites sous `.matchid/parity/deces-dataprep/<dataset>`:
+  `count.txt`, `mapping.json`, `source-types.json`, `sample.json`,
+  `manifest.json`, `contract-report.json`;
+- sample: 10000 documents deterministes, seed `424242`;
+- validation finale: comparaison byte-a-byte du count, mapping, types de
+  champs sources et sample.
+
+```text
+Dataset              | Count original | Count monorepo | Sample 10000 | Mapping/types | Statut
+---------------------+----------------+----------------+--------------+---------------+--------
+deces-2020-m01.txt.gz | 60557          | 60557          | ok           | ok            | pass
+deaths.txt.gz        | 1355728        | 1355728        | ok           | ok            | pass
+```
+
+Note `deaths.txt.gz`: les deux recettes loguent `1355745` lignes traitees et
+`1355744` lignes ecrites, mais l'index Elasticsearch exporte contient
+`1355728` documents des deux cotes. La preuve retenue est donc la parite stricte
+du contenu indexe exporte, pas le compteur intermediaire de recette.
 
 Preuve UAT lot 7:
 
