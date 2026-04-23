@@ -111,10 +111,14 @@ Garde-fou CD H6:
 
 - `workflow_dispatch` ne lance que `dataprep-small` par defaut; `year`, `full`
   ou `all` demandent un choix explicite;
+- `workflow_dispatch` autorise aussi un deploy explicite avec
+  `dataprep_scope=none` et `deploy_target=dev|prod`;
 - `repository_dispatch` ne lance `dataprep-small` et `dataprep-year` que si
   `client_payload.ref == 'dev'`;
 - `repository_dispatch` ne lance `dataprep-full` que si
   `client_payload.ref == 'master'`.
+- `repository_dispatch` ne declenche plus le deploy prod;
+- `push master` publie les images mais ne deploie pas la prod.
 
 ## UAT lot 7 - Presentation
 
@@ -459,15 +463,15 @@ Clarification `dataprep-full` / deploiement:
 - dans l'upstream, `small.yml`, `year.yml`, `full.yml`, `push-dev.yml` et
   `push-master.yml` sont des workflows de production du snapshot Elasticsearch
   dataprep, pas des workflows de deploiement UI;
-- le deploiement `deces-ui` reste un workflow separe et manuel tant que la
-  bascule prod monorepo n'est pas validee;
+- le deploiement `deces-ui` prod reste un workflow separe et explicite dans le
+  monorepo: `workflow_dispatch` sur `master` avec `dataprep_scope=none` et
+  `deploy_target=prod`;
 - si les fichiers entrant dans `DATAPREP_VERSION` et `DATA_VERSION` sont
   identiques entre `dev` et `master`, le nom de snapshot calcule reste
   identique; il n'y a donc pas de mismatch inherent entre snapshot produit en
   dev et snapshot attendu en master;
-- cible proposee lot 9, sans changement de comportement a ce stade: permettre
-  le run `full` pour produire/verifier le snapshot, puis declencher le deploy
-  prod manuellement et explicitement une fois le snapshot valide.
+- le run `full` produit/verifie le snapshot, puis le deploy prod se declenche
+  dans un second temps, explicitement.
 
 ## Lot 9 - Non-regression data dataprep
 

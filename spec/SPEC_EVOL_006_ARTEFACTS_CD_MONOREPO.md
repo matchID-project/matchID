@@ -29,12 +29,15 @@ package legacy matchID      | packages/dataprep-backend        | package        
 `cd.yml` est déclenché par `repository_dispatch`, `workflow_dispatch` et par
 `push` sur `dev` et `master`.
 
-Le dispatch manuel expose `dataprep_scope`; son défaut est `small` pour éviter
-un run `full`/prod implicite. Les scopes `year`, `full` et `all` restent
-disponibles seulement sur choix explicite.
+Le dispatch manuel expose `dataprep_scope` et `deploy_target`.
+`dataprep_scope` garde `small` par défaut pour éviter un run `full`/prod
+implicite. `deploy_target` vaut `none` par défaut. Le deploy explicite passe
+par `dataprep_scope=none` avec `deploy_target=dev` ou `deploy_target=prod`.
 
 Pour `repository_dispatch`, les scopes dataprep restent attachés à la branche
 portée par `client_payload.ref`: `small`/`year` sur `dev`, `full` sur `master`.
+Le deploy applicatif n'est plus couplé à `repository_dispatch`: la prod reste
+déclenchée explicitement par `workflow_dispatch`.
 
 ```text
 Job CD monorepo                  | Rôle
@@ -46,6 +49,7 @@ Publish deces-ui image           | build/push image frontend applicatif deces
 Publish dataprep small snapshot  | produire, publier et tracer le snapshot Elasticsearch petit jeu dev
 Publish dataprep year snapshot   | produire, publier et tracer le snapshot Elasticsearch annuel dev
 Publish dataprep full snapshot   | produire, publier et tracer le snapshot Elasticsearch full master
+Deploy deces-ui/deces-backend    | deploy-remote explicite dev/prod, séparé des jobs dataprep
 ```
 
 Scopes dataprep:
@@ -56,6 +60,17 @@ Job CD monorepo | Branche push | Upstream aligne          | FILES_TO_PROCESS
 dataprep-small  | dev          | small.yml                | deces-2020-m01.txt.gz
 dataprep-year   | dev          | year.yml, push-dev.yml   | deces-2020-m[0-1][0-9].txt.gz
 dataprep-full   | master       | full.yml, push-master.yml| deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
+```
+
+Déploiement applicatif:
+
+```text
+Mode                  | Ref  | Inputs                                | Effet
+----------------------+-----+----------------------------------------+--------------------------------------
+push dev applicatif   | dev | n/a                                    | publication images + deploy preprod
+push master applicatif| master | n/a                                 | publication images seulement
+deploy dev explicite  | dev | dataprep_scope=none, deploy_target=dev | deploy-remote preprod
+deploy prod explicite | master | dataprep_scope=none, deploy_target=prod | deploy-remote prod
 ```
 
 ## Preuves CD acquises

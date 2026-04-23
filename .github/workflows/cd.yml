@@ -15,10 +15,20 @@ on:
         default: small
         type: choice
         options:
+          - none
           - all
           - small
           - year
           - full
+      deploy_target:
+        description: Deploy target to run
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - dev
+          - prod
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -495,22 +505,30 @@ jobs:
     if: >-
       ${{
         always() &&
-        (
-          github.ref == 'refs/heads/dev' ||
-          github.ref == 'refs/heads/master' ||
-          github.event.client_payload.ref == 'dev' ||
-          github.event.client_payload.ref == 'master'
-        ) &&
         !cancelled() &&
         !failure() &&
         (
-          github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'repository_dispatch' ||
-          needs.changes.outputs.dataprep_backend == 'true' ||
-          needs.changes.outputs.dataprep_frontend == 'true' ||
-          needs.changes.outputs.deces_backend == 'true' ||
-          needs.changes.outputs.deces_ui == 'true' ||
-          needs.changes.outputs.dataprep_snapshot == 'true'
+          (
+            github.event_name == 'push' &&
+            github.ref == 'refs/heads/dev' &&
+            (
+              needs.changes.outputs.deces_backend == 'true' ||
+              needs.changes.outputs.deces_ui == 'true'
+            )
+          ) ||
+          (
+            github.event_name == 'workflow_dispatch' &&
+            (
+              (
+                github.ref == 'refs/heads/dev' &&
+                inputs.deploy_target == 'dev'
+              ) ||
+              (
+                github.ref == 'refs/heads/master' &&
+                inputs.deploy_target == 'prod'
+              )
+            )
+          )
         )
       }}
     runs-on: ubuntu-latest
@@ -520,6 +538,7 @@ jobs:
     env:
       APP_DNS: deces.matchid.io
       GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || 'none' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -536,7 +555,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy deces.matchid.io
         run: |
-          if [[ ( "$GIT_BRANCH" == "dev" ) ]]; then
+          if [[ ( "${GITHUB_EVENT_NAME}" == "push" && "$GIT_BRANCH" == "dev" ) || ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DEPLOY_TARGET}" == "dev" ) ]]; then
             make deploy-remote-preflight \
               GIT_BRANCH=$GIT_BRANCH \
               APP_DNS=$APP_DNS \
@@ -554,7 +573,11 @@ jobs:
               MMDB_TOKEN=$MMDB_TOKEN \
               NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
           fi
-          if [[ ( "$GIT_BRANCH" == "master" ) ]]; then
+          if [[ ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DEPLOY_TARGET}" == "prod" ) ]]; then
+            if [[ ( "$GIT_BRANCH" != "master" ) ]]; then
+              echo "prod deploy requires refs/heads/master"
+              exit 1
+            fi
             make deploy-remote \
               GIT_BACKEND_BRANCH=master GIT_BRANCH=$GIT_BRANCH \
               BACKEND_JOB_CONCURRENCY=$BACKEND_JOB_CONCURRENCY_MASTER \
