@@ -98,6 +98,23 @@ pas en place:
 La reference observable `deces-ui` impose un check de PR sur `dev` et deux checks
 release sur `master`.
 
+Checks monorepo observes a date:
+
+```text
+Source                 | Run id      | Contextes observes
+-----------------------+-------------+--------------------------------------------------------------
+PR `feat/refacto-make` | 24778209789 | `Detect changed areas`, `build docker swift`,
+                       |             | `dataprep-backend pull request test`,
+                       |             | `dataprep-frontend pull request test`,
+                       |             | `deces-backend build docker image and tests`,
+                       |             | `deces-dataprep locally`,
+                       |             | `deces-ui pull request test`
+CD reussi              | 24777914592 | `Detect artifact changes`,
+                       |             | `Publish dataprep year snapshot`,
+                       |             | jobs CD non concernes emis en `skipped`,
+                       |             | dont `Deploy`
+```
+
 Pour le monorepo, la transposition minimale cible est:
 
 ```text
@@ -111,6 +128,8 @@ Note:
 
 - la granularite exacte des checks requis depend du comportement GitHub sur les
   jobs `skipped` issus du path-filter;
+- les runs observes montrent deja que les jobs CD non concernes existent bien
+  comme contextes GitHub avec conclusion `skipped`;
 - si les checks actuels restent trop variables, il faudra introduire un job
   agregateur toujours present dans `ci.yml` et/ou `cd.yml`;
 - la contrainte processuelle `master` alimentee depuis `dev` devra etre tracee
