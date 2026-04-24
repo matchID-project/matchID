@@ -15,8 +15,8 @@ WORKDIR /$app_path
 RUN apk add --no-cache \
     python3 py3-pip \
     gcc python3-dev musl-dev linux-headers
-RUN pip3 install --upgrade pip
-RUN pip3 install --user setuptools python-swiftclient python-keystoneclient
+RUN pip3 install --break-system-packages --upgrade pip
+RUN pip3 install --break-system-packages --user setuptools python-swiftclient python-keystoneclient
 RUN mv /root/.local/bin/* /usr/local/bin
 RUN apk -v --purge del gcc python3-dev musl-dev linux-headers
 

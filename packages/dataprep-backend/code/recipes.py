@@ -1396,7 +1396,7 @@ class Recipe(Configured):
                         self.df = self.df.head(n=head)
                 except:
                     if ((len(self.before) + len(self.after)) == 0):
-                        raise err()
+                        raise Exception(err())
 
             else:
                 self.log.write("reading whole input before processing recipe")

@@ -66,7 +66,7 @@ spec:
           - name: DATAGOUV_PROXY_PATH
             value: "${DATAGOUV_PROXY_PATH}"
           - name: ES_URL
-            value: "${APP}-es-svc:${ES_PORT}"
+            value: "deces-es-svc:${ES_PORT}"
           - name: ES_INDEX
             value: "${ES_INDEX}"
 ---

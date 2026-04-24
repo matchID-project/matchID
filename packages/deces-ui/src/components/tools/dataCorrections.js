@@ -255,5 +255,53 @@ export const dataCorrections = {
     "reason": "cnil-art-85",
     "proofs": ["none"],
     "anonymize": true
-  }
+  },
+  "0ur3mZgMbiDG": {
+    "permalink": "/id/0ur3mZgMbiDG",
+    "change": "remove",
+    "request": "child",
+    "reason": "cnil-art-85",
+    "proofs": ["none"],
+    "anonymize": true
+  },
+  "g-nMz_DbH-kL": {
+    "permalink": "/id/g-nMz_DbH-kL",
+    "change": "remove",
+    "request": "spouse",
+    "reason": "cnil-art-85",
+    "proofs": ["none"],
+    "anonymize": true
+  },
+  "L0BLn7Sw6ywP": {
+    "permalink": "/id/L0BLn7Sw6ywP",
+    "change": "remove",
+    "request": "third party",
+    "reason": "cnil-art-85",
+    "proofs": ["none"],
+    "anonymize": true
+  },
+  "HT6r4fZeKi1g": {
+    "permalink": "/id/HT6r4fZeKi1g",
+    "change": "remove",
+    "request": "child",
+    "reason": "cnil-art-85",
+    "proofs": ["none"],
+    "anonymize": true
+  },
+  "hAs4K2uMjFNL": {
+    "permalink": "/id/hAs4K2uMjFNL",
+    "change": "remove",
+    "request": "brother",
+    "reason": "cnil-art-85",
+    "proofs": ["none"],
+    "anonymize": true
+  },
+  "sc92Si15N-ef": {
+    "permalink": "/id/sc92Si15N-ef",
+    "change": "remove",
+    "request": "husband",
+    "reason": "cnil-art-85",
+    "proofs": ["id card"],
+    "anonymize": true
+  },
 };

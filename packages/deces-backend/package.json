@@ -11,8 +11,8 @@
     "start": "node .",
     "predev": "npm run lint && npm run tsoa",
     "dev": "ts-node-dev --respawn -- src/index.ts",
-    "test": "BACKEND_TMPFILE_PERSISTENCE=3000 vitest run",
-    "test-grep": "vitest run --testNamePattern ${GREP:-agg}"
+    "test": "BACKEND_TMPFILE_PERSISTENCE=3000 vitest run --no-file-parallelism",
+    "test-grep": "vitest run --no-file-parallelism --testNamePattern ${GREP:-agg}"
   },
   "author": "Cristian Brokate",
   "license": "ISC",

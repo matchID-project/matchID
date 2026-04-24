@@ -19,6 +19,7 @@ services:
       - STORAGE_BUCKET
       - STORAGE_ACCESS_KEY
       - STORAGE_SECRET_KEY
+      - ES_HOST
       - BACKEND_PORT
       - ES_THREADS
       - ES_MAX_TRIES

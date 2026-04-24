@@ -197,7 +197,12 @@ export const validateChallenge = async (url: string): Promise<{ status: string; 
       timeout: 5000,
     });
     // Vérifier que la réponse est en text/html ou application/json
-    const contentType = res.headers['content-type'];
+    const contentTypeHeader = res.headers['content-type'];
+    const contentType = Array.isArray(contentTypeHeader)
+      ? contentTypeHeader.join(';')
+      : typeof contentTypeHeader === 'string'
+        ? contentTypeHeader
+        : '';
     if (!contentType || (!contentType.includes('text/html') && !contentType.includes('application/json'))) {
       throw new Error('Invalid content type. Response must be text/html or application/json');
     }

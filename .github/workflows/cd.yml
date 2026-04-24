@@ -1,0 +1,647 @@
+name: CD
+
+on:
+  repository_dispatch:
+    types: [data-update]
+  push:
+    branches:
+      - dev
+      - master
+  workflow_dispatch:
+    inputs:
+      dataprep_scope:
+        description: Dataprep CD scope to run
+        required: false
+        default: small
+        type: choice
+        options:
+          - none
+          - all
+          - small
+          - year
+          - full
+      deploy_target:
+        description: Deploy target to run
+        required: false
+        default: none
+        type: choice
+        options:
+          - none
+          - dev
+          - prod
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect artifact changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      dataprep_backend: ${{ steps.filter.outputs.dataprep_backend }}
+      dataprep_frontend: ${{ steps.filter.outputs.dataprep_frontend }}
+      deces_backend: ${{ steps.filter.outputs.deces_backend }}
+      deces_ui_app: ${{ steps.filter.outputs.deces_ui_app }}
+      deces_ui: ${{ steps.filter.outputs.deces_ui }}
+      dataprep_snapshot: ${{ steps.filter.outputs.dataprep_snapshot }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            dataprep_backend:
+              - 'Makefile'
+              - 'packages/dataprep-backend/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+            dataprep_frontend:
+              - 'Makefile'
+              - 'packages/dataprep-frontend/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+            deces_backend:
+              - 'Makefile'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+            deces_ui_app:
+              - 'packages/deces-ui/**'
+            deces_ui:
+              - 'Makefile'
+              - 'packages/deces-ui/**'
+              - 'packages/deces-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - '.github/workflows/cd.yml'
+            dataprep_snapshot:
+              - 'Makefile'
+              - 'packages/deces-dataprep/**'
+              - 'packages/dataprep-backend/**'
+              - 'packages/deces-infra/**'
+              - 'packages/tools/**'
+              - 'scripts/**'
+              - '.github/workflows/cd.yml'
+
+  dataprep-backend:
+    name: Publish matchid-backend image
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.dataprep_scope == 'all'
+        ) ||
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.dataprep_backend == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Build matchid-backend image
+        run: |
+          make -C packages/deces-dataprep config GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/dataprep-backend backend-build GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      - name: Publish matchid-backend image
+        run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Publish legacy matchID package on master
+        if: github.ref == 'refs/heads/master'
+        run: |
+          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${GITHUB_REF_NAME}
+          make -C packages/dataprep-backend package-publish GIT_BRANCH=${GITHUB_REF_NAME}
+        env:
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+
+  dataprep-frontend:
+    name: Publish matchid-frontend image
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.dataprep_scope == 'all'
+        ) ||
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.dataprep_frontend == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Build matchid-frontend image
+        run: |
+          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/dataprep-frontend build GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+          NPM_AUDIT_IGNORE: "true"
+      - name: Publish matchid-frontend image
+        run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  deces-backend:
+    name: Publish deces-backend image
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.dataprep_scope == 'all'
+        ) ||
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.deces_backend == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Build deces-backend image
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      - name: Publish deces-backend image
+        run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  deces-ui:
+    name: Publish deces-ui image
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.dataprep_scope == 'all'
+        ) ||
+        (
+          github.event_name == 'push' &&
+          needs.changes.outputs.deces_ui == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Build deces-ui image
+        run: make APP=deces-ui build GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      - name: Publish deces-ui image
+        run: make frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        env:
+          CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  dataprep-small:
+    name: Publish dataprep small snapshot (${{ matrix.dataset.name }})
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'repository_dispatch' &&
+          github.event.client_payload.ref == 'dev'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            inputs.dataprep_scope == 'all' ||
+            inputs.dataprep_scope == 'small'
+          )
+        ) ||
+        (
+          github.ref == 'refs/heads/dev' &&
+          needs.changes.outputs.dataprep_snapshot == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        dataset:
+          - name: deces-2020-m01
+            files_to_process: deces-2020-m01.txt.gz
+          - name: deaths
+            files_to_process: deaths.txt.gz
+    env:
+      CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      FILES_TO_PROCESS: ${{ matrix.dataset.files_to_process }}
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+      CHUNK_SIZE: 5000
+      ES_THREADS: 2
+      RECIPE_THREADS: 2
+      ES_MEM: 4000m
+      ES_COUNT_FILE: /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot.count
+      ES_SAMPLE_FILE: /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot.sample.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Produce dataprep small snapshot
+        run: make artifact-produce-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Export dataprep small snapshot metadata
+        run: |
+          make -C packages/deces-infra elasticsearch-index-export ES_INDEX=deces ES_COUNT_FILE=${ES_COUNT_FILE} ES_SAMPLE_FILE=${ES_SAMPLE_FILE} ES_SAMPLE_SIZE=25 ES_SAMPLE_SEED=424242
+          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" | tail -1)
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "repository_bucket=${REPOSITORY_BUCKET}"
+            echo "files_to_process=${FILES_TO_PROCESS}"
+            echo "count=$(cat ${ES_COUNT_FILE})"
+          } | tee /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot-metadata.txt
+      - name: Publish dataprep small snapshot
+        run: make artifact-publish-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Upload dataprep small snapshot metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataprep-small-${{ matrix.dataset.name }}-snapshot-metadata
+          path: |
+            /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot-metadata.txt
+            /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot.count
+            /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot.sample.json
+
+  dataprep-year:
+    name: Publish dataprep year snapshot
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'repository_dispatch' &&
+          github.event.client_payload.ref == 'dev'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            inputs.dataprep_scope == 'all' ||
+            inputs.dataprep_scope == 'year'
+          )
+        ) ||
+        (
+          github.ref == 'refs/heads/dev' &&
+          needs.changes.outputs.dataprep_snapshot == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    env:
+      CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      FILES_TO_PROCESS: deces-2020-m[0-1][0-9].txt.gz
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+      CHUNK_SIZE: 75000
+      ES_THREADS: 14
+      RECIPE_THREADS: 16
+      RECIPE_QUEUE: 18
+      ES_MEM: 30000m
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Install dataprep deploy SSH key
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Check dataprep year snapshot
+        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Run dataprep year remote-all
+        run: |
+          make -C packages/deces-dataprep remote-all \
+            GIT_BRANCH="${CD_GIT_BRANCH}" \
+            FILES_TO_PROCESS="${FILES_TO_PROCESS}" \
+            REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
+            SCW_FLAVOR="${SCW_FLAVOR}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE}" \
+            CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}" RECIPE_QUEUE="${RECIPE_QUEUE}" \
+            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${CD_GIT_BRANCH}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${CD_GIT_BRANCH}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep
+        env:
+          SCW_FLAVOR: PRO2-M
+          SCW_VOLUME_SIZE: 20000000000
+          SCW_VOLUME_TYPE: sbs_volume
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Export dataprep year snapshot metadata
+        run: |
+          make -C packages/deces-dataprep repository-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+          test -s packages/deces-dataprep/repository-check
+          SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "repository_bucket=${REPOSITORY_BUCKET}"
+            echo "files_to_process=${FILES_TO_PROCESS}"
+            echo "runner=remote-all"
+          } | tee /tmp/dataprep-year-snapshot-metadata.txt
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Upload dataprep year snapshot metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataprep-year-snapshot-metadata
+          path: |
+            /tmp/dataprep-year-snapshot-metadata.txt
+
+  dataprep-full:
+    name: Publish dataprep full snapshot
+    needs: changes
+    if: >-
+      ${{
+        (
+          github.event_name == 'repository_dispatch' &&
+          github.event.client_payload.ref == 'master'
+        ) ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (
+            inputs.dataprep_scope == 'all' ||
+            inputs.dataprep_scope == 'full'
+          )
+        ) ||
+        (
+          github.ref == 'refs/heads/master' &&
+          needs.changes.outputs.dataprep_snapshot == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    env:
+      CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      FILES_TO_PROCESS: 'deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz'
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+      CHUNK_SIZE: 75000
+      ES_THREADS: 30
+      RECIPE_THREADS: 32
+      RECIPE_QUEUE: 34
+      ES_MEM: 62000m
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Install dataprep deploy SSH key
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Check dataprep full snapshot
+        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Run dataprep full remote-all
+        run: |
+          make -C packages/deces-dataprep remote-all \
+            GIT_BRANCH="${CD_GIT_BRANCH}" \
+            REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
+            SCW_FLAVOR="${SCW_FLAVOR}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE}" \
+            CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}" RECIPE_QUEUE="${RECIPE_QUEUE}" \
+            SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
+            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${CD_GIT_BRANCH}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${CD_GIT_BRANCH}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep
+        env:
+          SCW_FLAVOR: PRO2-L
+          SCW_VOLUME_SIZE: 50000000000
+          SCW_VOLUME_TYPE: sbs_volume
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      - name: Export dataprep full snapshot metadata
+        run: |
+          make -C packages/deces-dataprep repository-check GIT_BRANCH="${CD_GIT_BRANCH}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+          test -s packages/deces-dataprep/repository-check
+          SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "repository_bucket=${REPOSITORY_BUCKET}"
+            echo "files_to_process=${FILES_TO_PROCESS}"
+            echo "runner=remote-all"
+          } | tee /tmp/dataprep-full-snapshot-metadata.txt
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Upload dataprep full snapshot metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataprep-full-snapshot-metadata
+          path: |
+            /tmp/dataprep-full-snapshot-metadata.txt
+
+  deploy:
+    name: Deploy
+    needs:
+      - changes
+      - dataprep-backend
+      - dataprep-frontend
+      - deces-backend
+      - deces-ui
+      - dataprep-small
+      - dataprep-year
+      - dataprep-full
+    if: >-
+      ${{
+        always() &&
+        !cancelled() &&
+        !failure() &&
+        (
+          (
+            github.event_name == 'push' &&
+            github.ref == 'refs/heads/dev' &&
+            (
+              needs.changes.outputs.deces_backend == 'true' ||
+              needs.changes.outputs.deces_ui == 'true'
+            )
+          ) ||
+          (
+            github.event_name == 'push' &&
+            github.ref == 'refs/heads/master' &&
+            needs.changes.outputs.deces_ui_app == 'true'
+          ) ||
+          (
+            github.event_name == 'workflow_dispatch' &&
+            (
+              (
+                github.ref == 'refs/heads/dev' &&
+                inputs.deploy_target == 'dev'
+              ) ||
+              (
+                github.ref == 'refs/heads/master' &&
+                inputs.deploy_target == 'prod'
+              )
+            )
+          )
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      APP_DNS: deces.matchid.io
+      GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || 'none' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Install deploy SSH key
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Deploy deces.matchid.io
+        run: |
+          if [[ ( "${GITHUB_EVENT_NAME}" == "push" && "$GIT_BRANCH" == "dev" ) || ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DEPLOY_TARGET}" == "dev" ) ]]; then
+            make deploy-remote-preflight \
+              GIT_BRANCH=$GIT_BRANCH \
+              APP_DNS=$APP_DNS \
+              FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
+              REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV
+            make deploy-remote \
+              GIT_BRANCH=$GIT_BRANCH \
+              APP_DNS=$APP_DNS \
+              FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
+              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
+              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
+              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
+              LOG_BAN_IP=$LOG_BAN_IP \
+              MMDB_TOKEN=$MMDB_TOKEN \
+              NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
+          fi
+          if [[ ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DEPLOY_TARGET}" == "prod" ) ]]; then
+            if [[ ( "$GIT_BRANCH" != "master" ) ]]; then
+              echo "prod deploy requires refs/heads/master"
+              exit 1
+            fi
+            make deploy-remote \
+              GIT_BACKEND_BRANCH=master GIT_BRANCH=$GIT_BRANCH \
+              BACKEND_JOB_CONCURRENCY=$BACKEND_JOB_CONCURRENCY_MASTER \
+              BACKEND_CHUNK_CONCURRENCY=$BACKEND_CHUNK_CONCURRENCY_MASTER \
+              ES_MEM=$ES_MEM_MASTER \
+              SCW_FLAVOR=$SCW_FLAVOR_MASTER SCW_VOLUME_SIZE=$SCW_VOLUME_SIZE_MASTER SCW_VOLUME_TYPE=$SCW_VOLUME_TYPE_MASTER \
+              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
+              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
+              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
+              LOG_BAN_IP=$LOG_BAN_IP \
+              MMDB_TOKEN=$MMDB_TOKEN \
+              NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
+          fi
+        env:
+          FILES_TO_PROCESS_DEV: deces-2020-m[0-1][0-9].txt.gz
+          REPOSITORY_BUCKET_DEV: fichier-des-personnes-decedees-elasticsearch-dev
+          BACKEND_JOB_CONCURRENCY_MASTER: 6
+          BACKEND_CHUNK_CONCURRENCY_MASTER: 3
+          ES_MEM_MASTER: 8192m
+          SCW_FLAVOR_MASTER: GP1-XS
+          SCW_VOLUME_SIZE_MASTER: 60000000000
+          SCW_VOLUME_TYPE_MASTER: l_ssd
+          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
+          GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER }}
+          CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
+          CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
+          BLOCK_DEPLOY: ${{ secrets.BLOCK_DEPLOY }}
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PWD: ${{ secrets.SMTP_PWD }}
+          LOG_BAN_IP: ${{ secrets.LOG_BAN_IP }}
+          MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+          MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}

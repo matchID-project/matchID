@@ -19,6 +19,8 @@ services:
         app_name: ${APP}
         app_ver: ${APP_VERSION}
         port: ${BACKEND_PORT}
+        DATA_DIR: ${DATA_DIR}
+        NPM_AUDIT_DRY_RUN: ${NPM_AUDIT_DRY_RUN}
         NPM_FIX: ${NPM_FIX}
         NPM_LATEST: ${NPM_LATEST}
         NPM_VERBOSE: ${NPM_VERBOSE}
@@ -60,21 +62,9 @@ services:
       - JOBS=data/jobs
       - WIKIDATA_LINKS=data/wikidata.json
     volumes:
-      - ${PROOFS}:/${DATA_DIR}/proofs
-      - ${JOBS}:/${DATA_DIR}/jobs
+      - ${PROOFS}:/${APP}/data/proofs
+      - ${JOBS}:/${APP}/data/jobs
     restart: always
-    depends_on:
-      - "redis"
-  redis:
-    image: redis:alpine
-    container_name: ${APP}-redis
-    volumes:
-      - ${REDIS_DATA}:/data
-    healthcheck:
-      test: ["CMD-SHELL", "(redis-cli --raw incr ping) && (redis-cli ping | grep -q PONG)"]
-      interval: 1m
-      timeout: 10s
-      retries: 3
 
 
 networks:

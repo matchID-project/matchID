@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${APP}-deployment
+  name: ${APP_FRONTEND}-deployment
   namespace: ${KUBE_NAMESPACE}
 spec:
   replicas: ${APP_NODES}
   selector:
     matchLabels:
-      app: ${APP}
+      app: ${APP_FRONTEND}
   template:
     metadata:
       labels:
-        app: ${APP}
+        app: ${APP_FRONTEND}
     spec:
       containers:
       - name: ${DC_PREFIX}
@@ -21,10 +21,8 @@ spec:
         env:
           - name: PORT
             value: "${PORT}"
-          - name: APP
-            value: "${APP}"
-          - name: ES_PROXY_PATH
-            value: "${ES_PROXY_PATH}"
+          - name: APP_FRONTEND
+            value: "${APP_FRONTEND}"
           - name: ES_HOST
             value: "elasticsearch"
           - name: ES_INDEX
@@ -91,7 +89,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ${APP}-svc
+  name: ${APP_FRONTEND}-svc
   namespace: ${KUBE_NAMESPACE}
 spec:
   ports:
@@ -100,4 +98,4 @@ spec:
     protocol: TCP
     name: ui
   selector:
-    app: ${APP}
+    app: ${APP_FRONTEND}
