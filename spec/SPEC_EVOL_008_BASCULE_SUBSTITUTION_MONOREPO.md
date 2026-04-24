@@ -51,6 +51,8 @@ Garde-fous:
 
 ## Preconditions de bascule
 
+- branche racine `master` creee sur le monorepo;
+- gouvernance GitHub `feat/* -> dev -> master` en place et prouvee;
 - CI verte sur la branche cible;
 - jobs de publication d'images verts sur `master`;
 - snapshot prod `dataprep-full` produit et verifie dans le bucket prod;
@@ -179,4 +181,5 @@ Une fois la bascule validee:
 - [SPEC_EVOL_005](SPEC_EVOL_005_BASCULE_PREPROD_PROD.md)
 - [SPEC_EVOL_006](SPEC_EVOL_006_ARTEFACTS_CD_MONOREPO.md)
 - [SPEC_EVOL_007](SPEC_EVOL_007_PREUVE_PARITE_DATAPREP.md)
+- [SPEC_EVOL_009](SPEC_EVOL_009_GOUVERNANCE_GITHUB_MONOREPO.md)
 - [SPEC_EVOL_MAKE_CICD_CHECKLIST](SPEC_EVOL_MAKE_CICD_CHECKLIST.md)

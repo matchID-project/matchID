@@ -336,6 +336,9 @@
     - [x] Conserver le comportement upstream cible: `dataprep-full` produit le snapshot, le deploiement UI prod reste declenche separement et explicitement
     - [x] Ecrire le runbook de bascule
     - [x] Ecrire le runbook de rollback
+    - [x] Documenter l'etat GitHub live du monorepo et l'ecart cible `feat/* -> dev -> master`
+    - [ ] Creer la branche racine `master` depuis `dev`
+    - [ ] Configurer la gouvernance GitHub `dev` / `master` alignée sur la cible et sur la reference `deces-ui`
     - [ ] Executer le CD `dataprep-full` depuis `master` ou le contexte prod valide, jamais depuis une branche PR
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
@@ -346,6 +349,7 @@
     - [x] Valider sur le commit de preuve `41c099bb` le protocole temporaire de contrat Elasticsearch
     - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deces-2020-m01.txt.gz`: count `60557`, sample deterministe `10000`, mapping et types
     - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deaths.txt.gz`: count `1355728`, sample deterministe `10000`, mapping et types
+    - [ ] Prouver la gouvernance GitHub `feat/* -> dev -> master` sur le repo racine
     - [ ] Valider le runbook de bascule
     - [ ] Valider le runbook de rollback
     - [ ] Valider que le processus monorepo couvre bien `deces-dataprep` et `deces-ui`

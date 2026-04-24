@@ -477,6 +477,15 @@ Clarification `dataprep-full` / deploiement:
 
 ## Lot 9 - Non-regression data dataprep
 
+Blocage de gouvernance constate le 2026-04-24:
+
+- le repo racine `matchID-project/matchID` n'a aujourd'hui qu'une branche racine
+  `dev`;
+- la branche racine `master` n'existe pas encore;
+- la substitution complete du processus actuel devra donc passer d'abord par la
+  mise en place de la gouvernance GitHub decrite dans
+  [SPEC_EVOL_009_GOUVERNANCE_GITHUB_MONOREPO](SPEC_EVOL_009_GOUVERNANCE_GITHUB_MONOREPO.md).
+
 Reference upstream verifiee le 2026-04-22 via GitHub Actions
 `matchID-project/deces-dataprep`:
 
