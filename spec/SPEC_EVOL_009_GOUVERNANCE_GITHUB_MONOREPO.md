@@ -31,9 +31,9 @@ Observation GitHub live:
 
 ```text
 Repo                      | Default branch | Branches racines observees | Protection / rules
---------------------------+----------------+-----------------------------+------------------------------------------
-matchID-project/matchID   | dev            | dev uniquement              | 1 ruleset active nommee `dev`
-matchID-project/deces-ui  | dev            | dev, master                 | protections dev/master en place
+--------------------------+----------------+----------------------------+---------------------------------------------
+matchID-project/matchID   | dev            | dev, master                | protections dev/master + 2 rulesets actives
+matchID-project/deces-ui  | dev            | dev, master                | protections dev/master en place
 ```
 
 Details monorepo observes:
@@ -42,21 +42,39 @@ Details monorepo observes:
 Point                              | Valeur live
 -----------------------------------+--------------------------------------------------------------
 branche par defaut                 | `dev`
-branche racine `master`            | absente
-ruleset live                       | `dev`
-protections classiques `dev/master`| aucune protection classique observee sur racine `dev/master`
+branche racine `master`            | presente sur `9cc2d06e766e94b60af72799105ba1e31947d2ec`
+rulesets live                      | `dev` (`7737818`), `master` (`15515365`)
+protections classiques `dev/master`| presentes sur `dev` et `master`
 ```
 
-Details de la ruleset monorepo `dev`:
+Details des rulesets monorepo:
 
 ```text
-Champ                      | Valeur live
----------------------------+--------------------------------------------------------------
-enforcement                | active
-required_linear_history    | oui
-pull_request obligatoire   | oui
-approbations obligatoires  | 0
-status checks obligatoires | non observes dans cette ruleset
+Ruleset | Ref cible            | Enforcement | Linear history | Pull request | Approvals
+--------+----------------------+-------------+----------------+--------------+----------
+dev     | `refs/heads/dev`     | active      | oui            | oui          | 0
+master  | `refs/heads/master`  | active      | oui            | oui          | 0
+```
+
+Details des protections classiques monorepo:
+
+```text
+Branche | Checks requis live
+--------+--------------------------------------------------------------
+dev     | `Detect changed areas`
+        | `build docker swift`
+        | `dataprep-backend pull request test`
+        | `dataprep-frontend pull request test`
+        | `deces-backend build docker image and tests`
+        | `deces-dataprep locally`
+        | `deces-ui pull request test`
+master  | `Detect artifact changes`
+        | `Publish matchid-backend image`
+        | `Publish matchid-frontend image`
+        | `Publish deces-backend image`
+        | `Publish deces-ui image`
+        | `Publish dataprep full snapshot`
+        | `Deploy`
 ```
 
 Details de reference `deces-ui` observes:
@@ -74,24 +92,23 @@ master  | `🐳 Build docker image`, `🚀 Deploy`
 Sujet                         | Etat live monorepo            | Cible
 ------------------------------+-------------------------------+-----------------------------------------
 branche par defaut            | dev                           | dev
-branche racine master         | absente                       | presente
-protection dev                | partielle via ruleset         | PR obligatoire + checks requis
-protection master             | absente                       | PR obligatoire + checks requis
-promotion dev -> master       | impossible aujourd'hui        | PR dediee `dev -> master`
-release prod depuis master    | impossible aujourd'hui        | oui
+branche racine master         | presente                      | presente
+protection dev                | ruleset + checks classiques   | PR obligatoire + checks requis
+protection master             | ruleset + checks classiques   | PR obligatoire + checks requis
+promotion dev -> master       | configuration prete           | PR dediee `dev -> master`
+release prod depuis master    | configuration prete           | oui
 ```
 
 ## Decision de gouvernance
 
-Le lot 9 ne peut pas etre ferme tant que la gouvernance GitHub suivante n'est
-pas en place:
+La gouvernance GitHub suivante est maintenant en place:
 
-1. creation de la branche racine `master` depuis `dev`;
-2. maintien de `dev` comme branche par defaut;
-3. protection de `dev` avec PR obligatoire et checks CI requis;
-4. protection de `master` avec PR obligatoire et checks release requis;
-5. interdiction des pushes directs sur `dev` et `master`;
-6. contrainte processuelle: `master` est alimentee par PR depuis `dev`.
+1. branche racine `master` creee depuis `dev`;
+2. `dev` conservee comme branche par defaut;
+3. `dev` protege via ruleset PR obligatoire + checks CI requis;
+4. `master` protege via ruleset PR obligatoire + checks release requis;
+5. pushes directs bloques par rulesets + protections de statut;
+6. contrainte processuelle restante: `master` doit etre alimentee par PR depuis `dev`.
 
 ## Checks cibles proposes
 
@@ -115,41 +132,43 @@ CD reussi              | 24777914592 | `Detect artifact changes`,
                        |             | dont `Deploy`
 ```
 
-Pour le monorepo, la transposition minimale cible est:
+Pour le monorepo, la transposition appliquee est:
 
 ```text
 Branche | Checks requis cibles
 --------+--------------------------------------------------------------
-dev     | au moins un check CI agregateur toujours present
-master  | au moins un check release/CD agregateur toujours present
+dev     | 7 checks CI explicites
+master  | 7 checks CD explicites
 ```
 
 Note:
 
-- la granularite exacte des checks requis depend du comportement GitHub sur les
-  jobs `skipped` issus du path-filter;
-- les runs observes montrent deja que les jobs CD non concernes existent bien
-  comme contextes GitHub avec conclusion `skipped`;
-- si les checks actuels restent trop variables, il faudra introduire un job
-  agregateur toujours present dans `ci.yml` et/ou `cd.yml`;
-- la contrainte processuelle `master` alimentee depuis `dev` devra etre tracee
-  soit par une regle GitHub explicite, soit a minima par une gouvernance
-  d'exploitation documentee et verifiee humainement.
+- le choix `master -> checks CD` reproduit le pattern observe sur `deces-ui`,
+  ou la branche `master` requiert les contextes du workflow `push`;
+- ce choix reste compatible avec la PR `dev -> master` car les contextes CD
+  existent deja sur le SHA pousse sur `dev`, avec `success` ou `skipped` selon
+  les paths modifies;
+- si GitHub se revele instable sur ces checks `skipped`, il faudra encore
+  introduire un job agregateur toujours present dans `ci.yml` et/ou `cd.yml`;
+- la contrainte processuelle `master` alimentee depuis `dev` reste a prouver en
+  situation reelle des que `dev` divergera de `master`.
 
 ## Impact sur le lot 9
 
-Blocage explicite:
+Etat apres mise en place:
 
-- tant que `master` racine n'existe pas, l'etape
-  `Executer le CD dataprep-full depuis master` reste impossible;
-- tant que `master` n'est pas protege, la bascule prod via PR `dev -> master`
-  n'est pas gouvernee comme attendu.
+- l'etape `Executer le CD dataprep-full depuis master` est maintenant
+  techniquement possible dans le bon contexte GitHub;
+- la bascule prod via PR `dev -> master` est maintenant gouvernee par branches
+  `dev` / `master`, protections classiques et rulesets dediees;
+- la preuve end-to-end du flux `dev -> master` reste ouverte tant que
+  `master...dev` est `identical` (`ahead_by=0`, `behind_by=0`).
 
 Ordre d'execution requis:
 
-1. creer `master`;
-2. configurer la gouvernance GitHub `dev` / `master`;
-3. prouver ce fonctionnement;
+1. creer `master` - fait;
+2. configurer la gouvernance GitHub `dev` / `master` - fait;
+3. prouver ce fonctionnement sur un prochain delta `dev -> master`;
 4. seulement ensuite executer `dataprep-full` dans le contexte cible;
 5. puis fermer la substitution complete.
 

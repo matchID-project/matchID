@@ -338,7 +338,7 @@
     - [x] Ecrire le runbook de bascule
     - [x] Ecrire le runbook de rollback
     - [x] Documenter l'etat GitHub live du monorepo et l'ecart cible `feat/* -> dev -> master`
-    - [ ] Creer la branche racine `master` depuis `dev`
+    - [x] Creer la branche racine `master` depuis `dev`
     - [ ] Configurer la gouvernance GitHub `dev` / `master` alignée sur la cible et sur la reference `deces-ui`
     - [ ] Executer le CD `dataprep-full` depuis `master` ou le contexte prod valide, jamais depuis une branche PR
     - [ ] Basculer la source de build et release vers le monorepo
