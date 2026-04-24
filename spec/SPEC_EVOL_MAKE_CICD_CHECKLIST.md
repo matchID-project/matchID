@@ -499,6 +499,32 @@ push-dev.yml     | 21831591181 | push              | dev     | e0489f1  | pass  
 push-master.yml  | 21837559650 | push              | master  | 364f71b  | pass   | push master -> full
 ```
 
+Reference snapshot upstream `master` relevee le 2026-04-24:
+
+```text
+Source                              | Valeur
+------------------------------------+-----------------------------------------------
+workflow source                     | `push-master.yml`
+run GitHub Actions                  | `21837559650`
+branche / SHA                       | `master` / `364f71bce273c0f4a135c465c15dbeae95e6e403`
+snapshot upstream releve            | `esdata_846c08df_9112645e`
+count prod upstream associe         | `28934041`
+mode de relevé du count             | `GET /deces/api/v1/search?scroll=1m&size=1&page=1`
+                                    | sur `https://deces.matchid.io`
+resultat compare `master...dev`     | `identical`, `ahead_by=0`, `behind_by=0`
+```
+
+Note methode:
+
+- le tag du snapshot provient directement du log du run upstream
+  `push-master.yml` `21837559650`;
+- le count `28934041` provient de l'API prod upstream via une requete
+  `scroll` seule, accepte par le backend historique et renvoyant le `total`
+  global;
+- une tentative de restauration locale du snapshot upstream a bien demarre,
+  mais n'a pas ete retenue comme preuve primaire de count car la disponibilite
+  du shard local restait plus lente que l'API prod pour cette verification.
+
 Preuve detaillee:
 
 - [SPEC_EVOL_007_PREUVE_PARITE_DATAPREP](SPEC_EVOL_007_PREUVE_PARITE_DATAPREP.md)

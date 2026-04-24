@@ -332,6 +332,7 @@
   - [ ] Exec
     - [x] Executer le protocole `make` temporaire de non-regression data original-vs-monorepo pour `deces-dataprep`
     - [x] Ancrer la reference de non-regression data sur les derniers jobs upstream `small`, `year`, `full`, `push-dev` et `push-master`
+    - [x] Relever le snapshot upstream `master` de reference (tag + count prod associe)
     - [x] Tracer la preuve acceptee dans `spec/SPEC_EVOL_007_PREUVE_PARITE_DATAPREP.md` et retirer l'outillage temporaire du tronc courant
     - [x] Conserver le comportement upstream cible: `dataprep-full` produit le snapshot, le deploiement UI prod reste declenche separement et explicitement
     - [x] Ecrire le runbook de bascule
