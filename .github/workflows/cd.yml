@@ -44,6 +44,7 @@ jobs:
       dataprep_backend: ${{ steps.filter.outputs.dataprep_backend }}
       dataprep_frontend: ${{ steps.filter.outputs.dataprep_frontend }}
       deces_backend: ${{ steps.filter.outputs.deces_backend }}
+      deces_ui_app: ${{ steps.filter.outputs.deces_ui_app }}
       deces_ui: ${{ steps.filter.outputs.deces_ui }}
       dataprep_snapshot: ${{ steps.filter.outputs.dataprep_snapshot }}
     steps:
@@ -68,6 +69,8 @@ jobs:
               - 'packages/deces-infra/**'
               - 'packages/tools/**'
               - '.github/workflows/cd.yml'
+            deces_ui_app:
+              - 'packages/deces-ui/**'
             deces_ui:
               - 'Makefile'
               - 'packages/deces-ui/**'
@@ -515,6 +518,11 @@ jobs:
               needs.changes.outputs.deces_backend == 'true' ||
               needs.changes.outputs.deces_ui == 'true'
             )
+          ) ||
+          (
+            github.event_name == 'push' &&
+            github.ref == 'refs/heads/master' &&
+            needs.changes.outputs.deces_ui_app == 'true'
           ) ||
           (
             github.event_name == 'workflow_dispatch' &&

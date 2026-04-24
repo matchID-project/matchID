@@ -65,12 +65,13 @@ dataprep-full   | master       | full.yml, push-master.yml| deces-((19[7-9][0-9]
 Déploiement applicatif:
 
 ```text
-Mode                  | Ref  | Inputs                                | Effet
-----------------------+-----+----------------------------------------+--------------------------------------
-push dev applicatif   | dev | n/a                                    | publication images + deploy preprod
-push master applicatif| master | n/a                                 | publication images seulement
-deploy dev explicite  | dev | dataprep_scope=none, deploy_target=dev | deploy-remote preprod
-deploy prod explicite | master | dataprep_scope=none, deploy_target=prod | deploy-remote prod
+Mode                            | Ref    | Inputs                                  | Effet
+--------------------------------+--------+-----------------------------------------+--------------------------------------
+push dev applicatif             | dev    | n/a                                     | publication images + deploy preprod
+push master avec `deces-ui`     | master | n/a                                     | publication images + deploy prod
+push master hors `deces-ui`     | master | n/a                                     | publication images/snapshot seulement
+deploy dev explicite            | dev    | dataprep_scope=none, deploy_target=dev  | deploy-remote preprod
+deploy prod explicite           | master | dataprep_scope=none, deploy_target=prod | deploy-remote prod
 ```
 
 ## Preuves CD acquises

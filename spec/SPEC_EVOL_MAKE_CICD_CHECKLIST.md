@@ -118,7 +118,8 @@ Garde-fou CD H6:
 - `repository_dispatch` ne lance `dataprep-full` que si
   `client_payload.ref == 'master'`.
 - `repository_dispatch` ne declenche plus le deploy prod;
-- `push master` publie les images mais ne deploie pas la prod.
+- `push master` ne deploie la prod que si `packages/deces-ui/**` a evolue;
+- un pur changement dataprep sur `master` ne redeploie pas `deces-ui`.
 
 ## UAT lot 7 - Presentation
 
@@ -463,15 +464,16 @@ Clarification `dataprep-full` / deploiement:
 - dans l'upstream, `small.yml`, `year.yml`, `full.yml`, `push-dev.yml` et
   `push-master.yml` sont des workflows de production du snapshot Elasticsearch
   dataprep, pas des workflows de deploiement UI;
-- le deploiement `deces-ui` prod reste un workflow separe et explicite dans le
-  monorepo: `workflow_dispatch` sur `master` avec `dataprep_scope=none` et
-  `deploy_target=prod`;
+- le deploiement `deces-ui` prod reste decouple des jobs dataprep: il se
+  declenche automatiquement sur `push master` quand `packages/deces-ui/**`
+  evolue, ou manuellement via `workflow_dispatch` sur `master` avec
+  `dataprep_scope=none` et `deploy_target=prod`;
 - si les fichiers entrant dans `DATAPREP_VERSION` et `DATA_VERSION` sont
   identiques entre `dev` et `master`, le nom de snapshot calcule reste
   identique; il n'y a donc pas de mismatch inherent entre snapshot produit en
   dev et snapshot attendu en master;
-- le run `full` produit/verifie le snapshot, puis le deploy prod se declenche
-  dans un second temps, explicitement.
+- le run `full` produit/verifie le snapshot; il ne redeclenche pas a lui seul
+  un deploy `deces-ui`.
 
 ## Lot 9 - Non-regression data dataprep
 

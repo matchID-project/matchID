@@ -26,20 +26,21 @@ Le comportement cible conserve la separation amont:
 `cd.yml` porte desormais deux usages distincts:
 
 ```text
-Usage                        | Ref cible | Inputs workflow_dispatch              | Effet
-----------------------------+-----------+---------------------------------------+----------------------------------------------
-snapshot dev petit jeu      | dev       | dataprep_scope=small, deploy_target=none | snapshot dev petit jeu
-snapshot dev annuel         | dev       | dataprep_scope=year, deploy_target=none  | snapshot dev annuel
-snapshot prod full          | master    | dataprep_scope=full, deploy_target=none  | snapshot prod full
-deploy dev explicite        | dev       | dataprep_scope=none, deploy_target=dev   | deploy-remote dev
-deploy prod explicite       | master    | dataprep_scope=none, deploy_target=prod  | deploy-remote prod
-push dev applicatif         | dev       | n/a                                   | publication images + deploy dev
-push master applicatif      | master    | n/a                                   | publication images seulement
+Usage                         | Ref cible | Inputs workflow_dispatch                | Effet
+-----------------------------+-----------+-----------------------------------------+----------------------------------------------
+snapshot dev petit jeu       | dev       | dataprep_scope=small, deploy_target=none | snapshot dev petit jeu
+snapshot dev annuel          | dev       | dataprep_scope=year, deploy_target=none  | snapshot dev annuel
+snapshot prod full           | master    | dataprep_scope=full, deploy_target=none  | snapshot prod full
+deploy dev explicite         | dev       | dataprep_scope=none, deploy_target=dev   | deploy-remote dev
+deploy prod explicite        | master    | dataprep_scope=none, deploy_target=prod  | deploy-remote prod
+push dev applicatif          | dev       | n/a                                     | publication images + deploy dev
+push master avec `deces-ui`  | master    | n/a                                     | publication images + deploy prod
+push master hors `deces-ui`  | master    | n/a                                     | publication images/snapshot seulement
 ```
 
 Garde-fous:
 
-- `push master` publie les images mais ne deploie pas la prod;
+- `push master` ne deploie la prod que si `packages/deces-ui/**` a evolue;
 - `dataprep-full` ne deploie pas la prod;
 - le deploy prod demande `workflow_dispatch` sur `master` avec
   `deploy_target=prod`;
@@ -75,7 +76,9 @@ Garde-fous:
   - publication `matchid-frontend`;
   - publication `deces-backend`;
   - publication `deces-ui`;
-- verifier que le job `deploy` n'a pas tourne sur ce `push master`.
+- si `packages/deces-ui/**` a evolue dans le merge, verifier que le job
+  `deploy` a bien tourne;
+- sinon verifier qu'aucun deploy prod n'a ete declenche sur ce `push master`.
 
 ### 3. Production du snapshot prod
 
@@ -87,7 +90,7 @@ Garde-fous:
 - verifier le snapshot attendu dans le bucket
   `fichier-des-personnes-decedees-elasticsearch`.
 
-### 4. Deploiement prod explicite
+### 4. Deploiement prod explicite si necessaire
 
 - declencher `cd.yml` sur `master` avec:
   - `dataprep_scope=none`
@@ -99,6 +102,12 @@ Garde-fous:
   - restauration du snapshot attendu;
   - version/image attendue cote serveur;
   - purge CDN si active.
+
+Cette etape est obligatoire:
+
+- pour un redeploy prod sans nouveau changement `deces-ui`;
+- pour un changement `dataprep` seul;
+- pour toute reprise manuelle apres incident.
 
 ### 5. Validation post-bascule
 
