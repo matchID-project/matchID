@@ -477,14 +477,32 @@ Clarification `dataprep-full` / deploiement:
 
 ## Lot 9 - Non-regression data dataprep
 
-Blocage de gouvernance constate le 2026-04-24:
+Gouvernance GitHub mise en place le 2026-04-24:
 
-- le repo racine `matchID-project/matchID` n'a aujourd'hui qu'une branche racine
-  `dev`;
-- la branche racine `master` n'existe pas encore;
-- la substitution complete du processus actuel devra donc passer d'abord par la
-  mise en place de la gouvernance GitHub decrite dans
-  [SPEC_EVOL_009_GOUVERNANCE_GITHUB_MONOREPO](SPEC_EVOL_009_GOUVERNANCE_GITHUB_MONOREPO.md).
+- le repo racine `matchID-project/matchID` garde `dev` comme branche par defaut;
+- la branche racine `master` existe desormais sur
+  `9cc2d06e766e94b60af72799105ba1e31947d2ec`;
+- deux rulesets actives existent maintenant:
+  - `dev` (`7737818`) sur `refs/heads/dev`
+  - `master` (`15515365`) sur `refs/heads/master`
+- les protections classiques `dev` / `master` sont en place avec checks requis;
+- le point restant a prouver est l'exercice reel du flux `dev -> master`, qui
+  n'est pas encore materialisable car `master...dev` est `identical`.
+
+Preuve GitHub live du 2026-04-24:
+
+```text
+Point                              | Valeur
+-----------------------------------+-------------------------------------------------------------
+branche par defaut                 | `dev`
+branches racines                   | `dev`, `master`
+protection `dev`                   | 7 checks CI requis, `strict=true`, `enforce_admins=true`
+protection `master`                | 7 checks CD requis, `strict=true`, `enforce_admins=true`
+ruleset `dev`                      | PR obligatoire, 0 approvals, linear history, no deletion/NFF
+ruleset `master`                   | PR obligatoire, 0 approvals, linear history, no deletion/NFF
+compare `dev...feat/refacto-make`  | `ahead`, `ahead_by=220`, `behind_by=0`
+compare `master...dev`             | `identical`, `ahead_by=0`, `behind_by=0`
+```
 
 Reference upstream verifiee le 2026-04-22 via GitHub Actions
 `matchID-project/deces-dataprep`:
