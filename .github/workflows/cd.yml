@@ -341,6 +341,11 @@ jobs:
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
+          if printf '%s' "${BASTION_HOST_RESOLVED}" | grep -Eq '^[0-9.]+$'; then
+            echo "bastion_input_host_kind=ip"
+          else
+            echo "bastion_input_host_kind=name"
+          fi
           printf '%s\n' \
             'Host bastion' \
             "  HostName ${BASTION_HOST_RESOLVED}" \
@@ -349,6 +354,7 @@ jobs:
             '  IdentitiesOnly yes' \
             '  StrictHostKeyChecking no' \
             > "${HOME}/.ssh/config"
+          sed -n 'l' "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
