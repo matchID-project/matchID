@@ -176,6 +176,10 @@ jobs:
             "  StrictHostKeyChecking no" \
             "  UserKnownHostsFile /dev/null" \
             > "${HOME}/.ssh/config"
+          {
+            echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
+            echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
+          } >> "${GITHUB_ENV}"
           chmod 600 "${HOME}/.ssh/config"
         env:
           NGINX_HOST: ${{ secrets.NGINX_HOST }}
@@ -202,7 +206,7 @@ jobs:
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
@@ -288,7 +292,7 @@ jobs:
             DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
             DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
           make deploy-remote \
             GIT_BRANCH=master \
             GIT_BACKEND_BRANCH=master \
@@ -310,7 +314,7 @@ jobs:
             MMDB_TOKEN="${MMDB_TOKEN}" \
             NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
 
       - name: Write dataprep monthly metadata artifact
         run: |

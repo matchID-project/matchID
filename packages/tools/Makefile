@@ -120,6 +120,7 @@ dummy		    := $(shell touch artifacts)
 include ./artifacts
 
 SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+REMOTE_ACTION_MAKEOVERRIDES := $(filter-out CLOUD_SSHOPTS=% SSHKEY_PRIVATE=% SSHKEY=% SSHKEYNAME=% SSHID=% ${HOME}/.ssh/config ${HOME}/.ssh/% %/.ssh/%,$(MAKEOVERRIDES))
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
@@ -1161,7 +1162,7 @@ remote-actions: remote-deploy
 			else\
 				MAKE_APP_PATH=${REMOTE_TOOLS_MAKE_PATH};\
 			fi;\
-			ssh ${SSHOPTS} $$U@$$H make -C $$MAKE_APP_PATH ${ACTIONS} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} ${MAKEOVERRIDES};\
+			ssh ${SSHOPTS} $$U@$$H make -C $$MAKE_APP_PATH ${ACTIONS} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} ${REMOTE_ACTION_MAKEOVERRIDES};\
 		fi
 
 remote-test-api-in-vpc: ${CLOUD}-instance-get-tagged-hosts

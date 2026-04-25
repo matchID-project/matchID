@@ -292,7 +292,7 @@ full-check: datagouv-to-${DATAGOUV_CONNECTOR} check-${DATAGOUV_CONNECTOR}
 	fi
 
 full: full-check recipe-run
-	@echo Total records in index: `docker exec -it matchid-elasticsearch curl localhost:9200/_cat/indices | awk '{printf $$7}'`
+	@echo Total records in index: `docker exec -i ${ES_HOST} curl localhost:9200/_cat/indices | awk '{printf $$7}'`
 	@touch full
 
 
