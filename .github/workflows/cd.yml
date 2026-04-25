@@ -354,6 +354,28 @@ jobs:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Debug dataprep bastion resolution
+        run: |
+          set -euo pipefail
+          RESOLVED_HOST="$(ssh -G bastion | awk '$1 == "hostname" { print $2; exit }')"
+          RESOLVED_USER="$(ssh -G bastion | awk '$1 == "user" { print $2; exit }')"
+          echo "bastion_user=${RESOLVED_USER}"
+          if [ -z "${RESOLVED_HOST}" ]; then
+            echo "bastion_host_kind=empty"
+            echo "bastion_host_resolves=no"
+            exit 1
+          fi
+          if printf '%s' "${RESOLVED_HOST}" | grep -Eq '^[0-9.]+$'; then
+            echo "bastion_host_kind=ip"
+          else
+            echo "bastion_host_kind=name"
+          fi
+          if getent hosts "${RESOLVED_HOST}" >/dev/null 2>&1; then
+            echo "bastion_host_resolves=yes"
+          else
+            echo "bastion_host_resolves=no"
+            exit 1
+          fi
       - name: Check dataprep year snapshot
         run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
