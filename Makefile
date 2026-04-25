@@ -96,6 +96,8 @@ export DATAGOUV_RESOURCES_REWRITE_PATH := $(shell echo ${DATAGOUV_RESOURCES_HOST
 export DATA_DIR = ${APP_PATH}/data
 export DATAPREP_VERSION_FILE = ${APP_PATH}/.dataprep.sha1
 export DATA_VERSION_FILE = ${APP_PATH}/.data.sha1
+export DATAPREP_VERSION_OVERRIDE ?=
+export DATA_VERSION_OVERRIDE ?=
 export DATA_VERSION_SOURCE ?= storage
 export DATA_VERSION_INPUT_DIR ?=
 export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
@@ -302,16 +304,24 @@ restart: down up
 
 FORCE:
 
+ifneq (${DATAPREP_VERSION_OVERRIDE},)
+${DATAPREP_VERSION_FILE}: FORCE
+	@printf '%s\n' "${DATAPREP_VERSION_OVERRIDE}" > ${DATAPREP_VERSION_FILE}
+else
 ${DATAPREP_VERSION_FILE}: ${DATAPREP_PATH}/Makefile ${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml ${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml
 	@cat ${DATAPREP_PATH}/Makefile\
 		${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml\
 		${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml\
 	| sha1sum | awk '{print $1}' | cut -c-8 > ${DATAPREP_VERSION_FILE}
+endif
 
 dataprep-version: ${DATAPREP_VERSION_FILE}
 	@cat ${DATAPREP_VERSION_FILE}
 
-ifeq (${DATA_VERSION_SOURCE},local)
+ifneq (${DATA_VERSION_OVERRIDE},)
+${DATA_VERSION_FILE}: FORCE
+	@printf '%s\n' "${DATA_VERSION_OVERRIDE}" > ${DATA_VERSION_FILE}
+else ifeq (${DATA_VERSION_SOURCE},local)
 ${DATA_VERSION_FILE}: FORCE
 	@if [ -z "${DATA_VERSION_INPUT_DIR}" ]; then\
 		echo "DATA_VERSION_INPUT_DIR is required when DATA_VERSION_SOURCE=local";\

@@ -256,6 +256,13 @@ into Docker tags or release artifacts. This prerequisite is validated by
 preserving current `make version` outputs and by checking that
 `prod/v2026.04.25.1-2-g123abcd` becomes `prod-v2026.04.25.1-2-g123abcd`.
 
+- [x] **Step 0.b: Allow explicit dataprep/data version injection for prod reuse**
+
+Add `DATAPREP_VERSION_OVERRIDE` and `DATA_VERSION_OVERRIDE` to the root
+`Makefile` so a prod tag release can redeploy with an already published
+snapshot, without recomputing `.dataprep.sha1` / `.data.sha1` from newer source
+inputs at deploy time.
+
 - [ ] **Step 1: Change cd.yml to serve main only**
 
 Change the trigger block in `.github/workflows/cd.yml` so it becomes the preprod workflow:
