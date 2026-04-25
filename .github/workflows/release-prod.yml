@@ -343,10 +343,10 @@ jobs:
           snapshot_name=${SNAPSHOT_NAME}
           dataprep_version=${DATAPREP_VERSION}
           data_version=${DATA_VERSION}
-          deces_ui_version=$(make version)
-          deces_backend_version=$(cd packages/deces-backend && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's#[^A-Za-z0-9_.-]#-#g'))
-          dataprep_backend_version=$(make -C packages/dataprep-backend version | awk '{print $NF}')
-          dataprep_frontend_version=$(make -C packages/dataprep-frontend version | awk '{print $NF}')
+          deces_ui_version=$(make package-version-deces-ui)
+          deces_backend_version=$(make package-version-deces-backend)
+          dataprep_backend_version=$(make package-version-dataprep-backend)
+          dataprep_frontend_version=$(make package-version-dataprep-frontend)
           EOF
 
       - name: Upload release metadata artifact

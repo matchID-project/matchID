@@ -70,6 +70,7 @@ export RELEASE_TAG_PREFIX ?= v
 export DEPLOY_TARGET ?=
 export GIT_ROOT = https://github.com/matchID-project
 export REMOTE_DEPLOY_BRANCH ?= ${GIT_BRANCH}
+export PACKAGE_VERSIONS_SCRIPT = ${APP_PATH}/scripts/package_versions.py
 export APP_URL?=https://${APP_DNS}
 export API_SSL?=1
 export APP_NODES=1
@@ -369,6 +370,35 @@ artifact-versions:
 	@echo "deces-backend: $$(${MAKE} artifact-version-deces-backend)"
 	@echo "deces-ui: $$(${MAKE} artifact-version-deces-ui)"
 	@echo "snapshot: $$(${MAKE} artifact-version-dataprep-snapshot)"
+
+package-version:
+	@if [ -z "${PACKAGE}" ]; then\
+		echo "PACKAGE is required";\
+		exit 1;\
+	fi
+	@python3 ${PACKAGE_VERSIONS_SCRIPT} --root ${APP_PATH} get --package "${PACKAGE}"
+
+package-version-set:
+	@if [ -z "${PACKAGE}" ] || [ -z "${VERSION}" ]; then\
+		echo "PACKAGE and VERSION are required";\
+		exit 1;\
+	fi
+	@python3 ${PACKAGE_VERSIONS_SCRIPT} --root ${APP_PATH} set --package "${PACKAGE}" --version "${VERSION}"
+
+package-version-deces-ui:
+	@${MAKE} package-version PACKAGE=deces-ui
+
+package-version-deces-backend:
+	@${MAKE} package-version PACKAGE=deces-backend
+
+package-version-dataprep-frontend:
+	@${MAKE} package-version PACKAGE=dataprep-frontend
+
+package-version-dataprep-backend:
+	@${MAKE} package-version PACKAGE=dataprep-backend
+
+package-versions:
+	@python3 ${PACKAGE_VERSIONS_SCRIPT} --root ${APP_PATH} list
 
 artifact-produce-dataprep-snapshot:
 	@rm -f ${ARTIFACT_RECIPE_RUN_MARKER} ${ARTIFACT_S3_PULL_MARKER}

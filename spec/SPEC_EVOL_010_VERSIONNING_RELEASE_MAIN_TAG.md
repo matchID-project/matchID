@@ -161,7 +161,10 @@ Regles:
   qui sera testee sur `dev-deces.matchid.io` puis taguee en prod si l'UAT est
   validee;
 - les operations de controle et de bump de version sont orchestrees via
-  cibles `make`;
+  cibles `make`, avec au minimum:
+  - `make package-versions`
+  - `make package-version PACKAGE=<name>`
+  - `make package-version-set PACKAGE=<name> VERSION=<x.y.z>`;
 - aucun commit de release-prep separe n'est autorise apres le merge sur
   `main`;
 - si `changesets` est conserve comme helper technique pour les packages Node,

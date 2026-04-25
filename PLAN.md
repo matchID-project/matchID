@@ -343,13 +343,13 @@
     - [ ] Supprimer `master` du repo racine une fois `main` et les tags de release en place
     - [ ] Definir et appliquer la convention de tags package (`deces-ui/v*`, `deces-backend/v*`, `dataprep-frontend/v*`, `dataprep-backend/v*`) et de release prod (`v*`)
     - [ ] Documenter que le tag prod `v*` est cree manuellement apres validation UAT smoke sur `dev-deces.matchid.io`
-    - [ ] Definir et implementer les cibles `make` de versionning independant par package
-      - [ ] Pour les packages Node versionnes, faire porter la version finale par les `package.json` de la PR mergee sur `main`
+    - [x] Definir et implementer les cibles `make` de versionning independant par package
+      - [x] Pour les packages Node versionnes, faire porter la version finale par les `package.json` de la PR mergee sur `main`
       - [x] Ajouter `.changeset/README.md` comme documentation technique transitoire si `changesets` reste utile en helper interne
-      - [ ] Si `changesets` est conserve, l'encapsuler derriere `make` sans commit de release separe apres merge
+      - [x] Si `changesets` est conserve, l'encapsuler derriere `make` sans commit de release separe apres merge
     - [x] Introduire une source de version semantique dediee pour `packages/dataprep-backend` hors `changesets`
       - [x] Ajouter `packages/dataprep-backend/VERSION` avec la base semantique courante `0.4.0`
-      - [ ] Faire porter la version finale par `packages/dataprep-backend/VERSION` dans la PR mergee sur `main`
+      - [x] Faire porter la version finale par `packages/dataprep-backend/VERSION` dans la PR mergee sur `main`
     - [ ] Reconfigurer la gouvernance GitHub pour `main` et pour les tags proteges, en supprimant les protections `master`
     - [ ] Refondre `ci.yml` et `cd.yml` vers le cycle `pull_request -> main`, `push -> main`, `push tag v*` et `schedule/workflow_dispatch` dataprep mensuel
       - [x] Basculer `ci.yml` sur `pull_request -> main` et `push -> main`
