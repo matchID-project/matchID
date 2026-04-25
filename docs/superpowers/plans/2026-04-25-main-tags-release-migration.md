@@ -429,7 +429,7 @@ Expected:
 - all files exist and are non-empty;
 - spec and plan mention the exact new artifacts.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/dataprep-backend/VERSION .changeset/README.md spec/SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md PLAN.md
@@ -447,7 +447,7 @@ git commit -m "docs: prepare main and tags versioning inputs"
 - Verify: `packages/dataprep-backend/Makefile`
 - Verify: `packages/dataprep-frontend/Makefile`
 
-- [ ] **Step 1: Run branch/reference grep across the touched surface**
+- [x] **Step 1: Run branch/reference grep across the touched surface**
 
 Run:
 
@@ -460,7 +460,7 @@ Expected:
 - only intentional residual references remain;
 - every residual reference is explainable as legacy package behavior outside slice 1 or as test fixture/doc text.
 
-- [ ] **Step 2: Run workflow and Makefile smoke checks**
+- [x] **Step 2: Run workflow and Makefile smoke checks**
 
 Run:
 
@@ -482,7 +482,7 @@ Expected:
 - `release-prod.yml` matches `prod/v*`;
 - `ci.yml` and `cd.yml` target `main`.
 
-- [ ] **Step 3: Update PLAN.md checkboxes for the slice actually completed**
+- [x] **Step 3: Update PLAN.md checkboxes for the slice actually completed**
 
 Tick only the lines that are materially closed by Tasks 1-4:
 
