@@ -29,6 +29,7 @@ export DATASET=fichier-des-personnes-decedees
 export APP_GROUP = matchID
 export APP_PATH := $(shell pwd)
 export APP_DNS?=deces.matchid.io
+export PREPROD_APP_DNS ?= dev-${APP_DNS}
 export API_EMAIL?=contact@matchid.io
 export FRONTEND_PATH := ${APP_PATH}/packages/${APP_FRONTEND}
 export BACKEND_PATH := ${APP_PATH}/packages/${APP_BACKEND}
@@ -64,7 +65,9 @@ export GIT ?= $(shell which git || echo git)
 export ALLOW_MAKE_GIT_COMMIT ?= false
 export GIT_ORIGIN=origin
 export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
-export GIT_BRANCH_MASTER = master
+export GIT_BRANCH_MAIN ?= main
+export RELEASE_TAG_PREFIX ?= prod/v
+export DEPLOY_TARGET ?=
 export GIT_ROOT = https://github.com/matchID-project
 export REMOTE_DEPLOY_BRANCH ?= ${GIT_BRANCH}
 export APP_URL?=https://${APP_DNS}
@@ -126,6 +129,12 @@ date                := $(shell date -I)
 
 export APP_VERSION := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
 
+ifeq (${DEPLOY_TARGET},prod)
+export APP_DNS_TARGET ?= ${APP_DNS}
+else
+export APP_DNS_TARGET ?= ${PREPROD_APP_DNS}
+endif
+
 
 export DOCKER_USERNAME=matchid
 
@@ -138,6 +147,12 @@ include /etc/os-release
 
 version:
 	@echo ${APP_VERSION}
+
+release-context:
+	@echo GIT_BRANCH=${GIT_BRANCH}
+	@echo DEPLOY_TARGET=${DEPLOY_TARGET}
+	@echo RELEASE_TAG_PREFIX=${RELEASE_TAG_PREFIX}
+	@echo APP_DNS_TARGET=${APP_DNS_TARGET}
 
 config-minimal:
 	@if [ ! -d "${TOOLS_PATH}" ];then\
@@ -471,11 +486,6 @@ deploy-remote-publish:
 	@if [ -z "${NGINX_HOST}" -o -z "${NGINX_USER}" ];then\
 		(echo "can't deploy without NGINX_HOST and NGINX_USER" && exit 1);\
 	fi;
-	@if [ "${GIT_BRANCH}" == "${GIT_BRANCH_MASTER}" ];then\
-		APP_DNS=${APP_DNS};\
-	else\
-		APP_DNS="${GIT_BRANCH}-${APP_DNS}";\
-	fi;\
 	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
@@ -483,7 +493,7 @@ deploy-remote-publish:
 		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} GIT_BRANCH=${GIT_BRANCH} PORT=${PORT}\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
 		API_TEST_PATH=${API_TEST_PATH} API_TEST_JSON_PATH=${API_TEST_JSON_PATH} API_TEST_DATA='${API_TEST_REQUEST}'\
-		${MAKEOVERRIDES} APP_DNS=$$APP_DNS
+		${MAKEOVERRIDES} APP_DNS=${APP_DNS_TARGET}
 
 deploy-delete-old: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
@@ -544,13 +554,15 @@ deploy-remote-preflight: config-minimal
 		fi; \
 	done; \
 	if [ "$$missing" -ne 0 ]; then exit 1; fi; \
-	if [ "${GIT_BRANCH}" != "dev" ]; then \
-		echo "GIT_BRANCH=${GIT_BRANCH} is not the preprod branch dev"; \
-		exit 1; \
-	fi; \
-	if [ "${REPOSITORY_BUCKET}" != "${REPOSITORY_BUCKET_DEV}" ]; then \
-		echo "REPOSITORY_BUCKET=${REPOSITORY_BUCKET} is not preprod bucket ${REPOSITORY_BUCKET_DEV}"; \
-		exit 1; \
+	if [ "${DEPLOY_TARGET}" != "prod" ]; then \
+		if [ "${GIT_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
+			echo "GIT_BRANCH=${GIT_BRANCH} is not the preprod branch ${GIT_BRANCH_MAIN}"; \
+			exit 1; \
+		fi; \
+		if [ "${REPOSITORY_BUCKET}" != "${REPOSITORY_BUCKET_DEV}" ]; then \
+			echo "REPOSITORY_BUCKET=${REPOSITORY_BUCKET} is not preprod bucket ${REPOSITORY_BUCKET_DEV}"; \
+			exit 1; \
+		fi; \
 	fi; \
 	if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH}" ]; then \
 		echo "warning remote deploy branch ${REMOTE_DEPLOY_BRANCH} differs from deploy branch ${GIT_BRANCH}"; \
@@ -564,7 +576,7 @@ deploy-remote-preflight: config-minimal
 			echo "warning missing optional $$var"; \
 		fi; \
 	done; \
-	echo "deploy-remote preflight ok for ${GIT_BRANCH}-${APP_DNS}"
+	echo "deploy-remote preflight ok for ${APP_DNS_TARGET}"
 
 deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
 

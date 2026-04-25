@@ -69,6 +69,7 @@ export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref 
 export GIT_BRANCH_MAIN ?= main
 export RELEASE_TAG_PREFIX ?= prod/v
 export DEPLOY_TARGET ?=
+export PREPROD_APP_DNS ?= dev-${APP_DNS}
 ```
 
 Replace checks that currently infer prod from `GIT_BRANCH == master` with explicit logic:
@@ -77,7 +78,7 @@ Replace checks that currently infer prod from `GIT_BRANCH == master` with explic
 ifeq (${DEPLOY_TARGET},prod)
   APP_DNS_TARGET := ${APP_DNS}
 else
-  APP_DNS_TARGET := ${GIT_BRANCH}-${APP_DNS}
+  APP_DNS_TARGET := ${PREPROD_APP_DNS}
 endif
 ```
 
@@ -127,6 +128,7 @@ release-context:
 	@echo GIT_BRANCH=${GIT_BRANCH}
 	@echo DEPLOY_TARGET=${DEPLOY_TARGET}
 	@echo RELEASE_TAG_PREFIX=${RELEASE_TAG_PREFIX}
+	@echo APP_DNS_TARGET=${APP_DNS_TARGET}
 ```
 
 Expected usage:
@@ -143,7 +145,7 @@ Run:
 ```bash
 make release-context GIT_BRANCH=main DEPLOY_TARGET=dev
 make release-context GIT_BRANCH=main DEPLOY_TARGET=prod
-make -C packages/deces-backend version GIT_BRANCH=main
+make -C packages/deces-backend -qp GIT_BRANCH=main >/dev/null
 make -C packages/dataprep-backend version GIT_BRANCH=main
 make -C packages/dataprep-frontend version GIT_BRANCH=main GIT_BACKEND_BRANCH=main
 ```
@@ -153,6 +155,7 @@ Expected:
 - all commands exit `0`;
 - no remaining forced `master` / `dev` assumption is printed by these paths;
 - `release-context` prints `main` and the requested `DEPLOY_TARGET`.
+- `release-context` resolves `APP_DNS_TARGET=dev-deces.matchid.io` in preprod and `APP_DNS_TARGET=deces.matchid.io` in prod.
 
 - [ ] **Step 5: Commit**
 

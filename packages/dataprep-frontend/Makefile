@@ -43,10 +43,12 @@ export DC_BUILD_ARGS = --pull --no-cache
 export DC_IMAGE_NAME=${DC_PREFIX}-${APP}
 export GIT_ROOT=https://github.com/matchid-project
 export GIT_ORIGIN=origin
-export GIT_BRANCH=dev
+export GIT_BRANCH_MAIN ?= main
+export GIT_BRANCH_RELEASE ?= ${GIT_BRANCH_MAIN}
+export GIT_BRANCH ?= ${GIT_BRANCH_MAIN}
 export GIT_TOOLS=tools
 export GIT_BACKEND=backend
-export GIT_BACKEND_BRANCH=dev
+export GIT_BACKEND_BRANCH ?= ${GIT_BRANCH}
 
 export BACKEND=${FRONTEND}/../${GIT_BACKEND}
 export BACKEND_DC_IMAGE_NAME=${DC_PREFIX}-${GIT_BACKEND}

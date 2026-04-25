@@ -69,7 +69,8 @@ export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev
 
 export DC_IMAGE_NAME=${DC_PREFIX}
 export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
-export GIT_BRANCH_MASTER=master
+export GIT_BRANCH_MAIN ?= main
+export GIT_BRANCH_RELEASE ?= ${GIT_BRANCH_MAIN}
 export DOCKER_USERNAME=matchid
 export DOCKER_PASSWORD
 export STORAGE_ACCESS_KEY
