@@ -10,7 +10,7 @@ export MONOREPO_ROOT ?= $(abspath ${BACKEND_PATH}/../..)
 # Canonical tools live in the sibling monorepo package, not in a local backend/tools clone.
 export TOOLS_PATH ?= $(abspath ${BACKEND_PATH}/../tools)
 export APP_DNS?=deces.matchid.io
-export APP_VERSION	:= $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+export APP_VERSION	:= $(shell (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's#[^A-Za-z0-9_.-]#-#g')
 export USE_TTY := $(shell test -t 1 && USE_TTY="-t")
 
 # make options

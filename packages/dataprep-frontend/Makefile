@@ -56,7 +56,7 @@ export BACKEND_DC_IMAGE_NAME=${DC_PREFIX}-${GIT_BACKEND}
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//'))
+tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
 version 			:= $(shell export LC_COLLOCATE=C;export LC_ALL=C;cat tagfiles.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
 export APP_VERSION =  ${tag}-${version}
 

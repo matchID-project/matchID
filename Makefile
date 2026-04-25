@@ -122,12 +122,15 @@ include ./artifacts
 export STORAGE_ACCESS_KEY_B64:=$(shell echo -n ${STORAGE_ACCESS_KEY} | openssl base64)
 export STORAGE_SECRET_KEY_B64:=$(shell echo -n ${STORAGE_SECRET_KEY} | openssl base64)
 
-commit              := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || cat VERSION 2>/dev/null)
-tag                 := $(shell (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//')
+git_ref_raw         := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || cat VERSION 2>/dev/null)
+git_ref_safe        := $(shell printf '%s' "$(git_ref_raw)" | sed 's#[^A-Za-z0-9_.-]#-#g')
+commit              := $(git_ref_safe)
+tag                 := $(shell printf '%s' "$(git_ref_raw)" | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g')
 lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 
-export APP_VERSION := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+export APP_VERSION := $(git_ref_safe)
+export DECES_BACKEND_APP_VERSION ?= $(shell cd ${BACKEND_PATH} && (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's#[^A-Za-z0-9_.-]#-#g')
 
 ifeq (${DEPLOY_TARGET},prod)
 export APP_DNS_TARGET ?= ${APP_DNS}
@@ -440,7 +443,7 @@ deploy-k8s-redis: deploy-k8s-namespace
 
 deploy-k8s-backend: deploy-k8s-namespace
 	@echo $@
-	@export BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	@export BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	cat ${KUBE_DIR}/backend.yaml | envsubst `env | sed "s/=.*//;s/^/$$/" | tr "\n" ","` | kubectl apply -f -
 
 deploy-k8s-frontend: deploy-k8s-namespace
@@ -449,7 +452,7 @@ deploy-k8s-frontend: deploy-k8s-namespace
 
 deploy-remote-instance: config-minimal ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-config\
@@ -464,7 +467,7 @@ deploy-remote-instance: config-minimal ${DATAPREP_VERSION_FILE} ${DATA_VERSION_F
 
 deploy-remote-services:
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-deploy remote-actions\
@@ -486,7 +489,7 @@ deploy-remote-publish:
 	@if [ -z "${NGINX_HOST}" -o -z "${NGINX_USER}" ];then\
 		(echo "can't deploy without NGINX_HOST and NGINX_USER" && exit 1);\
 	fi;
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-test-api-in-vpc nginx-conf-apply remote-test-api\
@@ -497,7 +500,7 @@ deploy-remote-publish:
 
 deploy-delete-old: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} cloud-instance-down-invalid\
@@ -588,7 +591,7 @@ deploy-docker-pull-base: deploy-remote-instance
 
 
 update-base-image: deploy-remote-instance deploy-docker-pull-base
-	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags); \
+	@BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION}; \
 	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
 	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
 	sleep 5;\

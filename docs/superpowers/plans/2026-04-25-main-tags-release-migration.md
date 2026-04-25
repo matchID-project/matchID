@@ -248,6 +248,14 @@ git commit -m "ci: target main branch"
 - Modify: `.github/workflows/cd.yml`
 - Create: `.github/workflows/release-prod.yml`
 
+- [x] **Step 0: Sanitize tag-derived app versions for Docker-safe release tags**
+
+Before introducing `prod/v*` tags in workflows, sanitize tag-derived
+`APP_VERSION` values in the root and package `Makefile`s so `/` never leaks
+into Docker tags or release artifacts. This prerequisite is validated by
+preserving current `make version` outputs and by checking that
+`prod/v2026.04.25.1-2-g123abcd` becomes `prod-v2026.04.25.1-2-g123abcd`.
+
 - [ ] **Step 1: Change cd.yml to serve main only**
 
 Change the trigger block in `.github/workflows/cd.yml` so it becomes the preprod workflow:
