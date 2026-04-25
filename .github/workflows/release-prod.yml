@@ -200,10 +200,16 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          BASTION_HOST_RESOLVED="$(sed -n 's/^export NGINX_HOST=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
+          BASTION_USER_RESOLVED="$(sed -n 's/^export NGINX_USER=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
+          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(printf '%s' "${BASTION_HOST}" | tr -d '\r\n[:space:]')"; fi
+          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
+          test -n "${BASTION_HOST_RESOLVED}"
+          test -n "${BASTION_USER_RESOLVED}"
           cat > "${HOME}/.ssh/config" <<EOF
           Host bastion
-            HostName ${BASTION_HOST}
-            User ${BASTION_USER}
+            HostName ${BASTION_HOST_RESOLVED}
+            User ${BASTION_USER_RESOLVED}
             IdentityFile ${HOME}/.ssh/id_rsa_matchID
             IdentitiesOnly yes
             StrictHostKeyChecking no
