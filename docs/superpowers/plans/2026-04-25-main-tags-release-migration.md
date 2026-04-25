@@ -60,7 +60,7 @@ Ce plan ne couvre pas:
 - Modify: `packages/dataprep-backend/Makefile`
 - Modify: `packages/dataprep-frontend/Makefile`
 
-- [ ] **Step 1: Replace branch-name assumptions with explicit main/release variables**
+- [x] **Step 1: Replace branch-name assumptions with explicit main/release variables**
 
 Update the root `Makefile` to stop encoding production in `master` and preprod in `dev`. Introduce these variables near the current `GIT_BRANCH` / `GIT_BRANCH_MASTER` block:
 
@@ -82,7 +82,7 @@ else
 endif
 ```
 
-- [ ] **Step 2: Replace legacy branch constants in package Makefiles**
+- [x] **Step 2: Replace legacy branch constants in package Makefiles**
 
 Patch the package Makefiles so they no longer hardcode `master` or `dev` as the only branch identities:
 
@@ -119,7 +119,7 @@ export GIT_BRANCH_MAIN ?= main
 export GIT_FRONTEND_BRANCH ?= ${GIT_BRANCH}
 ```
 
-- [ ] **Step 3: Add a non-destructive verification target for release resolution**
+- [x] **Step 3: Add a non-destructive verification target for release resolution**
 
 Add a helper target to the root `Makefile`:
 
@@ -138,7 +138,7 @@ make release-context GIT_BRANCH=main DEPLOY_TARGET=dev
 make release-context GIT_BRANCH=detached-head DEPLOY_TARGET=prod
 ```
 
-- [ ] **Step 4: Verify Makefile parsing and release-context output**
+- [x] **Step 4: Verify Makefile parsing and release-context output**
 
 Run:
 
@@ -157,7 +157,7 @@ Expected:
 - `release-context` prints `main` and the requested `DEPLOY_TARGET`.
 - `release-context` resolves `APP_DNS_TARGET=dev-deces.matchid.io` in preprod and `APP_DNS_TARGET=deces.matchid.io` in prod.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Makefile packages/deces-backend/Makefile packages/dataprep-backend/Makefile packages/dataprep-frontend/Makefile
@@ -169,7 +169,7 @@ git commit -m "refactor: normalize main and release branch variables"
 **Files:**
 - Modify: `.github/workflows/ci.yml`
 
-- [ ] **Step 1: Update CI triggers to main only**
+- [x] **Step 1: Update CI triggers to main only**
 
 Change the workflow header from:
 
@@ -197,7 +197,7 @@ on:
       - main
 ```
 
-- [ ] **Step 2: Preserve existing job names and path logic**
+- [x] **Step 2: Preserve existing job names and path logic**
 
 Do not rename the existing CI job names in this task. Keep:
 
@@ -211,7 +211,7 @@ Do not rename the existing CI job names in this task. Keep:
 
 The only CI behavior change in this task is the branch target.
 
-- [ ] **Step 3: Verify workflow syntax**
+- [x] **Step 3: Verify workflow syntax**
 
 Run:
 
