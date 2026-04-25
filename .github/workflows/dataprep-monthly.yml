@@ -225,7 +225,15 @@ jobs:
       - name: Capture prod snapshot metadata
         run: |
           set -euo pipefail
-          make -C packages/deces-dataprep repository-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
+          rm -f packages/deces-dataprep/repository-check
+          for attempt in $(seq 1 12); do
+            make -C packages/deces-dataprep repository-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
+            if test -s packages/deces-dataprep/repository-check; then
+              break
+            fi
+            rm -f packages/deces-dataprep/repository-check
+            sleep 5
+          done
           test -s packages/deces-dataprep/repository-check
           SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
           DATAPREP_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_([^_]+)_.*/\1/')
