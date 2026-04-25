@@ -128,9 +128,9 @@ Toutes les unites du monorepo ne suivent pas la meme source de version.
 ```text
 Composant            | Nature                   | Source de version cible                 | Tag dedie
 ---------------------+--------------------------+-----------------------------------------+---------------------------
-deces-ui             | app Node                 | `package.json` + changesets             | `deces-ui/vX.Y.Z`
-deces-backend        | app Node                 | `package.json` + changesets             | `deces-backend/vX.Y.Z`
-dataprep-frontend    | app Node                 | `package.json` + changesets             | `dataprep-frontend/vX.Y.Z`
+deces-ui             | app Node                 | `package.json`, pilote via `make`       | `deces-ui/vX.Y.Z`
+deces-backend        | app Node                 | `package.json`, pilote via `make`       | `deces-backend/vX.Y.Z`
+dataprep-frontend    | app Node                 | `package.json`, pilote via `make`       | `dataprep-frontend/vX.Y.Z`
 dataprep-backend     | app Python               | fichier `VERSION` dedie                 | `dataprep-backend/vX.Y.Z`
 deces-dataprep       | recette / data pipeline  | `DATAPREP_VERSION` + `DATA_VERSION`     | pas de tag semver requis
 tools                | outillage infra          | SHA git / tags Docker existants         | pas de tag semver requis
@@ -153,16 +153,21 @@ Notes:
 ### Packages Node
 
 Les packages Node versionnes (`deces-ui`, `deces-backend`,
-`dataprep-frontend`) utilisent `changesets`.
+`dataprep-frontend`) gardent une version independante par package.
 
 Regles:
 
-- les PR metier modifient le code et ajoutent un fichier `.changeset/*.md`;
-- les PR ne modifient pas manuellement les champs `version` des `package.json`;
-- un commit de preparation de release sur `main` execute `changeset version`,
-  met a jour les `package.json` et les changelogs, puis est merge/pousse avant
-  creation du tag prod;
-- les tags package dedies pointent vers ce commit de preparation de release.
+- la source de verite reste le champ `version` de chaque `package.json`;
+- toute PR qui touche un package versionne doit deja porter la version finale
+  qui sera testee sur `dev-deces.matchid.io` puis taguee en prod si l'UAT est
+  validee;
+- les operations de controle et de bump de version sont orchestrees via
+  cibles `make`;
+- aucun commit de release-prep separe n'est autorise apres le merge sur
+  `main`;
+- si `changesets` est conserve comme helper technique pour les packages Node,
+  il doit rester encapsule derriere `make` et ne pas changer le contrat
+  operatoire.
 
 ### Package Python `dataprep-backend`
 
@@ -173,8 +178,8 @@ Regles:
 - un fichier `packages/dataprep-backend/VERSION` devient la source de verite
   semantique;
 - le premier jalon de migration cree ce fichier avec la base courante `0.4.0`;
-- son bump intervient dans le meme commit de preparation de release que les
-  versions Node;
+- son bump intervient dans la PR mergee sur `main`, sur le meme commit qui sera
+  teste en preprod puis eventuellement tague en prod;
 - le `Makefile` continue de produire les aliases SHA utilises en dev/CI, mais
   la release semantique publiee est le contenu de `VERSION`;
 - le tag package dedie est `dataprep-backend/vX.Y.Z`.
@@ -209,6 +214,7 @@ Regles:
 
 - ils pointent tous vers un commit de `main`;
 - plusieurs tags package peuvent pointer vers le meme commit;
+- ils doivent refleter des versions deja ecrites dans le code du commit tague;
 - ils documentent les versions, mais ne declenchent pas directement le deploy
   prod.
 
@@ -231,6 +237,8 @@ v2026.04.25.1
 Regles:
 
 - un tag prod doit pointer vers un commit reachable depuis `main`;
+- il est cree manuellement apres validation UAT smoke sur
+  `dev-deces.matchid.io`, via GitHub ou sur demande explicite;
 - il declenche la release prod;
 - il reference implicitement les versions package presentes dans le commit
   pointe;
@@ -387,6 +395,7 @@ Comportement cible:
    - `SNAPSHOT = nouveau snapshot`
    - `publish switch = via nginx-conf-apply sur la nouvelle instance preparee`
    - `GIT_BRANCH=master`
+6. en cas d'echec, emettre une alerte seule, sans retry automatique.
 
 Ce workflow est la transposition du fonctionnement upstream mensuel: la data
 evolue, l'application reste figee sur la derniere release prod.
@@ -401,7 +410,7 @@ evolue, l'application reste figee sur la derniere release prod.
 3. Deploy automatique sur `dev-deces`
 4. Validation preprod
 5. Si besoin prod immediat:
-   - tag `v*`, puis `full`, puis deploy prod
+   - tag manuel `v*`, puis `full`, puis deploy prod
    - ou attendre le mensuel automatique
 ```
 
@@ -411,8 +420,8 @@ evolue, l'application reste figee sur la derniere release prod.
 1. Merge sur `main`
 2. Deploy automatique sur `dev-deces`
 3. Validation preprod
-4. Preparation de release (`changeset version` + bump `VERSION` Python si besoin)
-5. Creation des tags package et du tag `v*`
+4. Tag manuel `v*` sur le commit deja valide
+5. Creation eventuelle des tags package sur ce meme commit
 6. Le tag prod redeploie la prod avec le snapshot courant
 ```
 
@@ -425,8 +434,7 @@ evolue, l'application reste figee sur la derniere release prod.
 4. `year`
 5. Deploy automatique sur `dev-deces`
 6. Validation preprod
-7. Preparation de release
-8. Tag `v*`
+7. Tag manuel `v*`
 9. `dataprep-full`
 10. Deploy prod
 ```
