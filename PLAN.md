@@ -348,6 +348,9 @@
     - [ ] Introduire une source de version semantique dediee pour `packages/dataprep-backend` hors `changesets`
     - [ ] Reconfigurer la gouvernance GitHub pour `main` et pour les tags proteges, en supprimant les protections `master`
     - [ ] Refondre `ci.yml` et `cd.yml` vers le cycle `pull_request -> main`, `push -> main`, `push tag prod/v*` et `schedule/workflow_dispatch` dataprep mensuel
+    - [ ] Remplacer le switch `nginx-conf-apply` / bastion du chemin critique par une bascule CDN pilotee par API
+    - [ ] Definir les variables/secrets de switch CDN (`CDN_RECORD_NAME`, cible de switch, record canary) et supprimer `NGINX_HOST` / `NGINX_USER` du contrat final si la bascule CDN devient complete
+    - [ ] Ajouter une voie de test de bascule CDN sur un sous-domaine dedie avant toute application a `dev-deces.matchid.io` puis `deces.matchid.io`
     - [ ] Executer le CD `dataprep-full` depuis le dernier tag prod ou le contexte prod valide, jamais depuis une branche PR
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
@@ -362,6 +365,9 @@
     - [ ] Prouver qu'un merge sur `main` deploie bien `dev-deces.matchid.io`
     - [ ] Prouver qu'un tag `prod/v*` sur `main` deploie bien la prod
     - [ ] Prouver que le dataprep mensuel resolve le dernier tag prod, produit un snapshot `full` et redeploie automatiquement la prod avec ce tag
+    - [ ] Prouver la bascule CDN sur un sous-domaine dedie avant activation sur `dev-deces.matchid.io`
+    - [ ] Prouver qu'un merge sur `main` publie `dev-deces.matchid.io` par bascule CDN, sans edition nginx/bastion
+    - [ ] Prouver qu'un tag `prod/v*` publie `deces.matchid.io` par bascule CDN, sans edition nginx/bastion
     - [ ] Valider le runbook de bascule
     - [ ] Valider le runbook de rollback
     - [ ] Valider que le processus monorepo couvre bien `deces-dataprep` et `deces-ui`

@@ -39,6 +39,14 @@ Le systeme doit permettre:
   `APP_RELEASE` prod;
 - de faire evoluer application et data ensemble sur une meme release prod.
 
+Le pivot de publication reseau est egalement acte:
+
+- le switch de trafic ne passera plus par l'edition du fichier upstream nginx
+  via bastion;
+- le switch passera par une bascule CDN pilotee par API;
+- les tests de bascule pourront etre executes sur un sous-domaine dedie avant
+  toute utilisation sur `deces.matchid.io`.
+
 ## Unites de versionning
 
 Toutes les unites du monorepo ne suivent pas la meme source de version.
@@ -207,6 +215,106 @@ Comportement cible:
 
 `main` devient donc la branche unique de preprod/integration.
 
+### 2.b Mecanisme de publication reseau
+
+Le schema transitoire actuel s'appuie encore sur:
+
+- test applicatif depuis le VPC;
+- ecriture d'un upstream nginx distant via `nginx-conf-apply`;
+- verification publique apres reload nginx;
+- purge de cache CDN.
+
+La cible finale remplace cette etape par:
+
+```text
+1. remote-test-api-in-vpc
+2. CDN switch sur un enregistrement proxifie
+3. remote/public healthcheck via le hostname expose
+4. purge de cache CDN
+```
+
+Autrement dit:
+
+- l'instance candidate reste preparee de la meme maniere;
+- la publication reseau ne depend plus d'un bastion nginx comme point de
+  bascule;
+- la bascule de trafic se fait en modifiant la cible CDN/DNS du hostname.
+
+## Contrat de bascule CDN
+
+Le contrat minimal de switch CDN devient:
+
+```text
+Objet                    | Role
+-------------------------+-------------------------------------------------------------
+CDN_TOKEN                | authentification API CDN
+CDN_ZONE_ID              | zone du domaine
+CDN_RECORD_NAME          | hostname public a basculer (`deces.matchid.io`, `dev-deces...`)
+CDN_RECORD_TYPE          | `A` ou `CNAME`
+CDN_RECORD_ID            | optionnel si resolution par nom a l'execution
+CDN_SWITCH_TARGET        | IP ou hostname de l'instance candidate
+CDN_CANARY_RECORD_NAME   | sous-domaine de test pour essais de bascule
+```
+
+Provider cible observe a date:
+
+- Cloudflare est deja utilise pour la purge de cache via `CDN_TOKEN` et
+  `CDN_ZONE_ID`;
+- la cible naturelle est donc d'ajouter une primitive `cdn-switch-record`
+  cohérente avec `cdn-cache-purge`.
+
+## Regles de bascule CDN
+
+### Dev / preprod
+
+- `push main` deploie la candidate sur l'instance cible;
+- le workflow verifie l'API en VPC;
+- le record `dev-deces.matchid.io` est bascule via CDN sur cette candidate;
+- un healthcheck public est rejoue;
+- le cache CDN est purge.
+
+### Prod
+
+- le tag `prod/v*` deploie la candidate sur l'instance cible;
+- le workflow verifie d'abord l'API en VPC;
+- le record `deces.matchid.io` est bascule via CDN sur cette candidate;
+- le healthcheck public et le chargement UI sont verifies;
+- le cache CDN est purge;
+- les anciennes instances non retenues sont ensuite nettoyees.
+
+### Mensuel dataprep prod
+
+- le workflow mensuel resolve le dernier tag prod;
+- il prepare une nouvelle instance avec ce tag et le nouveau snapshot `full`;
+- il verifie l'API et la restauration du snapshot en VPC;
+- il bascule `deces.matchid.io` via CDN;
+- il purge le cache et nettoie l'ancienne instance.
+
+## Strategie de test CDN
+
+Avant toute bascule prod par CDN, une preuve technique doit etre faite sur un
+sous-domaine dedie.
+
+Sous-domaines cibles possibles:
+
+```text
+switch-test-deces.matchid.io
+canary-deces.matchid.io
+main-deces.matchid.io
+```
+
+Le choix exact sera fige par configuration, mais la methode attendue est:
+
+1. creer ou reutiliser un record de test proxifie dans la meme zone CDN;
+2. le faire pointer vers l'instance candidate par API;
+3. verifier:
+   - propagation/lecture du record par API CDN;
+   - healthcheck public;
+   - chargement UI;
+   - purge de cache;
+4. seulement ensuite appliquer la meme methode a `dev-deces.matchid.io`, puis a
+   `deces.matchid.io`.
+
 ### 3. Tag prod
 
 ```text
@@ -224,10 +332,12 @@ Le workflow de tag prod suit cette logique:
    (`deces-dataprep`, `dataprep-backend`, `dataprep-frontend`, `tools`,
    chemins infra associes):
    - lancer `dataprep-full` sur le tag courant;
-   - deployer la prod avec les images du tag courant et le nouveau snapshot;
+   - deployer la prod avec les images du tag courant, le nouveau snapshot et la
+     bascule CDN finale;
 5. sinon:
    - reutiliser le dernier snapshot prod valide;
-   - deployer la prod avec les images du tag courant et le snapshot courant.
+   - deployer la prod avec les images du tag courant, le snapshot courant et la
+     bascule CDN finale.
 
 Ce comportement preserve les deux cas historiques:
 
@@ -252,6 +362,7 @@ Comportement cible:
 5. redeployer automatiquement la prod avec:
    - `APP_RELEASE = dernier tag prod`
    - `SNAPSHOT = nouveau snapshot`
+   - `CDN switch = vers la nouvelle instance preparee sur ce tag`
 
 Ce workflow est la transposition du fonctionnement upstream mensuel: la data
 evolue, l'application reste figee sur la derniere release prod.
@@ -328,6 +439,10 @@ Le schema final implique:
 - suppression des triggers `master`;
 - creation d'un workflow de release sur `push.tags`;
 - creation d'un workflow mensuel `schedule`/`workflow_dispatch`;
+- creation d'une primitive de switch CDN dans `packages/tools` et integration
+  dans `deploy-remote`;
+- suppression de la dependance au switch nginx/bastion du chemin critique de
+  publication;
 - suppression des hypotheses `dev -> master` des docs et protections.
 
 ## Sort des specs intermediaires
