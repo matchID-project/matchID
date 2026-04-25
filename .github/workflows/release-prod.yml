@@ -200,17 +200,7 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          {
-            printf 'Host *\n'
-            printf '  IdentityFile %s\n' "${HOME}/.ssh/id_rsa_matchID"
-            printf '  IdentitiesOnly yes\n'
-            printf 'Host * !%s\n' "${BASTION_HOST}"
-            printf '  ProxyCommand ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=no %s@%s nc %%h %%p\n' "${HOME}/.ssh/id_rsa_matchID" "${BASTION_USER}" "${BASTION_HOST}"
-          } > "${HOME}/.ssh/config"
-          chmod 600 "${HOME}/.ssh/config"
         env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Check dataprep full snapshot
@@ -231,8 +221,12 @@ jobs:
             CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
             SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
-            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J ${BASTION_USER}@${BASTION_HOST} -o IdentitiesOnly=yes"
         env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           PROD_TAG: ${{ steps.context.outputs.prod_tag }}
           remote_http_proxy: ${{ secrets.remote_http_proxy }}
           remote_https_proxy: ${{ secrets.remote_https_proxy }}
@@ -277,6 +271,8 @@ jobs:
 
       - name: Deploy deces.matchid.io
         env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           PROD_TAG: ${{ steps.context.outputs.prod_tag }}
           GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
           GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
@@ -323,7 +319,9 @@ jobs:
             APP_DNS="${APP_DNS}" \
             REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
             DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
-            DATA_VERSION_OVERRIDE="${DATA_VERSION}"
+            DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J ${BASTION_USER}@${BASTION_HOST} -o IdentitiesOnly=yes"
           make deploy-remote \
             GIT_BRANCH=master \
             GIT_BACKEND_BRANCH=master \
@@ -343,7 +341,9 @@ jobs:
             GOOGLE_ANALYTICS_ID="${GOOGLE_ANALYTICS_ID}" GOOGLE_ADSENSE_ID="${GOOGLE_ADSENSE_ID}" \
             LOG_BAN_IP="${LOG_BAN_IP}" \
             MMDB_TOKEN="${MMDB_TOKEN}" \
-            NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}"
+            NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}" \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J ${BASTION_USER}@${BASTION_HOST} -o IdentitiesOnly=yes"
 
       - name: Write release metadata artifact
         run: |
