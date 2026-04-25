@@ -335,7 +335,18 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          cat > "${HOME}/.ssh/config" <<EOF
+          Host bastion
+            HostName ${BASTION_HOST}
+            User ${BASTION_USER}
+            IdentityFile ${HOME}/.ssh/id_rsa_matchID
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+          EOF
+          chmod 600 "${HOME}/.ssh/config"
         env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep year snapshot
         run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
@@ -353,7 +364,7 @@ jobs:
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${CD_GIT_BRANCH}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${CD_GIT_BRANCH}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J ${BASTION_USER}@${BASTION_HOST} -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
@@ -441,7 +452,18 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          cat > "${HOME}/.ssh/config" <<EOF
+          Host bastion
+            HostName ${BASTION_HOST}
+            User ${BASTION_USER}
+            IdentityFile ${HOME}/.ssh/id_rsa_matchID
+            IdentitiesOnly yes
+            StrictHostKeyChecking no
+          EOF
+          chmod 600 "${HOME}/.ssh/config"
         env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy dev-deces.matchid.io
         run: |
@@ -453,7 +475,7 @@ jobs:
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
             REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J ${BASTION_USER}@${BASTION_HOST} -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
           make deploy-remote \
             GIT_BRANCH=$GIT_BRANCH \
             REMOTE_DEPLOY_BRANCH=main \
@@ -468,7 +490,7 @@ jobs:
             MMDB_TOKEN=$MMDB_TOKEN \
             NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J ${BASTION_USER}@${BASTION_HOST} -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
