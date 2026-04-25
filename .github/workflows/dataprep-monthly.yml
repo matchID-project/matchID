@@ -119,7 +119,73 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          export SSH_AUTH_SOCK=/tmp/ssh_agent.sock
+          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
+          ssh-add "${HOME}/.ssh/id_rsa_matchID"
+          sanitize_host() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#http://}"
+            value="${value#https://}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value##*@}"; fi
+            value="${value%%/*}"
+            if [[ "${value}" =~ ^\[[^]]+\]:[0-9]+$ ]]; then
+              value="${value#\[}"
+              value="${value%%\]:*}"
+            elif [[ "${value}" =~ ^[^:]+:[0-9]+$ ]]; then
+              value="${value%%:*}"
+            fi
+            printf '%s' "${value}"
+          }
+          sanitize_user() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value%%@*}"; fi
+            printf '%s' "${value}"
+          }
+          BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          BASTION_USER_RESOLVED=ubuntu
+          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
+          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
+          test -n "${BASTION_HOST_RESOLVED}"
+          test -n "${BASTION_USER_RESOLVED}"
+          if ! getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
+            # Temporary fallback while monorepo runner secrets still expose a non-resolving bastion host.
+            BASTION_HOST_RESOLVED=163.172.185.238
+          fi
+          printf '%s\n' \
+            "Host bastion" \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            "Host * !bastion" \
+            "  ProxyJump bastion" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            > "${HOME}/.ssh/config"
+          {
+            echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
+            echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
+          } >> "${GITHUB_ENV}"
+          chmod 600 "${HOME}/.ssh/config"
         env:
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Check dataprep full snapshot
@@ -138,8 +204,12 @@ jobs:
             CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
             SLACK_TITLE="deces-dataprep - monthly" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
-            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
         env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           PROD_TAG: ${{ steps.context.outputs.prod_tag }}
           remote_http_proxy: ${{ secrets.remote_http_proxy }}
           remote_https_proxy: ${{ secrets.remote_https_proxy }}
@@ -150,11 +220,20 @@ jobs:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
 
       - name: Capture prod snapshot metadata
         run: |
           set -euo pipefail
-          make -C packages/deces-dataprep repository-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
+          rm -f packages/deces-dataprep/repository-check
+          for attempt in $(seq 1 12); do
+            make -C packages/deces-dataprep repository-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
+            if test -s packages/deces-dataprep/repository-check; then
+              break
+            fi
+            rm -f packages/deces-dataprep/repository-check
+            sleep 5
+          done
           test -s packages/deces-dataprep/repository-check
           SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
           DATAPREP_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_([^_]+)_.*/\1/')
@@ -170,6 +249,8 @@ jobs:
 
       - name: Deploy deces.matchid.io
         env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           PROD_TAG: ${{ steps.context.outputs.prod_tag }}
           GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
           GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
@@ -207,6 +288,7 @@ jobs:
           NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
           NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
           MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           make deploy-remote-preflight \
             GIT_BRANCH=master \
@@ -216,7 +298,9 @@ jobs:
             APP_DNS="${APP_DNS}" \
             REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
             DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
-            DATA_VERSION_OVERRIDE="${DATA_VERSION}"
+            DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
           make deploy-remote \
             GIT_BRANCH=master \
             GIT_BACKEND_BRANCH=master \
@@ -236,7 +320,9 @@ jobs:
             GOOGLE_ANALYTICS_ID="${GOOGLE_ANALYTICS_ID}" GOOGLE_ADSENSE_ID="${GOOGLE_ADSENSE_ID}" \
             LOG_BAN_IP="${LOG_BAN_IP}" \
             MMDB_TOKEN="${MMDB_TOKEN}" \
-            NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}"
+            NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}" \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
 
       - name: Write dataprep monthly metadata artifact
         run: |

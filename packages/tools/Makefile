@@ -119,7 +119,8 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o "StrictHostKeyChecking no" -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+REMOTE_ACTION_MAKEOVERRIDES := $(filter-out CLOUD_SSHOPTS=% SSHKEY_PRIVATE=% SSHKEY=% SSHKEYNAME=% SSHID=% ${HOME}/.ssh/config ${HOME}/.ssh/% %/.ssh/%,$(MAKEOVERRIDES))
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
@@ -423,8 +424,8 @@ ${CLOUD_HOST_FILE}: ${CLOUD_DIR} ${CLOUD}-instance-get-host
 
 ${CLOUD}-instance-wait-ssh: ${CLOUD_FIRST_USER_FILE} ${CLOUD_HOST_FILE}
 	@if [ ! -f "${CLOUD_UP_FILE}" ];then\
-		HOST=$$(cat ${CLOUD_HOST_FILE});\
-		SSHUSER=$$(cat ${CLOUD_FIRST_USER_FILE});\
+		HOST=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		SSHUSER=$$(tr -d '\r\n[:space:]' < ${CLOUD_FIRST_USER_FILE});\
 		(ssh-keygen -R $$HOST > /dev/null 2>&1) || true;\
 		timeout=${SSH_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
@@ -592,11 +593,11 @@ SCW-instance-get-host: SCW-instance-wait-running
 			SCW_NIC_ID=$$(cat ${CLOUD_NIC_FILE});\
 			curl -s "${SCW_IPAM_API}/ips" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}"\
 				| jq -cr '.ips[]' | grep $$SCW_NIC_ID | grep '"is_ipv6":false'\
-				| jq -cr '.address' | sed 's|/.*||' \
+				| jq -cr '.address' | sed 's|/.*||' | tr -d '\r' \
 				> ${CLOUD_HOST_FILE};\
 		else\
 			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
-				| jq -cr  ".servers[] | select (.id == \"$$SCW_SERVER_ID\") | .${SCW_IP}" \
+				| jq -cr  ".servers[] | select (.id == \"$$SCW_SERVER_ID\") | .${SCW_IP}" | tr -d '\r' \
 				> ${CLOUD_HOST_FILE};\
 		fi;\
 	fi
@@ -1055,8 +1056,8 @@ datagouv-get-files: ${DATAGOUV_CATALOG}
 remote-config-proxy: ${CONFIG_DIR} ${CLOUD_FIRST_USER_FILE}
 	@if [ ! -f "${CONFIG_REMOTE_PROXY_FILE}" ]; then\
 		if [ ! -z "${remote_http_proxy}" ]; then\
-			H=$$(cat ${CLOUD_HOST_FILE});\
-			U=$$(cat ${CLOUD_FIRST_USER_FILE});\
+			H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+			U=$$(tr -d '\r\n[:space:]' < ${CLOUD_FIRST_USER_FILE});\
 			if [ "${CLOUD}" == "SCW" ];then\
 				sudo="";\
 			else\
@@ -1085,8 +1086,8 @@ remote-config-proxy: ${CONFIG_DIR} ${CLOUD_FIRST_USER_FILE}
 ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 		@\
 		if [ ! -f "${CONFIG_REMOTE_FILE}" ];then\
-			H=$$(cat ${CLOUD_HOST_FILE});\
-			U=$$(cat ${CLOUD_USER_FILE});\
+			H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+			U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 			if [ "${CLOUD}" == "SCW" ];then\
 				ssh ${SSHOPTS} root@$$H apt-get install -o Dpkg::Options::="--force-confold" -yq sudo;\
 			fi;\
@@ -1105,21 +1106,21 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 
 remote-cmd: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}
 	@\
-		H=$$(cat ${CLOUD_HOST_FILE});\
-		U=$$(cat ${CLOUD_USER_FILE});\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		ssh ${SSHOPTS} $$U@$$H ${REMOTE_CMD};
 
 
 remote-docker-pull: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}
 	@\
-		H=$$(cat ${CLOUD_HOST_FILE});\
-		U=$$(cat ${CLOUD_USER_FILE});\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		ssh ${SSHOPTS} $$U@$$H docker pull ${DOCKER_IMAGE};
 
 remote-reboot-start: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}
 		@\
-		H=$$(cat ${CLOUD_HOST_FILE});\
-		U=$$(cat ${CLOUD_USER_FILE});\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		ssh ${SSHOPTS} $$U@$$H sudo reboot;\
 		echo ${CLOUD} instance is rebooting;\
 		rm ${CLOUD_UP_FILE};
@@ -1136,8 +1137,8 @@ remote-clean: cloud-instance-down
 ${CONFIG_APP_FILE}: ${CONFIG_REMOTE_FILE}
 		@\
 		if [ ! -f "${CONFIG_APP_FILE}" ];then\
-			H=$$(cat ${CLOUD_HOST_FILE});\
-			U=$$(cat ${CLOUD_USER_FILE});\
+			H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+			U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 			if [ "${APP}" != "${CLOUD_CLI}" ];then\
 				REMOTE_APP_BRANCH_OPT="";\
 				if [ -n "${REMOTE_APP_BRANCH}" ];then\
@@ -1153,20 +1154,20 @@ ${CONFIG_APP_FILE}: ${CONFIG_REMOTE_FILE}
 
 remote-actions: remote-deploy
 		@\
-		H=$$(cat ${CLOUD_HOST_FILE});\
-		U=$$(cat ${CLOUD_USER_FILE});\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		if [ "${ACTIONS}" != "" ];then\
 			if [ "${APP}" != "${CLOUD_CLI}" ];then\
 				MAKE_APP_PATH=${REMOTE_APP_MAKE_PATH};\
 			else\
 				MAKE_APP_PATH=${REMOTE_TOOLS_MAKE_PATH};\
 			fi;\
-			ssh ${SSHOPTS} $$U@$$H make -C $$MAKE_APP_PATH ${ACTIONS} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} ${MAKEOVERRIDES};\
+			ssh ${SSHOPTS} $$U@$$H make -C $$MAKE_APP_PATH ${ACTIONS} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} ${REMOTE_ACTION_MAKEOVERRIDES};\
 		fi
 
 remote-test-api-in-vpc: ${CLOUD}-instance-get-tagged-hosts
 	@if [ -f "${CONFIG_APP_FILE}" ];then\
-		U=$$(cat ${CLOUD_USER_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		for H in $$(cat ${CLOUD_TAGGED_HOSTS_VPC_FILE});do\
 			(\
 				(\
@@ -1242,8 +1243,8 @@ remote-test-api:
 
 remote-install-root-aws-credentials:
 	@if [ ! -z "${STORAGE_ACCESS_KEY}" -a ! -z "${STORAGE_SECRET_KEY}" ];then\
-		H=$$(cat ${CLOUD_HOST_FILE});\
-		U=$$(cat ${CLOUD_USER_FILE});\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		ssh ${SSHOPTS} $$U@$$H "sudo mkdir /root/.aws";\
 		cat ${TOOLS_PATH}/.aws/config | ssh ${SSHOPTS} $$U@$$H "sudo tee /root/.aws/config > /dev/null";\
 		cat ${TOOLS_PATH}/.aws/credentials | sed "s/<AWS_ACCESS_KEY_ID>/${STORAGE_ACCESS_KEY}/;s/<AWS_SECRET_ACCESS_KEY>/${STORAGE_SECRET_KEY}/;" | ssh ${SSHOPTS} $$U@$$H "sudo tee /root/.aws/credentials > /dev/null";\
@@ -1251,8 +1252,8 @@ remote-install-root-aws-credentials:
 
 remote-install-monitor: remote-install-root-aws-credentials
 	@if [ ! -z "${NEW_RELIC_API_KEY}" -a ! -z "${NEW_RELIC_ACCOUNT_ID}" ];then\
-		H=$$(cat ${CLOUD_HOST_FILE});\
-		U=$$(cat ${CLOUD_USER_FILE});\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		cat ${TOOLS_PATH}/fluent-bit/plugins.conf | ssh ${SSHOPTS} $$U@$$H "sudo tee /tmp/plugins.conf > /dev/null";\
 		cat ${TOOLS_PATH}/fluent-bit/fluent-bit.conf | sed "s/<NEW_RELIC_INGEST_KEY>/${NEW_RELIC_INGEST_KEY}/;s|<HTTPS_PROXY>|${remote_http_proxy}|;s|<MONITOR_BUCKET>|${MONITOR_BUCKET}|;s|<MONITOR_DIR>|${MONITOR_DIR}|" | ssh ${SSHOPTS} $$U@$$H "sudo tee /tmp/fluent-bit.conf > /dev/null";\
 		ssh ${SSHOPTS} $$U@$$H "(sudo systemctl stop unattended-upgrades;sleep 30;curl -Ls https://download.newrelic.com/install/newrelic-cli/scripts/install.sh | bash && sudo HTTPS_PROXY=${remote_http_proxy} NEW_RELIC_API_KEY=${NEW_RELIC_API_KEY} NEW_RELIC_ACCOUNT_ID=${NEW_RELIC_ACCOUNT_ID} NEW_RELIC_REGION=EU /usr/local/bin/newrelic install -y && echo New Relic Installed) > .install-newrelic.log 2>&1 &";\
