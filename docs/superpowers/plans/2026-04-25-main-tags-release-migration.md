@@ -235,7 +235,7 @@ Expected:
 - only intentional residual references remain, if any;
 - no trigger block still targets `dev` or `master`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .github/workflows/ci.yml
@@ -263,7 +263,7 @@ Add `DATAPREP_VERSION_OVERRIDE` and `DATA_VERSION_OVERRIDE` to the root
 snapshot, without recomputing `.dataprep.sha1` / `.data.sha1` from newer source
 inputs at deploy time.
 
-- [ ] **Step 1: Change cd.yml to serve main only**
+- [x] **Step 1: Change cd.yml to serve main only**
 
 Change the trigger block in `.github/workflows/cd.yml` so it becomes the preprod workflow:
 
@@ -279,7 +279,7 @@ on:
 
 Remove `master` branch push handling from this workflow.
 
-- [ ] **Step 2: Rewrite branch-sensitive conditions in cd.yml**
+- [x] **Step 2: Rewrite branch-sensitive conditions in cd.yml**
 
 Replace every `refs/heads/dev` condition with `refs/heads/main` when the intent is preprod.
 
@@ -301,7 +301,7 @@ After this task, `cd.yml` must implement:
 - `workflow_dispatch` on `main` -> manual preprod actions only;
 - no prod release path.
 
-- [ ] **Step 3: Create release-prod.yml for prod tags**
+- [x] **Step 3: Create release-prod.yml for prod tags**
 
 Create `.github/workflows/release-prod.yml` with:
 
@@ -332,7 +332,7 @@ The workflow must:
 
 Do not implement the monthly schedule in this task.
 
-- [ ] **Step 4: Preserve the current network publication mechanism**
+- [x] **Step 4: Preserve the current network publication mechanism**
 
 Ensure `release-prod.yml` uses the existing switch sequence:
 
@@ -342,7 +342,7 @@ remote-test-api-in-vpc -> nginx-conf-apply -> remote-test-api -> cdn-cache-purge
 
 Do not add CDN record switching.
 
-- [ ] **Step 5: Verify workflow files**
+- [x] **Step 5: Verify workflow files**
 
 Run:
 
