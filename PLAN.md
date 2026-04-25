@@ -355,12 +355,12 @@
       - [x] Basculer `ci.yml` sur `pull_request -> main` et `push -> main`
       - [x] Sortir la prod de `cd.yml` et creer `release-prod.yml` pour `push tag v*`
       - [x] Aligner `release-prod.yml` sur `push tag v*`
-      - [ ] Ajouter le workflow mensuel `dataprep-monthly.yml`
+      - [x] Ajouter le workflow mensuel `dataprep-monthly.yml`
       - [x] Garantir que `GIT_BRANCH=dev/master` reste strictement inchange dans les artefacts d'exploitation, seuls les refs Git et workflows changeant
       - [x] Garantir qu'un changement `tools`, `deces-dataprep` ou `dataprep-backend` sur `main` execute `small` puis `year`, puis seulement le deploy preprod `deces-ui`
     - [x] Conserver le switch `nginx-conf-apply` / bastion dans le chemin critique tant que la bascule CDN complete n'est pas explicitement ouverte
     - [ ] Executer le CD `dataprep-full` depuis le dernier tag prod ou le contexte prod valide, jamais depuis une branche PR
-    - [ ] Configurer le dataprep mensuel en mode alerte seule en cas d'echec, sans retry automatique
+    - [x] Configurer le dataprep mensuel en mode alerte seule en cas d'echec, sans retry automatique
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
     - [ ] Statuer et reconstruire si necessaire le job lourd `deces-backend` upstream `bulk` / artillery (`backend-perf-clinic`, `test-perf-v1`) avant la substitution finale

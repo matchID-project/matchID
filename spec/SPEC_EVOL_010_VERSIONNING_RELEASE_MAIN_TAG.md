@@ -256,7 +256,7 @@ de creation Git.
 Source de verite cible:
 
 - le dernier deploiement GitHub `prod` reussi;
-- le workflow de release exporte comme metadata:
+- le workflow de release exporte comme artefact `release-prod-metadata`:
   - `prod_tag`
   - `commit_sha`
   - `snapshot_name`
@@ -397,7 +397,9 @@ Comportement cible:
    - `SNAPSHOT = nouveau snapshot`
    - `publish switch = via nginx-conf-apply sur la nouvelle instance preparee`
    - `GIT_BRANCH=master`
-6. en cas d'echec, emettre une alerte seule, sans retry automatique.
+6. persister un artefact `dataprep-monthly-metadata` avec le tag et le
+   snapshot effectivement redeployes;
+7. en cas d'echec, emettre une alerte seule, sans retry automatique.
 
 Ce workflow est la transposition du fonctionnement upstream mensuel: la data
 evolue, l'application reste figee sur la derniere release prod.
