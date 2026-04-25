@@ -692,3 +692,34 @@ deces-dataprep    | remote-all               | packages/deces-dataprep   | year/
                   |                          | remote-all + REMOTE_*     | build             | 24777914592
                   |                          | vers monorepo matchID     | full/push-master  | full lot 9
 ```
+
+Revalidation `dataprep-year` du 2026-04-25:
+
+```text
+Run id      | SHA      | Resultat | Point prouve
+------------+----------+----------+---------------------------------------------------
+24942523131 | fc26b4c4 | failure  | `remote-all` reel reussi en 7m23; snapshot
+            |          |          | `esdata_7fdd43b0_e0735a1a` cree; VM SCW supprimee;
+            |          |          | echec seulement sur l'export metadata local
+24942735518 | 951e57d2 | success  | rerun vert avec snapshot deja present; aucune VM
+            |          |          | SCW recreee; export metadata ok apres retry
+```
+
+Details du run `24942523131`:
+
+- `Run dataprep year remote-all` passe de `22:49:39Z` a `22:57:02Z`.
+- Le bootstrap VM passe bien par le bastion, clone le monorepo, installe
+  `make`, `docker`, construit `matchid-backend-dev:7fdd43b0`, lance
+  `deces_dataprep`, cree le snapshot `esdata_7fdd43b0_e0735a1a`, puis
+  supprime l'instance SCW `f55d8f0f-1f68-45f0-b1b9-3f862f68dec7`.
+- La recette dataprep elle-meme termine en `0:49.298130` avec `679924` lignes
+  traitees et `679593` lignes ecrites.
+- L'echec restant ne portait pas sur le dataprep mais sur la relecture locale
+  immediate du snapshot pour l'artefact metadata.
+
+Decision:
+
+- la preuve forte du lot 8 n'est plus `24777914592` seul, car ce run etait un
+  cache-hit;
+- la preuve operationnelle retenue pour `dataprep-year` devient le couple
+  `24942523131` + `24942735518`.
