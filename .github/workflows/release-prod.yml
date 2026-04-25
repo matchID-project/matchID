@@ -203,10 +203,41 @@ jobs:
           export SSH_AUTH_SOCK=/tmp/ssh_agent.sock
           ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
           ssh-add "${HOME}/.ssh/id_rsa_matchID"
-          BASTION_HOST_RESOLVED="$(printf '%s' "${NGINX_HOST}" | tr -d '\r\n[:space:]')"
-          BASTION_USER_RESOLVED="$(printf '%s' "${NGINX_USER}" | tr -d '\r\n[:space:]')"
-          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(printf '%s' "${BASTION_HOST}" | tr -d '\r\n[:space:]')"; fi
-          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
+          sanitize_host() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#http://}"
+            value="${value#https://}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value##*@}"; fi
+            value="${value%%/*}"
+            if [[ "${value}" =~ ^\[[^]]+\]:[0-9]+$ ]]; then
+              value="${value#\[}"
+              value="${value%%\]:*}"
+            elif [[ "${value}" =~ ^[^:]+:[0-9]+$ ]]; then
+              value="${value%%:*}"
+            fi
+            printf '%s' "${value}"
+          }
+          sanitize_user() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value%%@*}"; fi
+            printf '%s' "${value}"
+          }
+          BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          BASTION_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
+          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
+          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
           printf '%s\n' \
