@@ -341,14 +341,14 @@ jobs:
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
-          cat > "${HOME}/.ssh/config" <<EOF
-          Host bastion
-            HostName ${BASTION_HOST_RESOLVED}
-            User ${BASTION_USER_RESOLVED}
-            IdentityFile ${HOME}/.ssh/id_rsa_matchID
-            IdentitiesOnly yes
-            StrictHostKeyChecking no
-          EOF
+          printf '%s\n' \
+            'Host bastion' \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            '  IdentitiesOnly yes' \
+            '  StrictHostKeyChecking no' \
+            > "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
@@ -486,14 +486,14 @@ jobs:
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
-          cat > "${HOME}/.ssh/config" <<EOF
-          Host bastion
-            HostName ${BASTION_HOST_RESOLVED}
-            User ${BASTION_USER_RESOLVED}
-            IdentityFile ${HOME}/.ssh/id_rsa_matchID
-            IdentitiesOnly yes
-            StrictHostKeyChecking no
-          EOF
+          printf '%s\n' \
+            'Host bastion' \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            '  IdentitiesOnly yes' \
+            '  StrictHostKeyChecking no' \
+            > "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
