@@ -119,22 +119,22 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          BASTION_HOST_RESOLVED="$(sed -n 's/^export NGINX_HOST=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
-          BASTION_USER_RESOLVED="$(sed -n 's/^export NGINX_USER=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
+          ssh-agent -a /tmp/ssh_agent.sock > /dev/null
+          ssh-add "${HOME}/.ssh/id_rsa_matchID"
+          BASTION_HOST_RESOLVED="$(printf '%s' "${NGINX_HOST}" | tr -d '\r\n[:space:]')"
+          BASTION_USER_RESOLVED="$(printf '%s' "${NGINX_USER}" | tr -d '\r\n[:space:]')"
           if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(printf '%s' "${BASTION_HOST}" | tr -d '\r\n[:space:]')"; fi
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
           printf '%s\n' \
-            'Host bastion' \
-            "  HostName ${BASTION_HOST_RESOLVED}" \
-            "  User ${BASTION_USER_RESOLVED}" \
-            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
-            '  IdentitiesOnly yes' \
-            '  StrictHostKeyChecking no' \
+            "Host * !${BASTION_HOST_RESOLVED}" \
+            "  ProxyCommand ssh -F /dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ${HOME}/.ssh/id_rsa_matchID ${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED} nc %h %p" \
             > "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -157,7 +157,7 @@ jobs:
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
@@ -171,6 +171,7 @@ jobs:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
 
       - name: Capture prod snapshot metadata
         run: |
@@ -230,6 +231,7 @@ jobs:
           NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
           NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
           MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           make deploy-remote-preflight \
             GIT_BRANCH=master \
@@ -241,7 +243,7 @@ jobs:
             DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
             DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
           make deploy-remote \
             GIT_BRANCH=master \
             GIT_BACKEND_BRANCH=master \
@@ -263,7 +265,7 @@ jobs:
             MMDB_TOKEN="${MMDB_TOKEN}" \
             NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
 
       - name: Write dataprep monthly metadata artifact
         run: |

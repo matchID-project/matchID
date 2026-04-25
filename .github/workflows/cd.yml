@@ -335,51 +335,53 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          BASTION_HOST_RESOLVED="$(sed -n 's/^export NGINX_HOST=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
-          BASTION_USER_RESOLVED="$(sed -n 's/^export NGINX_USER=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
+          ssh-agent -a /tmp/ssh_agent.sock > /dev/null
+          ssh-add "${HOME}/.ssh/id_rsa_matchID"
+          BASTION_HOST_RESOLVED="$(printf '%s' "${NGINX_HOST}" | tr -d '\r\n[:space:]')"
+          BASTION_USER_RESOLVED="$(printf '%s' "${NGINX_USER}" | tr -d '\r\n[:space:]')"
+          BASTION_SOURCE=nginx
           if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(printf '%s' "${BASTION_HOST}" | tr -d '\r\n[:space:]')"; fi
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
+          if [ -z "$(printf '%s' "${NGINX_HOST}" | tr -d '\r\n[:space:]')" ]; then BASTION_SOURCE=bastion; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
+          echo "bastion_source=${BASTION_SOURCE}"
           if printf '%s' "${BASTION_HOST_RESOLVED}" | grep -Eq '^[0-9.]+$'; then
             echo "bastion_input_host_kind=ip"
           else
             echo "bastion_input_host_kind=name"
           fi
+          if getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
+            echo "bastion_input_host_resolves=yes"
+          else
+            echo "bastion_input_host_resolves=no"
+            exit 1
+          fi
           printf '%s\n' \
-            'Host bastion' \
-            "  HostName ${BASTION_HOST_RESOLVED}" \
-            "  User ${BASTION_USER_RESOLVED}" \
-            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
-            '  IdentitiesOnly yes' \
-            '  StrictHostKeyChecking no' \
+            "Host * !${BASTION_HOST_RESOLVED}" \
+            "  ProxyCommand ssh -F /dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ${HOME}/.ssh/id_rsa_matchID ${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED} nc %h %p" \
             > "${HOME}/.ssh/config"
           sed -n 'l' "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Debug dataprep bastion resolution
         run: |
           set -euo pipefail
-          RESOLVED_HOST="$(ssh -G -F "${HOME}/.ssh/config" bastion | awk '$1 == "hostname" { print $2; exit }')"
-          RESOLVED_USER="$(ssh -G -F "${HOME}/.ssh/config" bastion | awk '$1 == "user" { print $2; exit }')"
-          echo "bastion_user=${RESOLVED_USER}"
-          if [ -z "${RESOLVED_HOST}" ]; then
-            echo "bastion_host_kind=empty"
-            echo "bastion_host_resolves=no"
-            exit 1
-          fi
-          if printf '%s' "${RESOLVED_HOST}" | grep -Eq '^[0-9.]+$'; then
-            echo "bastion_host_kind=ip"
-          else
-            echo "bastion_host_kind=name"
-          fi
-          if getent hosts "${RESOLVED_HOST}" >/dev/null 2>&1; then
-            echo "bastion_host_resolves=yes"
-          else
-            echo "bastion_host_resolves=no"
+          PROXY_COMMAND="$(ssh -G -F "${HOME}/.ssh/config" 10.0.0.1 | awk '
+            $1 == "proxycommand" {
+              $1 = ""
+              sub(/^ /, "")
+              print
+              exit
+            }
+          ')"
+          echo "proxy_command_present=$([ -n "${PROXY_COMMAND}" ] && echo yes || echo no)"
+          if [ -z "${PROXY_COMMAND}" ]; then
             exit 1
           fi
       - name: Check dataprep year snapshot
@@ -398,7 +400,7 @@ jobs:
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${CD_GIT_BRANCH}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${CD_GIT_BRANCH}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
@@ -413,6 +415,7 @@ jobs:
           SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       - name: Export dataprep year snapshot metadata
         run: |
           make -C packages/deces-dataprep repository-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
@@ -486,22 +489,22 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          BASTION_HOST_RESOLVED="$(sed -n 's/^export NGINX_HOST=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
-          BASTION_USER_RESOLVED="$(sed -n 's/^export NGINX_USER=//p' packages/tools/artifacts | tail -n1 | tr -d '\r\n[:space:]')"
+          ssh-agent -a /tmp/ssh_agent.sock > /dev/null
+          ssh-add "${HOME}/.ssh/id_rsa_matchID"
+          BASTION_HOST_RESOLVED="$(printf '%s' "${NGINX_HOST}" | tr -d '\r\n[:space:]')"
+          BASTION_USER_RESOLVED="$(printf '%s' "${NGINX_USER}" | tr -d '\r\n[:space:]')"
           if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(printf '%s' "${BASTION_HOST}" | tr -d '\r\n[:space:]')"; fi
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(printf '%s' "${BASTION_USER}" | tr -d '\r\n[:space:]')"; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
           printf '%s\n' \
-            'Host bastion' \
-            "  HostName ${BASTION_HOST_RESOLVED}" \
-            "  User ${BASTION_USER_RESOLVED}" \
-            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
-            '  IdentitiesOnly yes' \
-            '  StrictHostKeyChecking no' \
+            "Host * !${BASTION_HOST_RESOLVED}" \
+            "  ProxyCommand ssh -F /dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ${HOME}/.ssh/id_rsa_matchID ${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED} nc %h %p" \
             > "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -515,7 +518,7 @@ jobs:
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
             REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
           make deploy-remote \
             GIT_BRANCH=$GIT_BRANCH \
             REMOTE_DEPLOY_BRANCH=main \
@@ -530,7 +533,7 @@ jobs:
             MMDB_TOKEN=$MMDB_TOKEN \
             NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
@@ -572,3 +575,4 @@ jobs:
           NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
           NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
           MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
