@@ -200,7 +200,17 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          {
+            printf 'Host *\n'
+            printf '  IdentityFile %s\n' "${HOME}/.ssh/id_rsa_matchID"
+            printf '  IdentitiesOnly yes\n'
+            printf 'Host * !%s\n' "${BASTION_HOST}"
+            printf '  ProxyCommand ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=no %s@%s nc %%h %%p\n' "${HOME}/.ssh/id_rsa_matchID" "${BASTION_USER}" "${BASTION_HOST}"
+          } > "${HOME}/.ssh/config"
+          chmod 600 "${HOME}/.ssh/config"
         env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Check dataprep full snapshot
