@@ -39,13 +39,15 @@ Le systeme doit permettre:
   `APP_RELEASE` prod;
 - de faire evoluer application et data ensemble sur une meme release prod.
 
-Le pivot de publication reseau est egalement acte:
+Le mecanisme de publication reseau conserve le fonctionnement actuel:
 
-- le switch de trafic ne passera plus par l'edition du fichier upstream nginx
-  via bastion;
-- le switch passera par une bascule CDN pilotee par API;
-- les tests de bascule pourront etre executes sur un sous-domaine dedie avant
-  toute utilisation sur `deces.matchid.io`.
+- test applicatif sur l'instance candidate;
+- mise a jour de l'upstream nginx distant via `nginx-conf-apply`;
+- verification publique sur le hostname expose;
+- purge de cache CDN.
+
+La bascule CDN pilotee par API est explicitement sortie du chemin critique et
+releguee en roadmap ulterieure.
 
 ## Unites de versionning
 
@@ -217,18 +219,18 @@ Comportement cible:
 
 ### 2.b Mecanisme de publication reseau
 
-Le schema transitoire actuel s'appuie encore sur:
+Le schema cible conserve le mecanisme transitoire actuel:
 
 - test applicatif depuis le VPC;
 - ecriture d'un upstream nginx distant via `nginx-conf-apply`;
 - verification publique apres reload nginx;
 - purge de cache CDN.
 
-La cible finale remplace cette etape par:
+La sequence retenue reste donc:
 
 ```text
 1. remote-test-api-in-vpc
-2. CDN switch sur un enregistrement proxifie
+2. nginx-conf-apply
 3. remote/public healthcheck via le hostname expose
 4. purge de cache CDN
 ```
@@ -236,84 +238,25 @@ La cible finale remplace cette etape par:
 Autrement dit:
 
 - l'instance candidate reste preparee de la meme maniere;
-- la publication reseau ne depend plus d'un bastion nginx comme point de
-  bascule;
-- la bascule de trafic se fait en modifiant la cible CDN/DNS du hostname.
+- le point de bascule reseau reste le serveur nginx actuel;
+- la purge CDN reste un post-traitement de publication, pas le mecanisme de
+  bascule lui-meme.
 
-## Contrat de bascule CDN
+## Contrat de publication reseau actuel
 
-Le contrat minimal de switch CDN devient:
-
-```text
-Objet                    | Role
--------------------------+-------------------------------------------------------------
-CDN_TOKEN                | authentification API CDN
-CDN_ZONE_ID              | zone du domaine
-CDN_RECORD_NAME          | hostname public a basculer (`deces.matchid.io`, `dev-deces...`)
-CDN_RECORD_TYPE          | `A` ou `CNAME`
-CDN_RECORD_ID            | optionnel si resolution par nom a l'execution
-CDN_SWITCH_TARGET        | IP ou hostname de l'instance candidate
-CDN_CANARY_RECORD_NAME   | sous-domaine de test pour essais de bascule
-```
-
-Provider cible observe a date:
-
-- Cloudflare est deja utilise pour la purge de cache via `CDN_TOKEN` et
-  `CDN_ZONE_ID`;
-- la cible naturelle est donc d'ajouter une primitive `cdn-switch-record`
-  cohérente avec `cdn-cache-purge`.
-
-## Regles de bascule CDN
-
-### Dev / preprod
-
-- `push main` deploie la candidate sur l'instance cible;
-- le workflow verifie l'API en VPC;
-- le record `dev-deces.matchid.io` est bascule via CDN sur cette candidate;
-- un healthcheck public est rejoue;
-- le cache CDN est purge.
-
-### Prod
-
-- le tag `prod/v*` deploie la candidate sur l'instance cible;
-- le workflow verifie d'abord l'API en VPC;
-- le record `deces.matchid.io` est bascule via CDN sur cette candidate;
-- le healthcheck public et le chargement UI sont verifies;
-- le cache CDN est purge;
-- les anciennes instances non retenues sont ensuite nettoyees.
-
-### Mensuel dataprep prod
-
-- le workflow mensuel resolve le dernier tag prod;
-- il prepare une nouvelle instance avec ce tag et le nouveau snapshot `full`;
-- il verifie l'API et la restauration du snapshot en VPC;
-- il bascule `deces.matchid.io` via CDN;
-- il purge le cache et nettoie l'ancienne instance.
-
-## Strategie de test CDN
-
-Avant toute bascule prod par CDN, une preuve technique doit etre faite sur un
-sous-domaine dedie.
-
-Sous-domaines cibles possibles:
+Le contrat minimal conserve est:
 
 ```text
-switch-test-deces.matchid.io
-canary-deces.matchid.io
-main-deces.matchid.io
+Objet        | Role
+-------------+--------------------------------------------------------------
+NGINX_HOST   | hote nginx qui porte le switch public
+NGINX_USER   | utilisateur SSH sur cet hote
+CDN_TOKEN    | purge de cache CDN apres publication
+CDN_ZONE_ID  | zone CDN associee
 ```
 
-Le choix exact sera fige par configuration, mais la methode attendue est:
-
-1. creer ou reutiliser un record de test proxifie dans la meme zone CDN;
-2. le faire pointer vers l'instance candidate par API;
-3. verifier:
-   - propagation/lecture du record par API CDN;
-   - healthcheck public;
-   - chargement UI;
-   - purge de cache;
-4. seulement ensuite appliquer la meme methode a `dev-deces.matchid.io`, puis a
-   `deces.matchid.io`.
+La roadmap ulterieure pourra remplacer ce contrat par une bascule CDN complete,
+mais ce n'est pas la cible du lot 9.
 
 ### 3. Tag prod
 
@@ -332,12 +275,12 @@ Le workflow de tag prod suit cette logique:
    (`deces-dataprep`, `dataprep-backend`, `dataprep-frontend`, `tools`,
    chemins infra associes):
    - lancer `dataprep-full` sur le tag courant;
-   - deployer la prod avec les images du tag courant, le nouveau snapshot et la
-     bascule CDN finale;
+   - deployer la prod avec les images du tag courant, le nouveau snapshot et le
+     switch nginx actuel;
 5. sinon:
    - reutiliser le dernier snapshot prod valide;
-   - deployer la prod avec les images du tag courant, le snapshot courant et la
-     bascule CDN finale.
+   - deployer la prod avec les images du tag courant, le snapshot courant et le
+     switch nginx actuel.
 
 Ce comportement preserve les deux cas historiques:
 
@@ -362,7 +305,7 @@ Comportement cible:
 5. redeployer automatiquement la prod avec:
    - `APP_RELEASE = dernier tag prod`
    - `SNAPSHOT = nouveau snapshot`
-   - `CDN switch = vers la nouvelle instance preparee sur ce tag`
+   - `publish switch = via nginx-conf-apply sur la nouvelle instance preparee`
 
 Ce workflow est la transposition du fonctionnement upstream mensuel: la data
 evolue, l'application reste figee sur la derniere release prod.
@@ -439,10 +382,9 @@ Le schema final implique:
 - suppression des triggers `master`;
 - creation d'un workflow de release sur `push.tags`;
 - creation d'un workflow mensuel `schedule`/`workflow_dispatch`;
-- creation d'une primitive de switch CDN dans `packages/tools` et integration
-  dans `deploy-remote`;
-- suppression de la dependance au switch nginx/bastion du chemin critique de
-  publication;
+- conservation du switch `nginx-conf-apply` dans `packages/tools` /
+  `deploy-remote` sur le chemin critique;
+- la bascule CDN complete reste une evolution de roadmap hors lot 9;
 - suppression des hypotheses `dev -> master` des docs et protections.
 
 ## Sort des specs intermediaires
