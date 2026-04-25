@@ -340,7 +340,15 @@
     - [x] Documenter l'etat GitHub live du monorepo et l'ecart cible `feat/* -> dev -> master`
     - [x] Creer la branche racine `master` depuis `dev`
     - [x] Configurer la gouvernance GitHub `dev` / `master` alignée sur la cible et sur la reference `deces-ui`
-    - [ ] Executer le CD `dataprep-full` depuis `master` ou le contexte prod valide, jamais depuis une branche PR
+    - [x] Acter dans une spec dediee le pivot final `dev/master` -> `main + tags`, le contrat `APP_RELEASE + SNAPSHOT`, le versionning monorepo et le dataprep mensuel auto-redeploy
+    - [ ] Remplacer `dev` par `main` comme branche d'integration/preprod et branche par defaut
+    - [ ] Supprimer `master` du repo racine une fois `main` et les tags de release en place
+    - [ ] Definir et appliquer la convention de tags package (`deces-ui/v*`, `deces-backend/v*`, `dataprep-frontend/v*`, `dataprep-backend/v*`) et de release prod (`prod/v*`)
+    - [ ] Introduire `changesets` pour les packages Node versionnes, sans edition manuelle des `package.json` dans les PR metier
+    - [ ] Introduire une source de version semantique dediee pour `packages/dataprep-backend` hors `changesets`
+    - [ ] Reconfigurer la gouvernance GitHub pour `main` et pour les tags proteges, en supprimant les protections `master`
+    - [ ] Refondre `ci.yml` et `cd.yml` vers le cycle `pull_request -> main`, `push -> main`, `push tag prod/v*` et `schedule/workflow_dispatch` dataprep mensuel
+    - [ ] Executer le CD `dataprep-full` depuis le dernier tag prod ou le contexte prod valide, jamais depuis une branche PR
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
     - [ ] Statuer et reconstruire si necessaire le job lourd `deces-backend` upstream `bulk` / artillery (`backend-perf-clinic`, `test-perf-v1`) avant la substitution finale
@@ -350,7 +358,10 @@
     - [x] Valider sur le commit de preuve `41c099bb` le protocole temporaire de contrat Elasticsearch
     - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deces-2020-m01.txt.gz`: count `60557`, sample deterministe `10000`, mapping et types
     - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deaths.txt.gz`: count `1355728`, sample deterministe `10000`, mapping et types
-    - [ ] Prouver la gouvernance GitHub `feat/* -> dev -> master` sur le repo racine
+    - [ ] Prouver la gouvernance GitHub `feat/* -> main` sur le repo racine
+    - [ ] Prouver qu'un merge sur `main` deploie bien `dev-deces.matchid.io`
+    - [ ] Prouver qu'un tag `prod/v*` sur `main` deploie bien la prod
+    - [ ] Prouver que le dataprep mensuel resolve le dernier tag prod, produit un snapshot `full` et redeploie automatiquement la prod avec ce tag
     - [ ] Valider le runbook de bascule
     - [ ] Valider le runbook de rollback
     - [ ] Valider que le processus monorepo couvre bien `deces-dataprep` et `deces-ui`
