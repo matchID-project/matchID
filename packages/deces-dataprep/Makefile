@@ -119,14 +119,14 @@ monorepo-elasticsearch:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
 		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-local ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch APP=backend ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
 	fi
 
 monorepo-elasticsearch-stop:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
 		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-stop ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop APP=backend ${MAKEOVERRIDES};\
 	fi
 
 frontend-config: dataprep-frontend-check
@@ -176,7 +176,7 @@ repository-config: config
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-config\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-config APP=backend\
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			${MAKEOVERRIDES};\
 	fi && touch repository-config
@@ -188,7 +188,7 @@ ${REPOSITORY_CHECK}: repository-config data-tag
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			${MAKEOVERRIDES} | egrep -qx "$${ES_BACKUP_NAME}";\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-check\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-check APP=backend\
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			${MAKEOVERRIDES} ES_BACKUP_NAME=$${ES_BACKUP_NAME} \
 			| egrep -q "^snapshot found";\
@@ -211,25 +211,26 @@ backup-pull: data-tag
 	touch backup-pull
 
 dev: config monorepo-elasticsearch frontend-config
-	@${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} ${MAKEOVERRIDES} &&\
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} APP=backend ${MAKEOVERRIDES} &&\
 	${MAKE} -C ${FRONTEND_PATH} frontend-dev GIT_BRANCH=${GIT_FRONTEND_BRANCH} NPM_AUDIT_IGNORE=true ${MAKEOVERRIDES} &&\
 		echo matchID started, go to http://localhost:8081
 
 dev-stop:
 	@if [ -f config ]; then\
 		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} APP=backend ${MAKEOVERRIDES};\
 		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
 up:
 	@unset APP;unset APP_VERSION;\
 	${MAKE} monorepo-elasticsearch ${MAKEOVERRIDES};\
-	${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_DEPLOY_TARGET} ${MAKEOVERRIDES} && echo matchID backend services started
+	${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_DEPLOY_TARGET} APP=backend ${MAKEOVERRIDES} && echo matchID backend services started
 
 dataprep-backend-recipe-run:
 	@if grep -q 'BACKEND_RUN_TARGET ?=' ${DATAPREP_BACKEND_PATH}/Makefile; then\
 		${MAKE} -C ${DATAPREP_BACKEND_PATH} recipe-run \
+			APP=backend \
 			ES_HOST=${ES_HOST} \
 			BACKEND_RUN_TARGET=${DATAPREP_BACKEND_LOCAL_TARGET} \
 			BACKEND_RUN_CONTAINER=${DATAPREP_BACKEND_RUN_CONTAINER} \
@@ -238,7 +239,7 @@ dataprep-backend-recipe-run:
 			STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} ES_HOST=${ES_HOST} ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} APP=backend ES_HOST=${ES_HOST} ${MAKEOVERRIDES};\
 		BACKEND_CONTAINER="${DATAPREP_BACKEND_RUN_CONTAINER}";\
 		if [ -z "$$BACKEND_CONTAINER" ]; then\
 			if [ "${DATAPREP_BACKEND_LOCAL_TARGET}" = "backend-dev" ]; then\
@@ -275,7 +276,7 @@ recipe-run-local: data-tag
 	@if [ ! -f "${RECIPE_RUN_MARKER}" ];then\
 		mkdir -p $$(dirname "${RECIPE_RUN_MARKER}") $$(dirname "${S3_PULL_MARKER}");\
 		echo running recipe on data FILES_TO_PROCESS="${FILES_TO_PROCESS}" $$(cat ${DATA_TAG}), dataprep ${DATAPREP_VERSION};\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} version;\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} version APP=backend;\
 		${MAKE} dataprep-backend-recipe-run ${MAKEOVERRIDES} \
 			&&\
 		touch "${RECIPE_RUN_MARKER}" "${S3_PULL_MARKER}" &&\
@@ -327,7 +328,7 @@ watch-run:
 
 backup-restore: backup-pull
 	@if [ ! -f "elasticsearch-restore" ];then\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-restore ES_BACKUP_FILE=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar \
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-restore APP=backend ES_BACKUP_FILE=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar \
 			&& (echo esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar > elasticsearch-restore);\
 	fi
 
@@ -339,7 +340,7 @@ repository-restore: repository-check
 				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
 		else\
-			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-restore\
+			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-restore APP=backend\
 				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
 		fi && (echo $${ES_BACKUP_NAME} > elasticsearch-restore);\
@@ -355,7 +356,7 @@ backup: data-tag
 		ES_BACKUP_FILE=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).tar;\
 		ES_BACKUP_FILE_SNAR=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG}).snar;\
 		if [ ! -f "${BACKUP_DIR}/$$ES_BACKUP_FILE" ];then\
-			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-backup \
+			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-backup APP=backend \
 				ES_BACKUP_FILE=$$ES_BACKUP_FILE\
 				ES_BACKUP_FILE_SNAR=$$ES_BACKUP_FILE_SNAR;\
 		fi;\
@@ -365,7 +366,7 @@ backup: data-tag
 backup-push: data-tag backup
 	@if [ ! -f backup-push ];then\
 		ES_BACKUP_FILE_ROOT=esdata_${DATAPREP_VERSION}_$$(cat ${DATA_TAG});\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-storage-push\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-storage-push APP=backend\
 			STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_BACKUP_FILE=$$ES_BACKUP_FILE_ROOT.tar\
 			ES_BACKUP_FILE_SNAR=$$ES_BACKUP_FILE_ROOT.snar &&\
@@ -382,7 +383,7 @@ repository-push: data-tag
 				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
 		else\
-			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup\
+			${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup APP=backend\
 				REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 				ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
 		fi && touch repository-push;\
@@ -395,7 +396,7 @@ repository-backup-tmp: data-tag
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup-async\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-backup-async APP=backend\
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} ${MAKEOVERRIDES};\
 	fi
@@ -407,7 +408,7 @@ respository-cleanse:
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} > /dev/null 2>&1;\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-delete\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-repository-delete APP=backend\
 			REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 			ES_INDEX=${ES_INDEX} ES_BACKUP_NAME=$${ES_BACKUP_NAME} > /dev/null 2>&1;\
 	fi) || exit 0
@@ -415,7 +416,7 @@ respository-cleanse:
 down:
 	@if [ -f config ]; then\
 		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} ${MAKEOVERRIDES};\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} APP=backend ${MAKEOVERRIDES};\
 		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
