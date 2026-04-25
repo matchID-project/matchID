@@ -394,8 +394,17 @@ jobs:
             echo "bastion_input_host_kind=ip"
           fi
           printf '%s\n' \
-            "Host * !${BASTION_HOST_RESOLVED}" \
-            "  ProxyCommand ssh -F /dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ${HOME}/.ssh/id_rsa_matchID ${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED} nc %h %p" \
+            "Host bastion" \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            "Host * !bastion" \
+            "  ProxyJump bastion" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
             > "${HOME}/.ssh/config"
           sed -n 'l' "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
@@ -408,16 +417,16 @@ jobs:
       - name: Debug dataprep bastion resolution
         run: |
           set -euo pipefail
-          PROXY_COMMAND="$(ssh -G -F "${HOME}/.ssh/config" 10.0.0.1 | awk '
-            $1 == "proxycommand" {
+          PROXY_ROUTE="$(ssh -G -F "${HOME}/.ssh/config" 10.0.0.1 | awk '
+            $1 == "proxyjump" || $1 == "proxycommand" {
               $1 = ""
               sub(/^ /, "")
               print
               exit
             }
           ')"
-          echo "proxy_command_present=$([ -n "${PROXY_COMMAND}" ] && echo yes || echo no)"
-          if [ -z "${PROXY_COMMAND}" ]; then
+          echo "proxy_route_present=$([ -n "${PROXY_ROUTE}" ] && echo yes || echo no)"
+          if [ -z "${PROXY_ROUTE}" ]; then
             exit 1
           fi
       - name: Check dataprep year snapshot
@@ -570,8 +579,17 @@ jobs:
             BASTION_HOST_RESOLVED=163.172.185.238
           fi
           printf '%s\n' \
-            "Host * !${BASTION_HOST_RESOLVED}" \
-            "  ProxyCommand ssh -F /dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ${HOME}/.ssh/id_rsa_matchID ${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED} nc %h %p" \
+            "Host bastion" \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            "Host * !bastion" \
+            "  ProxyJump bastion" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
             > "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:

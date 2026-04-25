@@ -164,8 +164,17 @@ jobs:
             BASTION_HOST_RESOLVED=163.172.185.238
           fi
           printf '%s\n' \
-            "Host * !${BASTION_HOST_RESOLVED}" \
-            "  ProxyCommand ssh -F /dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ${HOME}/.ssh/id_rsa_matchID ${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED} nc %h %p" \
+            "Host bastion" \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            "Host * !bastion" \
+            "  ProxyJump bastion" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
             > "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
         env:
