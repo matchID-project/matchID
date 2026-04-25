@@ -10,9 +10,31 @@ Le modele cible retenu est:
 - une seule branche d'integration `main`, remplaçant `dev`;
 - suppression de `master`;
 - deploiement automatique de `dev-deces.matchid.io` a chaque merge sur `main`;
-- promotion prod par tag pousse sur un commit de `main`;
+- promotion prod par tag Git `v*` pousse sur un commit de `main`;
 - execution mensuelle du dataprep prod sur le dernier tag prod deploye, avec
   redeploiement automatique de la prod.
+
+## Invariants Non Negociables
+
+Le passage a `main + tags` ne doit pas modifier les artefacts de deploiement ni
+les identifiants d'exploitation deja en service.
+
+Ce qui ne change pas:
+
+- les cibles `dev-deces.matchid.io` et `deces.matchid.io`;
+- les chemins de logs S3 et la segregation `dev` / `master`;
+- les noms d'upstream nginx et la cible de switch actuelle via
+  `nginx-conf-apply`;
+- les tags et filtres de serveurs SCW;
+- la configuration New Relic / fluent-bit derivee de `dev` / `master`;
+- la sequence de publication reseau actuelle:
+  `remote-test-api-in-vpc -> nginx-conf-apply -> remote-test-api -> purge CDN`.
+
+Ce qui change:
+
+- la branche GitHub d'integration: `main`;
+- la promotion prod: par tag `v*` au lieu d'un merge sur `master`;
+- les workflows CI/CD GitHub associes.
 
 ## Decision
 
@@ -21,7 +43,7 @@ Le monorepo se pilote desormais avec deux notions distinctes:
 ```text
 Objet                  | Role
 -----------------------+--------------------------------------------------------------
-APP_RELEASE            | version applicative figée par un tag Git de release prod
+APP_RELEASE            | version applicative figee par un tag Git de release prod
 SNAPSHOT               | snapshot Elasticsearch `esdata_${DATAPREP_VERSION}_${DATA_VERSION}`
 ```
 
@@ -39,36 +61,60 @@ Le systeme doit permettre:
   `APP_RELEASE` prod;
 - de faire evoluer application et data ensemble sur une meme release prod.
 
-Le mecanisme de publication reseau conserve le fonctionnement actuel:
+## Separation Ref Git / Label Runtime
 
-- test applicatif sur l'instance candidate;
-- mise a jour de l'upstream nginx distant via `nginx-conf-apply`;
-- verification publique sur le hostname expose;
-- purge de cache CDN.
+Le ref Git reel et le label runtime historique doivent etre separes
+strictement.
 
-La bascule CDN pilotee par API est explicitement sortie du chemin critique et
-releguee en roadmap ulterieure.
+Contrat retenu:
+
+```text
+Notion                 | Valeur preprod           | Valeur prod
+-----------------------+--------------------------+-----------------------------
+ref Git source         | `main`                   | tag `vYYYY.MM.DD.N`
+label runtime          | `dev`                    | `master`
+```
+
+Pour limiter le risque avant la premiere MEP:
+
+- `GIT_BRANCH` est conserve comme variable legacy de label runtime;
+- `GIT_BRANCH=dev` reste la valeur attendue en preprod;
+- `GIT_BRANCH=master` reste la valeur attendue en prod;
+- le ref Git reel de deploiement est porte par `REMOTE_DEPLOY_BRANCH` et les
+  variables `REMOTE_*_BRANCH`.
+
+Autrement dit:
+
+- merge sur `main` vers preprod:
+  - `GIT_BRANCH=dev`
+  - `REMOTE_DEPLOY_BRANCH=main`
+- tag `v*` vers prod:
+  - `GIT_BRANCH=master`
+  - `REMOTE_DEPLOY_BRANCH=<tag>`
+
+Cette conservation de `GIT_BRANCH` est volontairement transitoire. Le renommage
+vers une variable plus saine est reporte apres la premiere MEP reussie.
 
 ## Etat Du Premier Slice Executable
 
-Le premier slice executable du modele cible est maintenant code dans le
+Le premier slice executable du modele cible est partiellement code dans le
 monorepo:
 
-- `ci.yml` cible `pull_request -> main` et `push -> main`;
+- `ci.yml` cible deja `pull_request -> main` et `push -> main`;
 - `cd.yml` ne porte plus que la preprod `main`, les snapshots dev et le
   deploy `dev-deces.matchid.io`;
-- `release-prod.yml` porte la promotion prod sur tag `prod/v*` ou dispatch
-  manuel avec `prod_tag`;
+- `release-prod.yml` porte deja la promotion prod par tag, mais ecoute encore
+  `prod/v*` et doit etre aligne vers `v*`;
 - le chemin de publication reseau reste
-  `remote-test-api-in-vpc -> nginx-conf-apply -> remote-test-api -> cdn-cache-purge`;
-- les `APP_VERSION` derivees de tags Git sont sanitisees pour rester
-  Docker-safe avec la convention `prod/v*`;
+  `remote-test-api-in-vpc -> nginx-conf-apply -> remote-test-api -> purge CDN`;
 - le `Makefile` racine accepte
   `DATAPREP_VERSION_OVERRIDE` / `DATA_VERSION_OVERRIDE` pour redeployer un
   snapshot existant sans recalculer la data courante.
 
 Ce premier slice ne ferme pas encore la migration cible:
 
+- la separation stricte ref Git / label runtime n'est pas encore appliquee
+  partout dans les workflows;
 - `changesets` n'est pas encore execute end-to-end;
 - `packages/dataprep-backend/VERSION` est introduit comme source de verite,
   mais pas encore branche sur un commit de release complet;
@@ -81,14 +127,14 @@ Toutes les unites du monorepo ne suivent pas la meme source de version.
 
 ```text
 Composant            | Nature                   | Source de version cible                 | Tag dedie
----------------------+--------------------------+-----------------------------------------+------------------------
+---------------------+--------------------------+-----------------------------------------+---------------------------
 deces-ui             | app Node                 | `package.json` + changesets             | `deces-ui/vX.Y.Z`
 deces-backend        | app Node                 | `package.json` + changesets             | `deces-backend/vX.Y.Z`
 dataprep-frontend    | app Node                 | `package.json` + changesets             | `dataprep-frontend/vX.Y.Z`
 dataprep-backend     | app Python               | fichier `VERSION` dedie                 | `dataprep-backend/vX.Y.Z`
 deces-dataprep       | recette / data pipeline  | `DATAPREP_VERSION` + `DATA_VERSION`     | pas de tag semver requis
 tools                | outillage infra          | SHA git / tags Docker existants         | pas de tag semver requis
-release prod         | stack deployable         | tag Git de stack                        | `prod/vYYYY.MM.DD.N`
+release prod         | stack deployable         | tag Git de stack                        | `vYYYY.MM.DD.N`
 ```
 
 Notes:
@@ -173,13 +219,13 @@ Ils pilotent la promotion prod.
 Convention retenue:
 
 ```text
-prod/vYYYY.MM.DD.N
+vYYYY.MM.DD.N
 ```
 
 Exemple:
 
 ```text
-prod/v2026.04.25.1
+v2026.04.25.1
 ```
 
 Regles:
@@ -189,7 +235,8 @@ Regles:
 - il reference implicitement les versions package presentes dans le commit
   pointe;
 - il devient la reference de `APP_RELEASE` pour la prod;
-- le dernier tag prod deploye devient la base des runs dataprep mensuels.
+- le dernier tag prod deploye devient la base des runs dataprep mensuels;
+- un tag prod est un tag Git simple, pas une branche additionnelle.
 
 ## Source de verite prod
 
@@ -232,33 +279,41 @@ Objectif:
 ```text
 Evenement      | Workflow cible | Effet
 ---------------+----------------+-------------------------------------------------------------
-push sur main  | `cd.yml`       | build/publish artefacts candidats + deploy `dev-deces`
+push sur main  | `cd.yml`       | build/publish artefacts candidats + snapshots dev + deploy preprod
 ```
 
-Comportement cible:
+Regles generales:
 
-- publication des images applicatives impactees;
-- snapshots dev `small` / `year` selon les changements dataprep;
-- deploiement automatique de `dev-deces.matchid.io`;
-- aucun deploy prod.
+- le code source est `main`;
+- le label runtime reste `dev`;
+- les artefacts de deploiement doivent donc rester nommes exactement comme
+  aujourd'hui cote exploitation.
 
-`main` devient donc la branche unique de preprod/integration.
+#### 2.a Scenarios de declenchement preprod
 
-Etat du premier slice:
+```text
+Changement                         | Effet sur `main`
+-----------------------------------+-----------------------------------------------------------
+deces-ui seul                      | build/publish `deces-ui` puis deploy preprod
+deces-backend seul                 | build/publish `deces-backend` puis deploy preprod
+tools                              | `small` puis `year`, puis deploy preprod
+deces-dataprep                     | `small` puis `year`, puis deploy preprod
+dataprep-backend                   | publish `matchid-backend`, puis `small`, puis `year`, puis deploy preprod
+dataprep-frontend seul             | cycle propre dataprep-frontend, pas de deploy `deces-ui`
+mixte app + dataprep               | sequence unique: artefacts, `small`, `year`, puis deploy preprod
+```
 
-- ce comportement est deja code dans `ci.yml` et `cd.yml`;
-- la preuve live GitHub sur la branche racine `main` reste un travail lot 9.
+Contraintes:
 
-### 2.b Mecanisme de publication reseau
+- si `tools`, `deces-dataprep` ou `dataprep-backend` changent, le deploy
+  preprod de `deces-ui` ne doit partir qu'apres succes de `small` puis `year`;
+- si `year` echoue, il n'y a pas de deploy preprod;
+- `dataprep-frontend` seul n'est pas un motif suffisant pour redeployer
+  `deces-ui`.
 
-Le schema cible conserve le mecanisme transitoire actuel:
+#### 2.b Mecanisme de publication reseau
 
-- test applicatif depuis le VPC;
-- ecriture d'un upstream nginx distant via `nginx-conf-apply`;
-- verification publique apres reload nginx;
-- purge de cache CDN.
-
-La sequence retenue reste donc:
+Le schema cible conserve le mecanisme actuel:
 
 ```text
 1. remote-test-api-in-vpc
@@ -274,29 +329,20 @@ Autrement dit:
 - la purge CDN reste un post-traitement de publication, pas le mecanisme de
   bascule lui-meme.
 
-## Contrat de publication reseau actuel
-
-Le contrat minimal conserve est:
+### 3. Tag prod `v*`
 
 ```text
-Objet        | Role
--------------+--------------------------------------------------------------
-NGINX_HOST   | hote nginx qui porte le switch public
-NGINX_USER   | utilisateur SSH sur cet hote
-CDN_TOKEN    | purge de cache CDN apres publication
-CDN_ZONE_ID  | zone CDN associee
+Evenement          | Workflow cible         | Effet
+-------------------+------------------------+----------------------------------------------------------
+push tag `v*`      | `release-prod.yml`     | promotion prod depuis un commit de `main`
 ```
 
-La roadmap ulterieure pourra remplacer ce contrat par une bascule CDN complete,
-mais ce n'est pas la cible du lot 9.
+Regles generales:
 
-### 3. Tag prod
-
-```text
-Evenement              | Workflow cible         | Effet
------------------------+------------------------+----------------------------------------------------------
-push tag `prod/v*`     | `release-prod.yml`     | promotion prod depuis un commit de `main`
-```
+- le code source est le tag pousse;
+- le label runtime reste `master`;
+- les artefacts de deploiement doivent donc rester nommes exactement comme
+  aujourd'hui cote prod.
 
 Le workflow de tag prod suit cette logique:
 
@@ -304,12 +350,14 @@ Le workflow de tag prod suit cette logique:
 2. resoudre le dernier tag prod reussi precedent;
 3. comparer le tag courant au precedent;
 4. si le diff touche la pile dataprep
-   (`deces-dataprep`, `dataprep-backend`, `dataprep-frontend`, `tools`,
-   chemins infra associes):
+   (`deces-dataprep`, `dataprep-backend`, `tools`, chemins infra associes):
    - lancer `dataprep-full` sur le tag courant;
    - deployer la prod avec les images du tag courant, le nouveau snapshot et le
      switch nginx actuel;
-5. sinon:
+5. si le diff ne touche que `dataprep-frontend`:
+   - publier ses artefacts si necessaire;
+   - ne pas declencher a lui seul un deploy `deces-ui`;
+6. sinon:
    - reutiliser le dernier snapshot prod valide;
    - deployer la prod avec les images du tag courant, le snapshot courant et le
      switch nginx actuel.
@@ -318,13 +366,6 @@ Ce comportement preserve les deux cas historiques:
 
 - release applicative seule;
 - release applicative + data.
-
-Etat du premier slice:
-
-- `release-prod.yml` implemente deja cette logique de base;
-- en absence de metadata de release precedente, le workflow force un `full`
-  pour initialiser une source de verite prod exploitable;
-- la source de verite cible reste le dernier deploiement GitHub `prod` reussi.
 
 ### 4. Dataprep mensuel prod
 
@@ -345,15 +386,10 @@ Comportement cible:
    - `APP_RELEASE = dernier tag prod`
    - `SNAPSHOT = nouveau snapshot`
    - `publish switch = via nginx-conf-apply sur la nouvelle instance preparee`
+   - `GIT_BRANCH=master`
 
 Ce workflow est la transposition du fonctionnement upstream mensuel: la data
 evolue, l'application reste figee sur la derniere release prod.
-
-Etat du premier slice:
-
-- ce workflow mensuel n'est pas encore implemente;
-- il reste ouvert dans le plan comme suite du lot 9;
-- le contrat de metadata produit par `release-prod.yml` prepare cette etape.
 
 ## Cas operatoires cibles
 
@@ -361,33 +397,38 @@ Etat du premier slice:
 
 ```text
 1. Merge sur `main`
-2. Validation sur `dev-deces`
-3. Si l'on veut seulement mettre a jour la data prod:
-   - soit attendre le mensuel automatique;
-   - soit lancer `dataprep-monthly.yml` manuellement
-4. La prod est redeployee avec le dernier tag prod et le nouveau snapshot
+2. `small` puis `year`
+3. Deploy automatique sur `dev-deces`
+4. Validation preprod
+5. Si besoin prod immediat:
+   - tag `v*`, puis `full`, puis deploy prod
+   - ou attendre le mensuel automatique
 ```
 
 ### Evol deces-ui / deces-backend seule
 
 ```text
 1. Merge sur `main`
-2. Validation sur `dev-deces`
-3. Preparation de release (`changeset version` + bump `VERSION` Python si besoin)
-4. Creation des tags package et du tag `prod/v*`
-5. Le tag prod redeploie la prod avec le snapshot courant
+2. Deploy automatique sur `dev-deces`
+3. Validation preprod
+4. Preparation de release (`changeset version` + bump `VERSION` Python si besoin)
+5. Creation des tags package et du tag `v*`
+6. Le tag prod redeploie la prod avec le snapshot courant
 ```
 
 ### Evol dataprep + application
 
 ```text
 1. Merge sur `main`
-2. Validation sur `dev-deces`
-3. Preparation de release
-4. Tag `prod/v*`
-5. Le workflow de tag detecte un diff dataprep, lance `dataprep-full`
-6. La prod est redeployee automatiquement avec le nouveau snapshot et les
-   images du tag
+2. Artefacts necessaires
+3. `small`
+4. `year`
+5. Deploy automatique sur `dev-deces`
+6. Validation preprod
+7. Preparation de release
+8. Tag `v*`
+9. `dataprep-full`
+10. Deploy prod
 ```
 
 ### Rollback
@@ -403,7 +444,7 @@ Etat du premier slice:
 Le modele GitHub final devient:
 
 ```text
-feature branch -> PR vers main -> merge main -> tag prod/v* -> deploy prod
+feature branch -> PR vers main -> merge main -> tag v* -> deploy prod
 ```
 
 Regles:
@@ -412,7 +453,7 @@ Regles:
 - `master` est supprimee;
 - `main` est protegee avec checks CI requis;
 - des protections de tags s'appliquent sur:
-  - `prod/v*`
+  - `v*`
   - `deces-ui/v*`
   - `deces-backend/v*`
   - `dataprep-frontend/v*`
@@ -425,12 +466,13 @@ Le schema final implique:
 
 - renommage des triggers `dev` -> `main`;
 - suppression des triggers `master`;
-- creation d'un workflow de release sur `push.tags`;
+- alignement du workflow de release prod sur `push.tags = v*`;
 - creation d'un workflow mensuel `schedule`/`workflow_dispatch`;
 - conservation du switch `nginx-conf-apply` dans `packages/tools` /
   `deploy-remote` sur le chemin critique;
-- la bascule CDN complete reste une evolution de roadmap hors lot 9;
-- suppression des hypotheses `dev -> master` des docs et protections.
+- conservation stricte de `GIT_BRANCH=dev/master` dans les artefacts
+  d'exploitation avant la premiere MEP;
+- la bascule CDN complete reste une evolution de roadmap hors lot 9.
 
 ## Sort des specs intermediaires
 
