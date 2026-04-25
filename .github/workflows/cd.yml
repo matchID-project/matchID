@@ -370,7 +370,7 @@ jobs:
             printf '%s' "${value}"
           }
           BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
-          BASTION_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
+          BASTION_USER_RESOLVED=ubuntu
           BASTION_SOURCE=nginx
           if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
@@ -560,7 +560,7 @@ jobs:
             printf '%s' "${value}"
           }
           BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
-          BASTION_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
+          BASTION_USER_RESOLVED=ubuntu
           if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
           test -n "${BASTION_HOST_RESOLVED}"
