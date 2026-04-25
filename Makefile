@@ -66,7 +66,7 @@ export ALLOW_MAKE_GIT_COMMIT ?= false
 export GIT_ORIGIN=origin
 export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 export GIT_BRANCH_MAIN ?= main
-export RELEASE_TAG_PREFIX ?= prod/v
+export RELEASE_TAG_PREFIX ?= v
 export DEPLOY_TARGET ?=
 export GIT_ROOT = https://github.com/matchID-project
 export REMOTE_DEPLOY_BRANCH ?= ${GIT_BRANCH}
@@ -155,6 +155,7 @@ version:
 
 release-context:
 	@echo GIT_BRANCH=${GIT_BRANCH}
+	@echo REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH}
 	@echo DEPLOY_TARGET=${DEPLOY_TARGET}
 	@echo RELEASE_TAG_PREFIX=${RELEASE_TAG_PREFIX}
 	@echo APP_DNS_TARGET=${APP_DNS_TARGET}
@@ -568,16 +569,25 @@ deploy-remote-preflight: config-minimal
 	done; \
 	if [ "$$missing" -ne 0 ]; then exit 1; fi; \
 	if [ "${DEPLOY_TARGET}" != "prod" ]; then \
-		if [ "${GIT_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
-			echo "GIT_BRANCH=${GIT_BRANCH} is not the preprod branch ${GIT_BRANCH_MAIN}"; \
+		if [ "${GIT_BRANCH}" != "dev" ]; then \
+			echo "GIT_BRANCH=${GIT_BRANCH} is not the expected preprod runtime label dev"; \
+			exit 1; \
+		fi; \
+		if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
+			echo "REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH} is not the expected preprod git ref ${GIT_BRANCH_MAIN}"; \
 			exit 1; \
 		fi; \
 		if [ "${REPOSITORY_BUCKET}" != "${REPOSITORY_BUCKET_DEV}" ]; then \
 			echo "REPOSITORY_BUCKET=${REPOSITORY_BUCKET} is not preprod bucket ${REPOSITORY_BUCKET_DEV}"; \
 			exit 1; \
 		fi; \
+	else \
+		if [ "${GIT_BRANCH}" != "master" ]; then \
+			echo "GIT_BRANCH=${GIT_BRANCH} is not the expected prod runtime label master"; \
+			exit 1; \
+		fi; \
 	fi; \
-	if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH}" ]; then \
+	if [ "${DEPLOY_TARGET}" != "prod" ] && [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH}" ] && [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
 		echo "warning remote deploy branch ${REMOTE_DEPLOY_BRANCH} differs from deploy branch ${GIT_BRANCH}"; \
 	fi; \
 	if [ ! -f "${SSHKEY_PRIVATE}" ]; then \

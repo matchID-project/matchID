@@ -353,11 +353,11 @@
     - [ ] Reconfigurer la gouvernance GitHub pour `main` et pour les tags proteges, en supprimant les protections `master`
     - [ ] Refondre `ci.yml` et `cd.yml` vers le cycle `pull_request -> main`, `push -> main`, `push tag v*` et `schedule/workflow_dispatch` dataprep mensuel
       - [x] Basculer `ci.yml` sur `pull_request -> main` et `push -> main`
-      - [x] Sortir la prod de `cd.yml` et creer `release-prod.yml` pour `push tag prod/v*`
-      - [ ] Aligner `release-prod.yml` sur `push tag v*`
+      - [x] Sortir la prod de `cd.yml` et creer `release-prod.yml` pour `push tag v*`
+      - [x] Aligner `release-prod.yml` sur `push tag v*`
       - [ ] Ajouter le workflow mensuel `dataprep-monthly.yml`
-      - [ ] Garantir que `GIT_BRANCH=dev/master` reste strictement inchange dans les artefacts d'exploitation, seuls les refs Git et workflows changeant
-      - [ ] Garantir qu'un changement `tools`, `deces-dataprep` ou `dataprep-backend` sur `main` execute `small` puis `year`, puis seulement le deploy preprod `deces-ui`
+      - [x] Garantir que `GIT_BRANCH=dev/master` reste strictement inchange dans les artefacts d'exploitation, seuls les refs Git et workflows changeant
+      - [x] Garantir qu'un changement `tools`, `deces-dataprep` ou `dataprep-backend` sur `main` execute `small` puis `year`, puis seulement le deploy preprod `deces-ui`
     - [x] Conserver le switch `nginx-conf-apply` / bastion dans le chemin critique tant que la bascule CDN complete n'est pas explicitement ouverte
     - [ ] Executer le CD `dataprep-full` depuis le dernier tag prod ou le contexte prod valide, jamais depuis une branche PR
     - [ ] Configurer le dataprep mensuel en mode alerte seule en cas d'echec, sans retry automatique

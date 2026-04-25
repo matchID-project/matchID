@@ -107,12 +107,12 @@ jobs:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build matchid-backend image
         run: |
-          make -C packages/deces-dataprep config GIT_BRANCH=${CD_GIT_BRANCH}
-          make -C packages/dataprep-backend backend-build GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/deces-dataprep config GIT_BRANCH=dev
+          make -C packages/dataprep-backend backend-build GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish matchid-backend image
-        run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -140,13 +140,13 @@ jobs:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build matchid-frontend image
         run: |
-          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${CD_GIT_BRANCH}
-          make -C packages/dataprep-frontend build GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=dev
+          make -C packages/dataprep-frontend build GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           NPM_AUDIT_IGNORE: "true"
       - name: Publish matchid-frontend image
-        run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -173,11 +173,11 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build deces-backend image
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish deces-backend image
-        run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -204,11 +204,11 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build deces-ui image
-        run: make APP=deces-ui build GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make APP=deces-ui build GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish deces-ui image
-        run: make frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make frontend-docker-push GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -261,7 +261,7 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Produce dataprep small snapshot
-        run: make artifact-produce-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
+        run: make artifact-produce-dataprep-snapshot GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
@@ -276,7 +276,7 @@ jobs:
             echo "count=$(cat ${ES_COUNT_FILE})"
           } | tee /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot-metadata.txt
       - name: Publish dataprep small snapshot
-        run: make artifact-publish-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        run: make artifact-publish-dataprep-snapshot GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
@@ -338,14 +338,14 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep year snapshot
-        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Run dataprep year remote-all
         run: |
           make -C packages/deces-dataprep remote-all \
-            GIT_BRANCH="${CD_GIT_BRANCH}" \
+            GIT_BRANCH=dev \
             FILES_TO_PROCESS="${FILES_TO_PROCESS}" \
             REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
             SCW_FLAVOR="${SCW_FLAVOR}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE}" \
@@ -366,7 +366,7 @@ jobs:
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Export dataprep year snapshot metadata
         run: |
-          make -C packages/deces-dataprep repository-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+          make -C packages/deces-dataprep repository-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
           test -s packages/deces-dataprep/repository-check
           SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
           {
@@ -406,7 +406,8 @@ jobs:
             github.ref == 'refs/heads/main' &&
             (
               needs.changes.outputs.deces_backend == 'true' ||
-              needs.changes.outputs.deces_ui == 'true'
+              needs.changes.outputs.deces_ui == 'true' ||
+              needs.changes.outputs.dataprep_snapshot == 'true'
             )
           ) ||
           (
@@ -422,7 +423,7 @@ jobs:
       contents: read
     env:
       APP_DNS: deces.matchid.io
-      GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      GIT_BRANCH: dev
       DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || 'none' }}
     steps:
       - uses: actions/checkout@v4
@@ -438,16 +439,18 @@ jobs:
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Deploy deces.matchid.io
+      - name: Deploy dev-deces.matchid.io
         run: |
           make deploy-remote-preflight \
             GIT_BRANCH=$GIT_BRANCH \
+            REMOTE_DEPLOY_BRANCH=main \
             DEPLOY_TARGET=dev \
             APP_DNS=$APP_DNS \
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
             REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV
           make deploy-remote \
             GIT_BRANCH=$GIT_BRANCH \
+            REMOTE_DEPLOY_BRANCH=main \
             DEPLOY_TARGET=dev \
             APP_DNS=$APP_DNS \
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \

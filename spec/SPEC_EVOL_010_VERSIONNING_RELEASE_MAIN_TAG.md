@@ -103,8 +103,7 @@ monorepo:
 - `ci.yml` cible deja `pull_request -> main` et `push -> main`;
 - `cd.yml` ne porte plus que la preprod `main`, les snapshots dev et le
   deploy `dev-deces.matchid.io`;
-- `release-prod.yml` porte deja la promotion prod par tag, mais ecoute encore
-  `prod/v*` et doit etre aligne vers `v*`;
+- `release-prod.yml` porte deja la promotion prod par tag `v*`;
 - le chemin de publication reseau reste
   `remote-test-api-in-vpc -> nginx-conf-apply -> remote-test-api -> purge CDN`;
 - le `Makefile` racine accepte
@@ -113,8 +112,8 @@ monorepo:
 
 Ce premier slice ne ferme pas encore la migration cible:
 
-- la separation stricte ref Git / label runtime n'est pas encore appliquee
-  partout dans les workflows;
+- la separation stricte ref Git / label runtime est maintenant appliquee sur
+  les chemins workflow qui publient et deploient en preprod/prod;
 - `changesets` n'est pas encore execute end-to-end;
 - `packages/dataprep-backend/VERSION` est introduit comme source de verite,
   mais pas encore branche sur un commit de release complet;
