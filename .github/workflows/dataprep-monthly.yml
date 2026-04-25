@@ -157,7 +157,7 @@ jobs:
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
@@ -241,7 +241,7 @@ jobs:
             DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
             DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
           make deploy-remote \
             GIT_BRANCH=master \
             GIT_BACKEND_BRANCH=master \
@@ -263,7 +263,7 @@ jobs:
             MMDB_TOKEN="${MMDB_TOKEN}" \
             NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
 
       - name: Write dataprep monthly metadata artifact
         run: |

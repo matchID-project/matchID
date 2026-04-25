@@ -357,8 +357,8 @@ jobs:
       - name: Debug dataprep bastion resolution
         run: |
           set -euo pipefail
-          RESOLVED_HOST="$(ssh -G bastion | awk '$1 == "hostname" { print $2; exit }')"
-          RESOLVED_USER="$(ssh -G bastion | awk '$1 == "user" { print $2; exit }')"
+          RESOLVED_HOST="$(ssh -G -F "${HOME}/.ssh/config" bastion | awk '$1 == "hostname" { print $2; exit }')"
+          RESOLVED_USER="$(ssh -G -F "${HOME}/.ssh/config" bastion | awk '$1 == "user" { print $2; exit }')"
           echo "bastion_user=${RESOLVED_USER}"
           if [ -z "${RESOLVED_HOST}" ]; then
             echo "bastion_host_kind=empty"
@@ -392,7 +392,7 @@ jobs:
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${CD_GIT_BRANCH}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${CD_GIT_BRANCH}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
@@ -509,7 +509,7 @@ jobs:
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
             REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
           make deploy-remote \
             GIT_BRANCH=$GIT_BRANCH \
             REMOTE_DEPLOY_BRANCH=main \
@@ -524,7 +524,7 @@ jobs:
             MMDB_TOKEN=$MMDB_TOKEN \
             NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J bastion -o IdentitiesOnly=yes"
+            CLOUD_SSHOPTS="-F ${HOME}/.ssh/config -J bastion -o IdentitiesOnly=yes"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
