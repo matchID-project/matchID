@@ -3,12 +3,10 @@ name: CI
 on:
   pull_request:
     branches:
-      - dev
-      - master
+      - main
   push:
     branches:
-      - dev
-      - master
+      - main
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -127,7 +125,7 @@ jobs:
         run: |
           make -C packages/dataprep-frontend version-files
           make -C packages/dataprep-frontend version
-          make -C packages/dataprep-frontend frontend-docker-check || make -C packages/dataprep-frontend build backend-docker-check up
+          make -C packages/dataprep-frontend frontend-docker-check GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev || make -C packages/dataprep-frontend build backend-docker-check up GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev
 
   deces-backend-build:
     name: deces-backend build docker image and tests

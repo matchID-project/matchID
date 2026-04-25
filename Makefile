@@ -29,6 +29,7 @@ export DATASET=fichier-des-personnes-decedees
 export APP_GROUP = matchID
 export APP_PATH := $(shell pwd)
 export APP_DNS?=deces.matchid.io
+export PREPROD_APP_DNS ?= dev-${APP_DNS}
 export API_EMAIL?=contact@matchid.io
 export FRONTEND_PATH := ${APP_PATH}/packages/${APP_FRONTEND}
 export BACKEND_PATH := ${APP_PATH}/packages/${APP_BACKEND}
@@ -64,9 +65,12 @@ export GIT ?= $(shell which git || echo git)
 export ALLOW_MAKE_GIT_COMMIT ?= false
 export GIT_ORIGIN=origin
 export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
-export GIT_BRANCH_MASTER = master
+export GIT_BRANCH_MAIN ?= main
+export RELEASE_TAG_PREFIX ?= v
+export DEPLOY_TARGET ?=
 export GIT_ROOT = https://github.com/matchID-project
 export REMOTE_DEPLOY_BRANCH ?= ${GIT_BRANCH}
+export PACKAGE_VERSIONS_SCRIPT = ${APP_PATH}/scripts/package_versions.py
 export APP_URL?=https://${APP_DNS}
 export API_SSL?=1
 export APP_NODES=1
@@ -93,6 +97,8 @@ export DATAGOUV_RESOURCES_REWRITE_PATH := $(shell echo ${DATAGOUV_RESOURCES_HOST
 export DATA_DIR = ${APP_PATH}/data
 export DATAPREP_VERSION_FILE = ${APP_PATH}/.dataprep.sha1
 export DATA_VERSION_FILE = ${APP_PATH}/.data.sha1
+export DATAPREP_VERSION_OVERRIDE ?=
+export DATA_VERSION_OVERRIDE ?=
 export DATA_VERSION_SOURCE ?= storage
 export DATA_VERSION_INPUT_DIR ?=
 export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
@@ -119,12 +125,21 @@ include ./artifacts
 export STORAGE_ACCESS_KEY_B64:=$(shell echo -n ${STORAGE_ACCESS_KEY} | openssl base64)
 export STORAGE_SECRET_KEY_B64:=$(shell echo -n ${STORAGE_SECRET_KEY} | openssl base64)
 
-commit              := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || cat VERSION 2>/dev/null)
-tag                 := $(shell (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//')
+git_ref_raw         := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || cat VERSION 2>/dev/null)
+git_ref_safe        := $(shell printf '%s' "$(git_ref_raw)" | sed 's#[^A-Za-z0-9_.-]#-#g')
+commit              := $(git_ref_safe)
+tag                 := $(shell printf '%s' "$(git_ref_raw)" | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g')
 lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 
-export APP_VERSION := $(shell git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
+export APP_VERSION := $(git_ref_safe)
+export DECES_BACKEND_APP_VERSION ?= $(shell cd ${BACKEND_PATH} && (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's#[^A-Za-z0-9_.-]#-#g')
+
+ifeq (${DEPLOY_TARGET},prod)
+export APP_DNS_TARGET ?= ${APP_DNS}
+else
+export APP_DNS_TARGET ?= ${PREPROD_APP_DNS}
+endif
 
 
 export DOCKER_USERNAME=matchid
@@ -138,6 +153,13 @@ include /etc/os-release
 
 version:
 	@echo ${APP_VERSION}
+
+release-context:
+	@echo GIT_BRANCH=${GIT_BRANCH}
+	@echo REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH}
+	@echo DEPLOY_TARGET=${DEPLOY_TARGET}
+	@echo RELEASE_TAG_PREFIX=${RELEASE_TAG_PREFIX}
+	@echo APP_DNS_TARGET=${APP_DNS_TARGET}
 
 config-minimal:
 	@if [ ! -d "${TOOLS_PATH}" ];then\
@@ -284,16 +306,24 @@ restart: down up
 
 FORCE:
 
+ifneq (${DATAPREP_VERSION_OVERRIDE},)
+${DATAPREP_VERSION_FILE}: FORCE
+	@printf '%s\n' "${DATAPREP_VERSION_OVERRIDE}" > ${DATAPREP_VERSION_FILE}
+else
 ${DATAPREP_VERSION_FILE}: ${DATAPREP_PATH}/Makefile ${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml ${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml
 	@cat ${DATAPREP_PATH}/Makefile\
 		${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml\
 		${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml\
 	| sha1sum | awk '{print $1}' | cut -c-8 > ${DATAPREP_VERSION_FILE}
+endif
 
 dataprep-version: ${DATAPREP_VERSION_FILE}
 	@cat ${DATAPREP_VERSION_FILE}
 
-ifeq (${DATA_VERSION_SOURCE},local)
+ifneq (${DATA_VERSION_OVERRIDE},)
+${DATA_VERSION_FILE}: FORCE
+	@printf '%s\n' "${DATA_VERSION_OVERRIDE}" > ${DATA_VERSION_FILE}
+else ifeq (${DATA_VERSION_SOURCE},local)
 ${DATA_VERSION_FILE}: FORCE
 	@if [ -z "${DATA_VERSION_INPUT_DIR}" ]; then\
 		echo "DATA_VERSION_INPUT_DIR is required when DATA_VERSION_SOURCE=local";\
@@ -340,6 +370,35 @@ artifact-versions:
 	@echo "deces-backend: $$(${MAKE} artifact-version-deces-backend)"
 	@echo "deces-ui: $$(${MAKE} artifact-version-deces-ui)"
 	@echo "snapshot: $$(${MAKE} artifact-version-dataprep-snapshot)"
+
+package-version:
+	@if [ -z "${PACKAGE}" ]; then\
+		echo "PACKAGE is required";\
+		exit 1;\
+	fi
+	@python3 ${PACKAGE_VERSIONS_SCRIPT} --root ${APP_PATH} get --package "${PACKAGE}"
+
+package-version-set:
+	@if [ -z "${PACKAGE}" ] || [ -z "${VERSION}" ]; then\
+		echo "PACKAGE and VERSION are required";\
+		exit 1;\
+	fi
+	@python3 ${PACKAGE_VERSIONS_SCRIPT} --root ${APP_PATH} set --package "${PACKAGE}" --version "${VERSION}"
+
+package-version-deces-ui:
+	@${MAKE} package-version PACKAGE=deces-ui
+
+package-version-deces-backend:
+	@${MAKE} package-version PACKAGE=deces-backend
+
+package-version-dataprep-frontend:
+	@${MAKE} package-version PACKAGE=dataprep-frontend
+
+package-version-dataprep-backend:
+	@${MAKE} package-version PACKAGE=dataprep-backend
+
+package-versions:
+	@python3 ${PACKAGE_VERSIONS_SCRIPT} --root ${APP_PATH} list
 
 artifact-produce-dataprep-snapshot:
 	@rm -f ${ARTIFACT_RECIPE_RUN_MARKER} ${ARTIFACT_S3_PULL_MARKER}
@@ -425,7 +484,7 @@ deploy-k8s-redis: deploy-k8s-namespace
 
 deploy-k8s-backend: deploy-k8s-namespace
 	@echo $@
-	@export BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	@export BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	cat ${KUBE_DIR}/backend.yaml | envsubst `env | sed "s/=.*//;s/^/$$/" | tr "\n" ","` | kubectl apply -f -
 
 deploy-k8s-frontend: deploy-k8s-namespace
@@ -434,7 +493,7 @@ deploy-k8s-frontend: deploy-k8s-namespace
 
 deploy-remote-instance: config-minimal ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-config\
@@ -449,7 +508,7 @@ deploy-remote-instance: config-minimal ${DATAPREP_VERSION_FILE} ${DATA_VERSION_F
 
 deploy-remote-services:
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-deploy remote-actions\
@@ -471,23 +530,18 @@ deploy-remote-publish:
 	@if [ -z "${NGINX_HOST}" -o -z "${NGINX_USER}" ];then\
 		(echo "can't deploy without NGINX_HOST and NGINX_USER" && exit 1);\
 	fi;
-	@if [ "${GIT_BRANCH}" == "${GIT_BRANCH_MASTER}" ];then\
-		APP_DNS=${APP_DNS};\
-	else\
-		APP_DNS="${GIT_BRANCH}-${APP_DNS}";\
-	fi;\
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} remote-test-api-in-vpc nginx-conf-apply remote-test-api\
 		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} GIT_BRANCH=${GIT_BRANCH} PORT=${PORT}\
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$${BACKEND_APP_VERSION}-data:$${DATAPREP_VERSION}-$${DATA_VERSION}\
 		API_TEST_PATH=${API_TEST_PATH} API_TEST_JSON_PATH=${API_TEST_JSON_PATH} API_TEST_DATA='${API_TEST_REQUEST}'\
-		${MAKEOVERRIDES} APP_DNS=$$APP_DNS
+		${MAKEOVERRIDES} APP_DNS=${APP_DNS_TARGET}
 
 deploy-delete-old: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@\
-	BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags);\
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE});\
 	${MAKE} -C ${TOOLS_PATH} cloud-instance-down-invalid\
@@ -544,15 +598,26 @@ deploy-remote-preflight: config-minimal
 		fi; \
 	done; \
 	if [ "$$missing" -ne 0 ]; then exit 1; fi; \
-	if [ "${GIT_BRANCH}" != "dev" ]; then \
-		echo "GIT_BRANCH=${GIT_BRANCH} is not the preprod branch dev"; \
-		exit 1; \
+	if [ "${DEPLOY_TARGET}" != "prod" ]; then \
+		if [ "${GIT_BRANCH}" != "dev" ]; then \
+			echo "GIT_BRANCH=${GIT_BRANCH} is not the expected preprod runtime label dev"; \
+			exit 1; \
+		fi; \
+		if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
+			echo "REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH} is not the expected preprod git ref ${GIT_BRANCH_MAIN}"; \
+			exit 1; \
+		fi; \
+		if [ "${REPOSITORY_BUCKET}" != "${REPOSITORY_BUCKET_DEV}" ]; then \
+			echo "REPOSITORY_BUCKET=${REPOSITORY_BUCKET} is not preprod bucket ${REPOSITORY_BUCKET_DEV}"; \
+			exit 1; \
+		fi; \
+	else \
+		if [ "${GIT_BRANCH}" != "master" ]; then \
+			echo "GIT_BRANCH=${GIT_BRANCH} is not the expected prod runtime label master"; \
+			exit 1; \
+		fi; \
 	fi; \
-	if [ "${REPOSITORY_BUCKET}" != "${REPOSITORY_BUCKET_DEV}" ]; then \
-		echo "REPOSITORY_BUCKET=${REPOSITORY_BUCKET} is not preprod bucket ${REPOSITORY_BUCKET_DEV}"; \
-		exit 1; \
-	fi; \
-	if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH}" ]; then \
+	if [ "${DEPLOY_TARGET}" != "prod" ] && [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH}" ] && [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
 		echo "warning remote deploy branch ${REMOTE_DEPLOY_BRANCH} differs from deploy branch ${GIT_BRANCH}"; \
 	fi; \
 	if [ ! -f "${SSHKEY_PRIVATE}" ]; then \
@@ -564,7 +629,7 @@ deploy-remote-preflight: config-minimal
 			echo "warning missing optional $$var"; \
 		fi; \
 	done; \
-	echo "deploy-remote preflight ok for ${GIT_BRANCH}-${APP_DNS}"
+	echo "deploy-remote preflight ok for ${APP_DNS_TARGET}"
 
 deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
 
@@ -576,7 +641,7 @@ deploy-docker-pull-base: deploy-remote-instance
 
 
 update-base-image: deploy-remote-instance deploy-docker-pull-base
-	@BACKEND_APP_VERSION=$(shell cd ${BACKEND_PATH} && git describe --tags); \
+	@BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION}; \
 	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
 	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
 	sleep 5;\

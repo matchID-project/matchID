@@ -337,10 +337,30 @@
     - [x] Conserver le comportement upstream cible: `dataprep-full` produit le snapshot, le deploiement UI prod reste declenche separement et explicitement
     - [x] Ecrire le runbook de bascule
     - [x] Ecrire le runbook de rollback
-    - [x] Documenter l'etat GitHub live du monorepo et l'ecart cible `feat/* -> dev -> master`
-    - [x] Creer la branche racine `master` depuis `dev`
-    - [x] Configurer la gouvernance GitHub `dev` / `master` alignée sur la cible et sur la reference `deces-ui`
-    - [ ] Executer le CD `dataprep-full` depuis `master` ou le contexte prod valide, jamais depuis une branche PR
+    - [x] Documenter l'etat GitHub live du monorepo et la piste transitoire `feat/* -> dev -> master`, puis acter son abandon au profit de `main + tags`
+    - [x] Acter dans une spec dediee le pivot final `dev/master` -> `main + tags`, le contrat `APP_RELEASE + SNAPSHOT`, le versionning monorepo et le dataprep mensuel auto-redeploy
+    - [ ] Remplacer `dev` par `main` comme branche d'integration/preprod et branche par defaut
+    - [ ] Supprimer `master` du repo racine une fois `main` et les tags de release en place
+    - [ ] Definir et appliquer la convention de tags package (`deces-ui/v*`, `deces-backend/v*`, `dataprep-frontend/v*`, `dataprep-backend/v*`) et de release prod (`v*`)
+    - [ ] Documenter que le tag prod `v*` est cree manuellement apres validation UAT smoke sur `dev-deces.matchid.io`
+    - [x] Definir et implementer les cibles `make` de versionning independant par package
+      - [x] Pour les packages Node versionnes, faire porter la version finale par les `package.json` de la PR mergee sur `main`
+      - [x] Ajouter `.changeset/README.md` comme documentation technique transitoire si `changesets` reste utile en helper interne
+      - [x] Si `changesets` est conserve, l'encapsuler derriere `make` sans commit de release separe apres merge
+    - [x] Introduire une source de version semantique dediee pour `packages/dataprep-backend` hors `changesets`
+      - [x] Ajouter `packages/dataprep-backend/VERSION` avec la base semantique courante `0.4.0`
+      - [x] Faire porter la version finale par `packages/dataprep-backend/VERSION` dans la PR mergee sur `main`
+    - [ ] Reconfigurer la gouvernance GitHub pour `main` et pour les tags proteges, en supprimant les protections `master`
+    - [ ] Refondre `ci.yml` et `cd.yml` vers le cycle `pull_request -> main`, `push -> main`, `push tag v*` et `schedule/workflow_dispatch` dataprep mensuel
+      - [x] Basculer `ci.yml` sur `pull_request -> main` et `push -> main`
+      - [x] Sortir la prod de `cd.yml` et creer `release-prod.yml` pour `push tag v*`
+      - [x] Aligner `release-prod.yml` sur `push tag v*`
+      - [x] Ajouter le workflow mensuel `dataprep-monthly.yml`
+      - [x] Garantir que `GIT_BRANCH=dev/master` reste strictement inchange dans les artefacts d'exploitation, seuls les refs Git et workflows changeant
+      - [x] Garantir qu'un changement `tools`, `deces-dataprep` ou `dataprep-backend` sur `main` execute `small` puis `year`, puis seulement le deploy preprod `deces-ui`
+    - [x] Conserver le switch `nginx-conf-apply` / bastion dans le chemin critique tant que la bascule CDN complete n'est pas explicitement ouverte
+    - [ ] Executer le CD `dataprep-full` depuis le dernier tag prod ou le contexte prod valide, jamais depuis une branche PR
+    - [x] Configurer le dataprep mensuel en mode alerte seule en cas d'echec, sans retry automatique
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
     - [ ] Statuer et reconstruire si necessaire le job lourd `deces-backend` upstream `bulk` / artillery (`backend-perf-clinic`, `test-perf-v1`) avant la substitution finale
@@ -350,7 +370,13 @@
     - [x] Valider sur le commit de preuve `41c099bb` le protocole temporaire de contrat Elasticsearch
     - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deces-2020-m01.txt.gz`: count `60557`, sample deterministe `10000`, mapping et types
     - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deaths.txt.gz`: count `1355728`, sample deterministe `10000`, mapping et types
-    - [ ] Prouver la gouvernance GitHub `feat/* -> dev -> master` sur le repo racine
+    - [ ] Prouver la gouvernance GitHub `feat/* -> main` sur le repo racine
+    - [ ] Prouver qu'un merge sur `main` deploie bien `dev-deces.matchid.io`
+    - [ ] Prouver qu'un tag manuel `v*` sur `main` deploie bien la prod
+    - [ ] Prouver que le dataprep mensuel resolve le dernier tag prod, produit un snapshot `full` et redeploie automatiquement la prod avec ce tag
+    - [ ] Prouver qu'un merge sur `main` publie `dev-deces.matchid.io` via le switch nginx actuel
+    - [ ] Prouver qu'un tag `v*` publie `deces.matchid.io` via le switch nginx actuel
+    - [ ] Prouver qu'un echec du dataprep mensuel emet une alerte sans retry automatique
     - [ ] Valider le runbook de bascule
     - [ ] Valider le runbook de rollback
     - [ ] Valider que le processus monorepo couvre bien `deces-dataprep` et `deces-ui`

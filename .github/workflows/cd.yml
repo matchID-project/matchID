@@ -5,8 +5,7 @@ on:
     types: [data-update]
   push:
     branches:
-      - dev
-      - master
+      - main
   workflow_dispatch:
     inputs:
       dataprep_scope:
@@ -19,7 +18,6 @@ on:
           - all
           - small
           - year
-          - full
       deploy_target:
         description: Deploy target to run
         required: false
@@ -28,7 +26,6 @@ on:
         options:
           - none
           - dev
-          - prod
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -110,24 +107,15 @@ jobs:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build matchid-backend image
         run: |
-          make -C packages/deces-dataprep config GIT_BRANCH=${CD_GIT_BRANCH}
-          make -C packages/dataprep-backend backend-build GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/deces-dataprep config GIT_BRANCH=dev
+          make -C packages/dataprep-backend backend-build GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish matchid-backend image
-        run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Publish legacy matchID package on master
-        if: github.ref == 'refs/heads/master'
-        run: |
-          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${GITHUB_REF_NAME}
-          make -C packages/dataprep-backend package-publish GIT_BRANCH=${GITHUB_REF_NAME}
-        env:
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
 
   dataprep-frontend:
     name: Publish matchid-frontend image
@@ -152,13 +140,13 @@ jobs:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build matchid-frontend image
         run: |
-          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=${CD_GIT_BRANCH}
-          make -C packages/dataprep-frontend build GIT_BRANCH=${CD_GIT_BRANCH}
+          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=dev
+          make -C packages/dataprep-frontend build GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           NPM_AUDIT_IGNORE: "true"
       - name: Publish matchid-frontend image
-        run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -185,11 +173,11 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build deces-backend image
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish deces-backend image
-        run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -216,11 +204,11 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Build deces-ui image
-        run: make APP=deces-ui build GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make APP=deces-ui build GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       - name: Publish deces-ui image
-        run: make frontend-docker-push GIT_BRANCH=${CD_GIT_BRANCH}
+        run: make frontend-docker-push GIT_BRANCH=dev
         env:
           CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
@@ -232,7 +220,7 @@ jobs:
       ${{
         (
           github.event_name == 'repository_dispatch' &&
-          github.event.client_payload.ref == 'dev'
+          github.event.client_payload.ref == 'main'
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
@@ -242,7 +230,7 @@ jobs:
           )
         ) ||
         (
-          github.ref == 'refs/heads/dev' &&
+          github.ref == 'refs/heads/main' &&
           needs.changes.outputs.dataprep_snapshot == 'true'
         )
       }}
@@ -273,7 +261,7 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
       - name: Produce dataprep small snapshot
-        run: make artifact-produce-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
+        run: make artifact-produce-dataprep-snapshot GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
@@ -288,7 +276,7 @@ jobs:
             echo "count=$(cat ${ES_COUNT_FILE})"
           } | tee /tmp/dataprep-small-${{ matrix.dataset.name }}-snapshot-metadata.txt
       - name: Publish dataprep small snapshot
-        run: make artifact-publish-dataprep-snapshot GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        run: make artifact-publish-dataprep-snapshot GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
@@ -308,7 +296,7 @@ jobs:
       ${{
         (
           github.event_name == 'repository_dispatch' &&
-          github.event.client_payload.ref == 'dev'
+          github.event.client_payload.ref == 'main'
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
@@ -318,7 +306,7 @@ jobs:
           )
         ) ||
         (
-          github.ref == 'refs/heads/dev' &&
+          github.ref == 'refs/heads/main' &&
           needs.changes.outputs.dataprep_snapshot == 'true'
         )
       }}
@@ -350,14 +338,14 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep year snapshot
-        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Run dataprep year remote-all
         run: |
           make -C packages/deces-dataprep remote-all \
-            GIT_BRANCH="${CD_GIT_BRANCH}" \
+            GIT_BRANCH=dev \
             FILES_TO_PROCESS="${FILES_TO_PROCESS}" \
             REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
             SCW_FLAVOR="${SCW_FLAVOR}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE}" \
@@ -378,7 +366,7 @@ jobs:
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Export dataprep year snapshot metadata
         run: |
-          make -C packages/deces-dataprep repository-check GIT_BRANCH="${CD_GIT_BRANCH}" FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+          make -C packages/deces-dataprep repository-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
           test -s packages/deces-dataprep/repository-check
           SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
           {
@@ -397,103 +385,6 @@ jobs:
           path: |
             /tmp/dataprep-year-snapshot-metadata.txt
 
-  dataprep-full:
-    name: Publish dataprep full snapshot
-    needs: changes
-    if: >-
-      ${{
-        (
-          github.event_name == 'repository_dispatch' &&
-          github.event.client_payload.ref == 'master'
-        ) ||
-        (
-          github.event_name == 'workflow_dispatch' &&
-          (
-            inputs.dataprep_scope == 'all' ||
-            inputs.dataprep_scope == 'full'
-          )
-        ) ||
-        (
-          github.ref == 'refs/heads/master' &&
-          needs.changes.outputs.dataprep_snapshot == 'true'
-        )
-      }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 50
-    permissions:
-      contents: read
-    env:
-      CD_GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
-      FILES_TO_PROCESS: 'deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz'
-      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
-      CHUNK_SIZE: 75000
-      ES_THREADS: 30
-      RECIPE_THREADS: 32
-      RECIPE_QUEUE: 34
-      ES_MEM: 62000m
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.client_payload.ref || github.ref }}
-      - name: Install dataprep deploy SSH key
-        run: |
-          test -n "${SSH_PRIVATE_KEY}"
-          install -m 700 -d "${HOME}/.ssh"
-          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
-          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
-          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
-          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Check dataprep full snapshot
-        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH="${CD_GIT_BRANCH}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
-        env:
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-      - name: Run dataprep full remote-all
-        run: |
-          make -C packages/deces-dataprep remote-all \
-            GIT_BRANCH="${CD_GIT_BRANCH}" \
-            REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
-            SCW_FLAVOR="${SCW_FLAVOR}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE}" \
-            CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}" RECIPE_QUEUE="${RECIPE_QUEUE}" \
-            SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
-            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${CD_GIT_BRANCH}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
-            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${CD_GIT_BRANCH}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep
-        env:
-          SCW_FLAVOR: PRO2-L
-          SCW_VOLUME_SIZE: 50000000000
-          SCW_VOLUME_TYPE: sbs_volume
-          remote_http_proxy: ${{ secrets.remote_http_proxy }}
-          remote_https_proxy: ${{ secrets.remote_https_proxy }}
-          remote_no_proxy: localhost
-          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
-          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
-          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-      - name: Export dataprep full snapshot metadata
-        run: |
-          make -C packages/deces-dataprep repository-check GIT_BRANCH="${CD_GIT_BRANCH}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
-          test -s packages/deces-dataprep/repository-check
-          SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
-          {
-            echo "snapshot_name=${SNAPSHOT_NAME}"
-            echo "repository_bucket=${REPOSITORY_BUCKET}"
-            echo "files_to_process=${FILES_TO_PROCESS}"
-            echo "runner=remote-all"
-          } | tee /tmp/dataprep-full-snapshot-metadata.txt
-        env:
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-      - name: Upload dataprep full snapshot metadata
-        uses: actions/upload-artifact@v4
-        with:
-          name: dataprep-full-snapshot-metadata
-          path: |
-            /tmp/dataprep-full-snapshot-metadata.txt
-
   deploy:
     name: Deploy
     needs:
@@ -504,7 +395,6 @@ jobs:
       - deces-ui
       - dataprep-small
       - dataprep-year
-      - dataprep-full
     if: >-
       ${{
         always() &&
@@ -513,29 +403,17 @@ jobs:
         (
           (
             github.event_name == 'push' &&
-            github.ref == 'refs/heads/dev' &&
+            github.ref == 'refs/heads/main' &&
             (
               needs.changes.outputs.deces_backend == 'true' ||
-              needs.changes.outputs.deces_ui == 'true'
+              needs.changes.outputs.deces_ui == 'true' ||
+              needs.changes.outputs.dataprep_snapshot == 'true'
             )
-          ) ||
-          (
-            github.event_name == 'push' &&
-            github.ref == 'refs/heads/master' &&
-            needs.changes.outputs.deces_ui_app == 'true'
           ) ||
           (
             github.event_name == 'workflow_dispatch' &&
-            (
-              (
-                github.ref == 'refs/heads/dev' &&
-                inputs.deploy_target == 'dev'
-              ) ||
-              (
-                github.ref == 'refs/heads/master' &&
-                inputs.deploy_target == 'prod'
-              )
-            )
+            github.ref == 'refs/heads/main' &&
+            inputs.deploy_target == 'dev'
           )
         )
       }}
@@ -545,7 +423,7 @@ jobs:
       contents: read
     env:
       APP_DNS: deces.matchid.io
-      GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
+      GIT_BRANCH: dev
       DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || 'none' }}
     steps:
       - uses: actions/checkout@v4
@@ -561,54 +439,31 @@ jobs:
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Deploy deces.matchid.io
+      - name: Deploy dev-deces.matchid.io
         run: |
-          if [[ ( "${GITHUB_EVENT_NAME}" == "push" && "$GIT_BRANCH" == "dev" ) || ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DEPLOY_TARGET}" == "dev" ) ]]; then
-            make deploy-remote-preflight \
-              GIT_BRANCH=$GIT_BRANCH \
-              APP_DNS=$APP_DNS \
-              FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
-              REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV
-            make deploy-remote \
-              GIT_BRANCH=$GIT_BRANCH \
-              APP_DNS=$APP_DNS \
-              FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
-              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
-              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
-              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
-              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
-              LOG_BAN_IP=$LOG_BAN_IP \
-              MMDB_TOKEN=$MMDB_TOKEN \
-              NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
-          fi
-          if [[ ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DEPLOY_TARGET}" == "prod" ) ]]; then
-            if [[ ( "$GIT_BRANCH" != "master" ) ]]; then
-              echo "prod deploy requires refs/heads/master"
-              exit 1
-            fi
-            make deploy-remote \
-              GIT_BACKEND_BRANCH=master GIT_BRANCH=$GIT_BRANCH \
-              BACKEND_JOB_CONCURRENCY=$BACKEND_JOB_CONCURRENCY_MASTER \
-              BACKEND_CHUNK_CONCURRENCY=$BACKEND_CHUNK_CONCURRENCY_MASTER \
-              ES_MEM=$ES_MEM_MASTER \
-              SCW_FLAVOR=$SCW_FLAVOR_MASTER SCW_VOLUME_SIZE=$SCW_VOLUME_SIZE_MASTER SCW_VOLUME_TYPE=$SCW_VOLUME_TYPE_MASTER \
-              NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
-              SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
-              remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
-              GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
-              LOG_BAN_IP=$LOG_BAN_IP \
-              MMDB_TOKEN=$MMDB_TOKEN \
-              NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
-          fi
+          make deploy-remote-preflight \
+            GIT_BRANCH=$GIT_BRANCH \
+            REMOTE_DEPLOY_BRANCH=main \
+            DEPLOY_TARGET=dev \
+            APP_DNS=$APP_DNS \
+            FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
+            REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV
+          make deploy-remote \
+            GIT_BRANCH=$GIT_BRANCH \
+            REMOTE_DEPLOY_BRANCH=main \
+            DEPLOY_TARGET=dev \
+            APP_DNS=$APP_DNS \
+            FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
+            NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+            SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
+            remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
+            GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
+            LOG_BAN_IP=$LOG_BAN_IP \
+            MMDB_TOKEN=$MMDB_TOKEN \
+            NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY
         env:
           FILES_TO_PROCESS_DEV: deces-2020-m[0-1][0-9].txt.gz
           REPOSITORY_BUCKET_DEV: fichier-des-personnes-decedees-elasticsearch-dev
-          BACKEND_JOB_CONCURRENCY_MASTER: 6
-          BACKEND_CHUNK_CONCURRENCY_MASTER: 3
-          ES_MEM_MASTER: 8192m
-          SCW_FLAVOR_MASTER: GP1-XS
-          SCW_VOLUME_SIZE_MASTER: 60000000000
-          SCW_VOLUME_TYPE_MASTER: l_ssd
           GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
           GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}

@@ -2,6 +2,11 @@
 
 ## Objet
 
+Note: cette spec capture le runbook du schema transitoire `dev/master`.
+La cible finale `main + tags` est maintenant definie dans
+[SPEC_EVOL_010](SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md). La presente spec
+reste utile pour tracer les etapes deja executees avant le pivot.
+
 Definir la sequence operative du lot 9 pour substituer le processus historique
 par le monorepo, sans coupler la production du snapshot dataprep et le
 deploiement UI prod.
@@ -182,4 +187,5 @@ Une fois la bascule validee:
 - [SPEC_EVOL_006](SPEC_EVOL_006_ARTEFACTS_CD_MONOREPO.md)
 - [SPEC_EVOL_007](SPEC_EVOL_007_PREUVE_PARITE_DATAPREP.md)
 - [SPEC_EVOL_009](SPEC_EVOL_009_GOUVERNANCE_GITHUB_MONOREPO.md)
+- [SPEC_EVOL_010](SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md)
 - [SPEC_EVOL_MAKE_CICD_CHECKLIST](SPEC_EVOL_MAKE_CICD_CHECKLIST.md)

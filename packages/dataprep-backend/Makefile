@@ -53,10 +53,11 @@ export DC_BUILD_ARGS = --pull --no-cache
 export GIT_ROOT=https://github.com/matchid-project
 export GIT_ORIGIN=origin
 export GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && (git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
-export GIT_BRANCH_MASTER=master
+export GIT_BRANCH_MAIN ?= main
+export GIT_BRANCH_RELEASE ?= master
 export GIT_TOOLS=tools
 export GIT_FRONTEND=frontend
-export GIT_FRONTEND_BRANCH:=$(shell [ "${GIT_BRANCH}" = "${GIT_BRANCH_MASTER}" ] && echo -n "${GIT_BRANCH_MASTER}" || echo -n dev)
+export GIT_FRONTEND_BRANCH ?= ${GIT_BRANCH}
 
 export FRONTEND=${BACKEND}/../${GIT_FRONTEND}
 export FRONTEND_DC_IMAGE_NAME=${DC_PREFIX}-${GIT_FRONTEND}
@@ -105,7 +106,7 @@ export SERVICES=${DB_SERVICES} backend frontend
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//'))
+tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
 version 			:= $(shell export LC_COLLATE=C;export LC_ALL=C;cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v 'conf/security/(github|facebook|twitter).yml$$|.tar.gz$$|.pyc$$|.gitignore$$' | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
 export APP_VERSION =  ${tag}-${version}
 
@@ -613,7 +614,7 @@ package-publish: package
 		FILE=${APP_PATH}/$$PACKAGE\
 		STORAGE_OPTIONS="--s3-acl=public-read"\
 		STORAGE_BUCKET=matchid-dist STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};\
-	if [ "${GIT_BRANCH}" = "${GIT_BRANCH_MASTER}" ]; then\
+	if [ "${GIT_BRANCH}" = "${GIT_BRANCH_RELEASE}" ]; then\
 		ln -s $$PACKAGE ${APP_PATH}/${APP_GROUP}-latest.tar.gz;\
 		make -C ${APP_PATH}/${GIT_TOOLS} storage-push\
 			FILE=${APP_PATH}/${APP_GROUP}-latest.tar.gz\

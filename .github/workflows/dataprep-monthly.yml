@@ -1,0 +1,274 @@
+name: Dataprep Monthly
+
+on:
+  schedule:
+    - cron: '0 3 1 * *'
+  workflow_dispatch:
+    inputs:
+      prod_tag:
+        description: Optional prod tag to refresh
+        required: false
+        type: string
+
+concurrency:
+  group: dataprep-monthly
+  cancel-in-progress: false
+
+jobs:
+  dataprep-monthly:
+    name: Dataprep monthly
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      prod_tag: ${{ steps.context.outputs.prod_tag }}
+    env:
+      APP_DNS: deces.matchid.io
+      PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+      BACKEND_JOB_CONCURRENCY_PROD: 6
+      BACKEND_CHUNK_CONCURRENCY_PROD: 3
+      ES_MEM_PROD: 8192m
+      SCW_FLAVOR_PROD: GP1-XS
+      SCW_VOLUME_SIZE_PROD: 60000000000
+      SCW_VOLUME_TYPE_PROD: l_ssd
+      DATAPREP_SCW_FLAVOR_PROD: PRO2-L
+      DATAPREP_SCW_VOLUME_SIZE_PROD: 50000000000
+      DATAPREP_SCW_VOLUME_TYPE_PROD: sbs_volume
+      DATAPREP_CHUNK_SIZE_PROD: 75000
+      DATAPREP_ES_THREADS_PROD: 30
+      DATAPREP_RECIPE_THREADS_PROD: 32
+      DATAPREP_RECIPE_QUEUE_PROD: 34
+      DATAPREP_ES_MEM_PROD: 62000m
+      DATAPREP_FILES_TO_PROCESS_PROD: 'deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Resolve prod release context
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_PROD_TAG: ${{ inputs.prod_tag }}
+        run: |
+          set -euo pipefail
+          PROD_TAG="${INPUT_PROD_TAG:-}"
+          SOURCE_RELEASE_RUN_ID=
+          if [ -z "${PROD_TAG}" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-prod.yml/runs?status=completed&per_page=50" > /tmp/release-prod-runs.json
+            SOURCE_RELEASE_RUN_ID=$(
+              jq -r '
+                .workflow_runs[]
+                | select(.conclusion == "success")
+                | .id
+              ' /tmp/release-prod-runs.json | head -n 1
+            )
+            if [ -z "${SOURCE_RELEASE_RUN_ID}" ]; then
+              echo "no successful release-prod workflow found"
+              exit 1
+            fi
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RELEASE_RUN_ID}/artifacts" > /tmp/release-prod-artifacts.json
+            ARTIFACT_URL=$(
+              jq -r '
+                .artifacts[]
+                | select(.name == "release-prod-metadata")
+                | .archive_download_url
+              ' /tmp/release-prod-artifacts.json | head -n 1
+            )
+            if [ -z "${ARTIFACT_URL}" ]; then
+              echo "missing release-prod-metadata artifact for run ${SOURCE_RELEASE_RUN_ID}"
+              exit 1
+            fi
+            curl -fsSL \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "${ARTIFACT_URL}" \
+              -o /tmp/release-prod-metadata.zip
+            unzip -p /tmp/release-prod-metadata.zip release-prod-metadata.txt > /tmp/release-prod-metadata.txt
+            PROD_TAG=$(sed -n 's/^prod_tag=//p' /tmp/release-prod-metadata.txt)
+          fi
+          case "${PROD_TAG}" in
+            v*) ;;
+            *)
+              echo "prod tag must match v*"
+              exit 1
+              ;;
+          esac
+          git fetch --force --tags origin main
+          TAG_SHA=$(git rev-list -n 1 "${PROD_TAG}")
+          git merge-base --is-ancestor "${TAG_SHA}" origin/main
+          {
+            echo "prod_tag=${PROD_TAG}"
+            echo "tag_sha=${TAG_SHA}"
+            echo "source_release_run_id=${SOURCE_RELEASE_RUN_ID}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.context.outputs.prod_tag }}
+
+      - name: Install deploy SSH key
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check dataprep full snapshot
+        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+
+      - name: Run dataprep full remote-all
+        run: |
+          make -C packages/deces-dataprep remote-all \
+            GIT_BRANCH=master \
+            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
+            FILES_TO_PROCESS="${DATAPREP_FILES_TO_PROCESS_PROD}" \
+            SCW_FLAVOR="${DATAPREP_SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${DATAPREP_SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${DATAPREP_SCW_VOLUME_TYPE_PROD}" \
+            CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
+            SLACK_TITLE="deces-dataprep - monthly" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
+            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep
+        env:
+          PROD_TAG: ${{ steps.context.outputs.prod_tag }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Capture prod snapshot metadata
+        run: |
+          set -euo pipefail
+          make -C packages/deces-dataprep repository-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
+          test -s packages/deces-dataprep/repository-check
+          SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
+          DATAPREP_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_([^_]+)_.*/\1/')
+          DATA_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_[^_]+_([^_]+)$/\1/')
+          {
+            echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
+            echo "DATAPREP_VERSION=${DATAPREP_VERSION}"
+            echo "DATA_VERSION=${DATA_VERSION}"
+          } >> "${GITHUB_ENV}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+
+      - name: Deploy deces.matchid.io
+        env:
+          PROD_TAG: ${{ steps.context.outputs.prod_tag }}
+          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
+          GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
+          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
+          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER }}
+          CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
+          CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
+          BLOCK_DEPLOY: ${{ secrets.BLOCK_DEPLOY }}
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PWD: ${{ secrets.SMTP_PWD }}
+          LOG_BAN_IP: ${{ secrets.LOG_BAN_IP }}
+          MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+          MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
+        run: |
+          make deploy-remote-preflight \
+            GIT_BRANCH=master \
+            GIT_BACKEND_BRANCH=master \
+            REMOTE_DEPLOY_BRANCH="${PROD_TAG}" \
+            DEPLOY_TARGET=prod \
+            APP_DNS="${APP_DNS}" \
+            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
+            DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
+            DATA_VERSION_OVERRIDE="${DATA_VERSION}"
+          make deploy-remote \
+            GIT_BRANCH=master \
+            GIT_BACKEND_BRANCH=master \
+            REMOTE_DEPLOY_BRANCH="${PROD_TAG}" \
+            DEPLOY_TARGET=prod \
+            APP_DNS="${APP_DNS}" \
+            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
+            DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
+            DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
+            BACKEND_JOB_CONCURRENCY="${BACKEND_JOB_CONCURRENCY_PROD}" \
+            BACKEND_CHUNK_CONCURRENCY="${BACKEND_CHUNK_CONCURRENCY_PROD}" \
+            ES_MEM="${ES_MEM_PROD}" \
+            SCW_FLAVOR="${SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE_PROD}" \
+            NGINX_USER="${NGINX_USER}" NGINX_HOST="${NGINX_HOST}" \
+            SMTP_TLS_SELFSIGNED="${SMTP_TLS_SELFSIGNED}" SMTP_HOST="${SMTP_HOST}" SMTP_PORT="${SMTP_PORT}" SMTP_USER="${SMTP_USER}" SMTP_PWD="${SMTP_PWD}" \
+            remote_http_proxy="${remote_http_proxy}" remote_https_proxy="${remote_https_proxy}" remote_no_proxy="${remote_no_proxy}" \
+            GOOGLE_ANALYTICS_ID="${GOOGLE_ANALYTICS_ID}" GOOGLE_ADSENSE_ID="${GOOGLE_ADSENSE_ID}" \
+            LOG_BAN_IP="${LOG_BAN_IP}" \
+            MMDB_TOKEN="${MMDB_TOKEN}" \
+            NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}"
+
+      - name: Write dataprep monthly metadata artifact
+        run: |
+          cat <<EOF > /tmp/dataprep-monthly-metadata.txt
+          prod_tag=${{ steps.context.outputs.prod_tag }}
+          commit_sha=${{ steps.context.outputs.tag_sha }}
+          source_release_run_id=${{ steps.context.outputs.source_release_run_id }}
+          snapshot_name=${SNAPSHOT_NAME}
+          dataprep_version=${DATAPREP_VERSION}
+          data_version=${DATA_VERSION}
+          EOF
+
+      - name: Upload dataprep monthly metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dataprep-monthly-metadata
+          path: /tmp/dataprep-monthly-metadata.txt
+
+  notify-failure:
+    name: Dataprep monthly failure alert
+    needs: dataprep-monthly
+    if: ${{ always() && needs.dataprep-monthly.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send monthly failure alert
+        run: |
+          make -C packages/tools slack-notification \
+            SLACK_TITLE="deces-dataprep monthly failed" \
+            SLACK_MSG="Workflow ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} failed while refreshing prod from tag ${PROD_TAG:-unknown}."
+        env:
+          PROD_TAG: ${{ needs.dataprep-monthly.outputs.prod_tag }}
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

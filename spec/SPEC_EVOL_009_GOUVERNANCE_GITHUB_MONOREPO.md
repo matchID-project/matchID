@@ -2,6 +2,11 @@
 
 ## Objet
 
+Note: cette spec documente l'etat intermediaire `dev/master` observe et la
+gouvernance temporaire mise en place avant pivot. La cible finale `main + tags`
+est maintenant definie dans
+[SPEC_EVOL_010](SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md).
+
 Documenter l'etat live actuel du repo GitHub `matchID-project/matchID`, l'ecart
 par rapport au workflow cible `feat/* -> dev -> master`, et les preconditions de
 gouvernance a fermer avant la substitution complete du processus historique.
@@ -176,4 +181,5 @@ Ordre d'execution requis:
 
 - [SPEC_EVOL_006](SPEC_EVOL_006_ARTEFACTS_CD_MONOREPO.md)
 - [SPEC_EVOL_008](SPEC_EVOL_008_BASCULE_SUBSTITUTION_MONOREPO.md)
+- [SPEC_EVOL_010](SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md)
 - [SPEC_EVOL_MAKE_CICD_CHECKLIST](SPEC_EVOL_MAKE_CICD_CHECKLIST.md)
