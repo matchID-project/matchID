@@ -49,6 +49,32 @@ Le mecanisme de publication reseau conserve le fonctionnement actuel:
 La bascule CDN pilotee par API est explicitement sortie du chemin critique et
 releguee en roadmap ulterieure.
 
+## Etat Du Premier Slice Executable
+
+Le premier slice executable du modele cible est maintenant code dans le
+monorepo:
+
+- `ci.yml` cible `pull_request -> main` et `push -> main`;
+- `cd.yml` ne porte plus que la preprod `main`, les snapshots dev et le
+  deploy `dev-deces.matchid.io`;
+- `release-prod.yml` porte la promotion prod sur tag `prod/v*` ou dispatch
+  manuel avec `prod_tag`;
+- le chemin de publication reseau reste
+  `remote-test-api-in-vpc -> nginx-conf-apply -> remote-test-api -> cdn-cache-purge`;
+- les `APP_VERSION` derivees de tags Git sont sanitisees pour rester
+  Docker-safe avec la convention `prod/v*`;
+- le `Makefile` racine accepte
+  `DATAPREP_VERSION_OVERRIDE` / `DATA_VERSION_OVERRIDE` pour redeployer un
+  snapshot existant sans recalculer la data courante.
+
+Ce premier slice ne ferme pas encore la migration cible:
+
+- `changesets` n'est pas encore execute end-to-end;
+- `packages/dataprep-backend/VERSION` est introduit comme source de verite,
+  mais pas encore branche sur un commit de release complet;
+- le dataprep mensuel auto-redeploy reste ouvert et devra vivre dans un
+  workflow dedie.
+
 ## Unites de versionning
 
 Toutes les unites du monorepo ne suivent pas la meme source de version.
@@ -100,6 +126,7 @@ Regles:
 
 - un fichier `packages/dataprep-backend/VERSION` devient la source de verite
   semantique;
+- le premier jalon de migration cree ce fichier avec la base courante `0.4.0`;
 - son bump intervient dans le meme commit de preparation de release que les
   versions Node;
 - le `Makefile` continue de produire les aliases SHA utilises en dev/CI, mais
@@ -217,6 +244,11 @@ Comportement cible:
 
 `main` devient donc la branche unique de preprod/integration.
 
+Etat du premier slice:
+
+- ce comportement est deja code dans `ci.yml` et `cd.yml`;
+- la preuve live GitHub sur la branche racine `main` reste un travail lot 9.
+
 ### 2.b Mecanisme de publication reseau
 
 Le schema cible conserve le mecanisme transitoire actuel:
@@ -287,6 +319,13 @@ Ce comportement preserve les deux cas historiques:
 - release applicative seule;
 - release applicative + data.
 
+Etat du premier slice:
+
+- `release-prod.yml` implemente deja cette logique de base;
+- en absence de metadata de release precedente, le workflow force un `full`
+  pour initialiser une source de verite prod exploitable;
+- la source de verite cible reste le dernier deploiement GitHub `prod` reussi.
+
 ### 4. Dataprep mensuel prod
 
 ```text
@@ -309,6 +348,12 @@ Comportement cible:
 
 Ce workflow est la transposition du fonctionnement upstream mensuel: la data
 evolue, l'application reste figee sur la derniere release prod.
+
+Etat du premier slice:
+
+- ce workflow mensuel n'est pas encore implemente;
+- il reste ouvert dans le plan comme suite du lot 9;
+- le contrat de metadata produit par `release-prod.yml` prepare cette etape.
 
 ## Cas operatoires cibles
 

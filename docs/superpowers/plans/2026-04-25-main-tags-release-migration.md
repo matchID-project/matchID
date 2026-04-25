@@ -363,7 +363,7 @@ Expected:
 - `release-prod.yml` only targets `prod/v*` tags or manual dispatch;
 - no prod behavior remains hidden in `push main`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .github/workflows/cd.yml .github/workflows/release-prod.yml
@@ -378,7 +378,7 @@ git commit -m "cd: split main preprod and prod tag release"
 - Modify: `spec/SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md`
 - Modify: `PLAN.md`
 
-- [ ] **Step 1: Add dataprep-backend version file**
+- [x] **Step 1: Add dataprep-backend version file**
 
 Create `packages/dataprep-backend/VERSION` with an initial value matching the currently documented stream, for example:
 
@@ -388,7 +388,7 @@ Create `packages/dataprep-backend/VERSION` with an initial value matching the cu
 
 Use the exact current semantic base already implied by upstream package naming if a more precise value is available during implementation.
 
-- [ ] **Step 2: Add repository-local changesets guidance**
+- [x] **Step 2: Add repository-local changesets guidance**
 
 Create `.changeset/README.md` with a short project-local contract:
 
@@ -406,7 +406,7 @@ Do not use Changesets for `packages/dataprep-backend`.
 Use `packages/dataprep-backend/VERSION` for the Python backend semantic version.
 ```
 
-- [ ] **Step 3: Align spec and plan with the first executable slice**
+- [x] **Step 3: Align spec and plan with the first executable slice**
 
 Update `spec/SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md` and `PLAN.md` to note:
 
@@ -414,7 +414,7 @@ Update `spec/SPEC_EVOL_010_VERSIONNING_RELEASE_MAIN_TAG.md` and `PLAN.md` to not
 - monthly dataprep remains open;
 - `changesets` integration is prepared but not yet executed end-to-end.
 
-- [ ] **Step 4: Verify files**
+- [x] **Step 4: Verify files**
 
 Run:
 

@@ -345,10 +345,16 @@
     - [ ] Supprimer `master` du repo racine une fois `main` et les tags de release en place
     - [ ] Definir et appliquer la convention de tags package (`deces-ui/v*`, `deces-backend/v*`, `dataprep-frontend/v*`, `dataprep-backend/v*`) et de release prod (`prod/v*`)
     - [ ] Introduire `changesets` pour les packages Node versionnes, sans edition manuelle des `package.json` dans les PR metier
-    - [ ] Introduire une source de version semantique dediee pour `packages/dataprep-backend` hors `changesets`
+      - [x] Ajouter `.changeset/README.md` pour fixer le contrat monorepo
+      - [ ] Executer un cycle `changeset version` complet sur `main`
+    - [x] Introduire une source de version semantique dediee pour `packages/dataprep-backend` hors `changesets`
+      - [x] Ajouter `packages/dataprep-backend/VERSION` avec la base semantique courante `0.4.0`
     - [ ] Reconfigurer la gouvernance GitHub pour `main` et pour les tags proteges, en supprimant les protections `master`
     - [ ] Refondre `ci.yml` et `cd.yml` vers le cycle `pull_request -> main`, `push -> main`, `push tag prod/v*` et `schedule/workflow_dispatch` dataprep mensuel
-    - [ ] Conserver le switch `nginx-conf-apply` / bastion dans le chemin critique tant que la bascule CDN complete n'est pas explicitement ouverte
+      - [x] Basculer `ci.yml` sur `pull_request -> main` et `push -> main`
+      - [x] Sortir la prod de `cd.yml` et creer `release-prod.yml` pour `push tag prod/v*`
+      - [ ] Ajouter le workflow mensuel `dataprep-monthly.yml`
+    - [x] Conserver le switch `nginx-conf-apply` / bastion dans le chemin critique tant que la bascule CDN complete n'est pas explicitement ouverte
     - [ ] Executer le CD `dataprep-full` depuis le dernier tag prod ou le contexte prod valide, jamais depuis une branche PR
     - [ ] Basculer la source de build et release vers le monorepo
     - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
