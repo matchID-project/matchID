@@ -119,7 +119,8 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          ssh-agent -a /tmp/ssh_agent.sock > /dev/null
+          export SSH_AUTH_SOCK=/tmp/ssh_agent.sock
+          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
           ssh-add "${HOME}/.ssh/id_rsa_matchID"
           BASTION_HOST_RESOLVED="$(printf '%s' "${NGINX_HOST}" | tr -d '\r\n[:space:]')"
           BASTION_USER_RESOLVED="$(printf '%s' "${NGINX_USER}" | tr -d '\r\n[:space:]')"
