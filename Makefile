@@ -532,7 +532,8 @@ deploy-remote-publish:
 	if [ -z "$$NGINX_HOST_EFFECTIVE" ]; then NGINX_HOST_EFFECTIVE="${NGINX_HOST_RESOLVED}"; fi;\
 	if [ -z "$$NGINX_USER_EFFECTIVE" ]; then NGINX_USER_EFFECTIVE="${NGINX_USER_RESOLVED}"; fi;\
 	if [ -z "$$NGINX_HOST_EFFECTIVE" -o -z "$$NGINX_USER_EFFECTIVE" ];then\
-		(echo "can't deploy without NGINX_HOST and NGINX_USER" && exit 1);\
+		echo "can't deploy without NGINX_HOST and NGINX_USER";\
+		exit 1;\
 	fi;\
 	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION};\
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE});\
