@@ -120,6 +120,7 @@ dummy		    := $(shell touch artifacts)
 include ./artifacts
 
 SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+NGINX_SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
 REMOTE_ACTION_MAKEOVERRIDES := $(filter-out CLOUD_SSHOPTS=% SSHKEY_PRIVATE=% SSHKEY=% SSHKEYNAME=% SSHID=% ${HOME}/.ssh/config ${HOME}/.ssh/% %/.ssh/%,$(MAKEOVERRIDES))
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
@@ -471,8 +472,8 @@ nginx-conf-create: ${CLOUD}-instance-get-tagged-hosts nginx-dir
 nginx-conf-backup:
 	@if [ ! -z "${NGINX_HOST}" ];then\
 		if [ -f "${NGINX_UPSTREAM_FILE}" ];then\
-			((ssh ${SSHOPTS} ${NGINX_USER}@${NGINX_HOST} cat ${NGINX_UPSTREAM_REMOTE_FILE}) > ${NGINX_UPSTREAM_BACKUP});\
-			(ssh ${SSHOPTS} ${NGINX_USER}@${NGINX_HOST} sudo cp ${NGINX_UPSTREAM_REMOTE_FILE} ${NGINX_UPSTREAM_REMOTE_BACKUP});\
+			((ssh ${NGINX_SSHOPTS} ${NGINX_USER}@${NGINX_HOST} cat ${NGINX_UPSTREAM_REMOTE_FILE}) > ${NGINX_UPSTREAM_BACKUP});\
+			(ssh ${NGINX_SSHOPTS} ${NGINX_USER}@${NGINX_HOST} sudo cp ${NGINX_UPSTREAM_REMOTE_FILE} ${NGINX_UPSTREAM_REMOTE_BACKUP});\
 		fi;\
 	fi;
 
@@ -481,8 +482,8 @@ nginx-conf-apply: nginx-conf-create nginx-conf-backup
 		if [ ! -z "${NGINX_HOST}" ];then\
 			if [ -f "${NGINX_UPSTREAM_FILE}" ];then\
 				(cat ${NGINX_UPSTREAM_FILE}\
-					| ssh ${SSHOPTS} ${NGINX_USER}@${NGINX_HOST} "sudo tee ${NGINX_UPSTREAM_REMOTE_FILE}") &&\
-				(ssh ${SSHOPTS} ${NGINX_USER}@${NGINX_HOST} sudo service nginx reload);\
+					| ssh ${NGINX_SSHOPTS} ${NGINX_USER}@${NGINX_HOST} "sudo tee ${NGINX_UPSTREAM_REMOTE_FILE}") &&\
+				(ssh ${NGINX_SSHOPTS} ${NGINX_USER}@${NGINX_HOST} sudo service nginx reload);\
 			fi;\
 		fi;\
 		touch ${NGINX_UPSTREAM_APPLIED_FILE};\
