@@ -111,6 +111,16 @@ jobs:
           fetch-depth: 0
           ref: ${{ steps.context.outputs.prod_tag }}
 
+      - name: Resolve published image versions
+        id: images
+        run: |
+          set -euo pipefail
+          {
+            echo "deces_ui_image_version=$(make artifact-version-deces-ui GIT_BRANCH=master | tail -1)"
+            echo "deces_backend_image_version=$(make artifact-version-deces-backend GIT_BRANCH=master | tail -1)"
+            echo "dataprep_backend_image_version=$(make artifact-version-dataprep-backend GIT_BRANCH=master | tail -1)"
+          } >> "${GITHUB_OUTPUT}"
+
       - name: Install deploy SSH key
         run: |
           test -n "${SSH_PRIVATE_KEY}"
@@ -215,11 +225,13 @@ jobs:
             SLACK_TITLE="deces-dataprep - monthly" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
             REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
+            DATAPREP_BACKEND_MAKEOVERRIDES="APP_VERSION=${DATAPREP_BACKEND_IMAGE_VERSION}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
             CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
         env:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
+          DATAPREP_BACKEND_IMAGE_VERSION: ${{ steps.images.outputs.dataprep_backend_image_version }}
           PROD_TAG: ${{ steps.context.outputs.prod_tag }}
           remote_http_proxy: ${{ secrets.remote_http_proxy }}
           remote_https_proxy: ${{ secrets.remote_https_proxy }}
@@ -289,9 +301,13 @@ jobs:
           NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
           MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          DECES_UI_IMAGE_VERSION: ${{ steps.images.outputs.deces_ui_image_version }}
+          DECES_BACKEND_IMAGE_VERSION: ${{ steps.images.outputs.deces_backend_image_version }}
         run: |
           make deploy-remote-preflight \
             GIT_BRANCH=master \
+            APP_VERSION="${DECES_UI_IMAGE_VERSION}" \
+            DECES_BACKEND_APP_VERSION="${DECES_BACKEND_IMAGE_VERSION}" \
             GIT_BACKEND_BRANCH=master \
             REMOTE_DEPLOY_BRANCH="${PROD_TAG}" \
             DEPLOY_TARGET=prod \
@@ -303,6 +319,8 @@ jobs:
             CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
           make deploy-remote \
             GIT_BRANCH=master \
+            APP_VERSION="${DECES_UI_IMAGE_VERSION}" \
+            DECES_BACKEND_APP_VERSION="${DECES_BACKEND_IMAGE_VERSION}" \
             GIT_BACKEND_BRANCH=master \
             REMOTE_DEPLOY_BRANCH="${PROD_TAG}" \
             DEPLOY_TARGET=prod \

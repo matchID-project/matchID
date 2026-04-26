@@ -10,7 +10,6 @@ export MONOREPO_ROOT ?= $(abspath ${BACKEND_PATH}/../..)
 # Canonical tools live in the sibling monorepo package, not in a local backend/tools clone.
 export TOOLS_PATH ?= $(abspath ${BACKEND_PATH}/../tools)
 export APP_DNS?=deces.matchid.io
-export APP_VERSION	:= $(shell (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's#[^A-Za-z0-9_.-]#-#g')
 export USE_TTY := $(shell test -t 1 && USE_TTY="-t")
 
 # make options
@@ -106,9 +105,19 @@ export SCW_ENDPOINT?=s3.fr-par.scw.cloud
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
+package_tag := $(shell sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' ${BACKEND_PATH}/package.json | head -n 1)
+version_hash := $(shell cd ${BACKEND_PATH} && export LC_COLLATE=C; export LC_ALL=C; cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v '.tar.gz$$|.pyc$$|.gitignore$$' | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
+export APP_VERSION ?= ${package_tag}-${version_hash}
+
 ifeq ($(abspath $(CURDIR)),$(abspath $(BACKEND_PATH)))
 config:
 	@${MAKE} -C ${TOOLS_PATH} config
+
+version:
+	@echo ${APP_GROUP} ${APP} ${APP_VERSION}
+
+version-files:
+	@cd ${BACKEND_PATH} && export LC_COLLATE=C; export LC_ALL=C; cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v '.tar.gz$$|.pyc$$|.gitignore$$' | sort
 endif
 
 

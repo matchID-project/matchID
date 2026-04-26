@@ -171,6 +171,29 @@ Regles:
   il doit rester encapsule derriere `make` et ne pas changer le contrat
   operatoire.
 
+### Version d'artefact Docker
+
+Les tags d'images applicatives conservent le contrat historique:
+
+```text
+tag-VERSION
+```
+
+Regles:
+
+- `tag` ne vient plus de `git describe --tags`;
+- `tag` vient de la version semantique du package:
+  - `package.json` pour `deces-ui`, `deces-backend`, `dataprep-frontend`;
+  - `VERSION` pour `dataprep-backend`;
+- `VERSION` conserve la logique actuelle de hash des fichiers listes dans
+  `tagfiles.version`;
+- un changement hors des fichiers de `tagfiles.version` ne doit pas changer le
+  tag Docker publie;
+- le tag Git de release prod `v*` ne doit jamais participer au calcul du nom
+  des images;
+- `release-prod.yml` et `dataprep-monthly.yml` consomment uniquement les cibles
+  `make artifact-version-*`.
+
 ### Package Python `dataprep-backend`
 
 `dataprep-backend` suit un versionning independant, mais hors `changesets`.
@@ -242,6 +265,7 @@ Regles:
 - il est cree manuellement apres validation UAT smoke sur
   `dev-deces.matchid.io`, via GitHub ou sur demande explicite;
 - il declenche la release prod;
+- il ne versionne pas les images Docker;
 - il reference implicitement les versions package presentes dans le commit
   pointe;
 - il devient la reference de `APP_RELEASE` pour la prod;

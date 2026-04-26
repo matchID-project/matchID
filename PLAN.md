@@ -350,6 +350,8 @@
     - [x] Introduire une source de version semantique dediee pour `packages/dataprep-backend` hors `changesets`
       - [x] Ajouter `packages/dataprep-backend/VERSION` avec la base semantique courante `0.4.0`
       - [x] Faire porter la version finale par `packages/dataprep-backend/VERSION` dans la PR mergee sur `main`
+    - [x] Realigner le contrat de version d'artefact sur l'upstream: format `tag-VERSION`, `tag` issu de `package.json` ou `VERSION`, hash `tagfiles.version` conserve
+    - [x] Supprimer la dependance entre tag Git prod `v*` et resolution des versions d'images dans `release-prod.yml` et `dataprep-monthly.yml`
     - [ ] Reconfigurer la gouvernance GitHub pour `main` et pour les tags proteges, en supprimant les protections `master`
     - [ ] Refondre `ci.yml` et `cd.yml` vers le cycle `pull_request -> main`, `push -> main`, `push tag v*` et `schedule/workflow_dispatch` dataprep mensuel
       - [x] Basculer `ci.yml` sur `pull_request -> main` et `push -> main`
@@ -374,6 +376,11 @@
     - [ ] Prouver qu'un merge sur `main` deploie bien `dev-deces.matchid.io`
     - [ ] Prouver qu'un tag manuel `v*` sur `main` deploie bien la prod
     - [ ] Prouver que le dataprep mensuel resolve le dernier tag prod, produit un snapshot `full` et redeploie automatiquement la prod avec ce tag
+    - [x] Verifier localement les versions d'artefacts attendues via `make artifact-version-*`:
+      - [x] `deces-ui` -> `0.4.0-0f7395`
+      - [x] `deces-backend` -> `1.0.0-d36bd4`
+      - [x] `dataprep-backend` -> `0.4.0-e4d91b`
+      - [x] `dataprep-frontend` -> `1.0.1-2d96b8`
     - [ ] Prouver qu'un merge sur `main` publie `dev-deces.matchid.io` via le switch nginx actuel
     - [ ] Prouver qu'un tag `v*` publie `deces.matchid.io` via le switch nginx actuel
     - [ ] Prouver qu'un echec du dataprep mensuel emet une alerte sans retry automatique
