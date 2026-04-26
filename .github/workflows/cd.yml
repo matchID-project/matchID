@@ -371,12 +371,18 @@ jobs:
           }
           BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
           BASTION_USER_RESOLVED=ubuntu
+          NGINX_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          NGINX_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
           BASTION_SOURCE=nginx
           if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
+          if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
+          if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
           if [ -z "$(sanitize_host "${NGINX_HOST}")" ]; then BASTION_SOURCE=bastion; fi
           test -n "${BASTION_HOST_RESOLVED}"
           test -n "${BASTION_USER_RESOLVED}"
+          test -n "${NGINX_HOST_RESOLVED}"
+          test -n "${NGINX_USER_RESOLVED}"
           echo "bastion_source=${BASTION_SOURCE}"
           if printf '%s' "${BASTION_HOST_RESOLVED}" | grep -Eq '^[0-9.]+$'; then
             echo "bastion_input_host_kind=ip"
@@ -409,6 +415,8 @@ jobs:
           {
             echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
             echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
+            echo "NGINX_HOST_RESOLVED=${NGINX_HOST_RESOLVED}"
+            echo "NGINX_USER_RESOLVED=${NGINX_USER_RESOLVED}"
           } >> "${GITHUB_ENV}"
           sed -n 'l' "${HOME}/.ssh/config"
           chmod 600 "${HOME}/.ssh/config"
@@ -631,7 +639,7 @@ jobs:
             DEPLOY_TARGET=dev \
             APP_DNS=$APP_DNS \
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
-            NGINX_USER=$NGINX_USER NGINX_HOST=$NGINX_HOST \
+            NGINX_USER=$NGINX_USER_RESOLVED NGINX_HOST=$NGINX_HOST_RESOLVED \
             SMTP_TLS_SELFSIGNED=$SMTP_TLS_SELFSIGNED SMTP_HOST=$SMTP_HOST SMTP_PORT=$SMTP_PORT SMTP_USER=$SMTP_USER SMTP_PWD=$SMTP_PWD \
             remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
             GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
