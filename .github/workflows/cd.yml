@@ -300,9 +300,11 @@ jobs:
         ) ||
         (
           github.event_name == 'workflow_dispatch' &&
+          github.ref == 'refs/heads/main' &&
           (
             inputs.dataprep_scope == 'all' ||
-            inputs.dataprep_scope == 'year'
+            inputs.dataprep_scope == 'year' ||
+            inputs.deploy_target == 'dev'
           )
         ) ||
         (
@@ -327,7 +329,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
+      - name: Resolve dataprep year execution context
+        id: year_context
+        run: |
+          set -euo pipefail
+          SHOULD_RUN=true
+          REASON=push_or_repository_dispatch
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ "${INPUT_DATAPREP_SCOPE}" = "all" ] || [ "${INPUT_DATAPREP_SCOPE}" = "year" ]; then
+              REASON=explicit_year_dispatch
+            elif [ "${INPUT_DEPLOY_TARGET}" = "dev" ]; then
+              rm -f packages/deces-dataprep/repository-check
+              make -C packages/deces-dataprep repository-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+              if test -s packages/deces-dataprep/repository-check; then
+                SHOULD_RUN=false
+                REASON=year_snapshot_present
+              else
+                REASON=year_snapshot_missing
+              fi
+            fi
+          fi
+          {
+            echo "should_run=${SHOULD_RUN}"
+            echo "reason=${REASON}"
+          } >> "${GITHUB_OUTPUT}"
+        env:
+          INPUT_DATAPREP_SCOPE: ${{ inputs.dataprep_scope || 'none' }}
+          INPUT_DEPLOY_TARGET: ${{ inputs.deploy_target || 'none' }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Install dataprep deploy SSH key
+        if: steps.year_context.outputs.should_run == 'true'
         run: |
           test -n "${SSH_PRIVATE_KEY}"
           install -m 700 -d "${HOME}/.ssh"
@@ -430,6 +462,7 @@ jobs:
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Debug dataprep bastion resolution
+        if: steps.year_context.outputs.should_run == 'true'
         run: |
           set -euo pipefail
           PROXY_ROUTE="$(ssh -G -F "${HOME}/.ssh/config" 10.0.0.1 | awk '
@@ -445,11 +478,13 @@ jobs:
             exit 1
           fi
       - name: Check dataprep year snapshot
+        if: steps.year_context.outputs.should_run == 'true'
         run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Run dataprep year remote-all
+        if: steps.year_context.outputs.should_run == 'true'
         run: |
           make -C packages/deces-dataprep remote-all \
             GIT_BRANCH=dev \
@@ -477,6 +512,7 @@ jobs:
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
       - name: Export dataprep year snapshot metadata
+        if: steps.year_context.outputs.should_run == 'true'
         run: |
           rm -f packages/deces-dataprep/repository-check
           for attempt in $(seq 1 12); do
@@ -499,6 +535,7 @@ jobs:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Upload dataprep year snapshot metadata
+        if: steps.year_context.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: dataprep-year-snapshot-metadata
