@@ -242,14 +242,17 @@ jobs:
           if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
           if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
           if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
-          test -n "${BASTION_HOST_RESOLVED}"
-          test -n "${BASTION_USER_RESOLVED}"
-          test -n "${NGINX_HOST_RESOLVED}"
-          test -n "${NGINX_USER_RESOLVED}"
           if ! getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
             # Temporary fallback while monorepo runner secrets still expose a non-resolving bastion host.
             BASTION_HOST_RESOLVED=163.172.185.238
           fi
+          # Current deploy topology publishes nginx through the bastion host.
+          NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"
+          NGINX_USER_RESOLVED="${BASTION_USER_RESOLVED}"
+          test -n "${BASTION_HOST_RESOLVED}"
+          test -n "${BASTION_USER_RESOLVED}"
+          test -n "${NGINX_HOST_RESOLVED}"
+          test -n "${NGINX_USER_RESOLVED}"
           printf '%s\n' \
             "Host bastion" \
             "  HostName ${BASTION_HOST_RESOLVED}" \
