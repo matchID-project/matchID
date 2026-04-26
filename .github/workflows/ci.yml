@@ -4,9 +4,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - main
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -91,6 +88,7 @@ jobs:
     if: needs.changes.outputs.dataprep_backend == 'true'
     runs-on: ubuntu-latest
     env:
+      GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       TOOLS_PATH: ${{ github.workspace }}/packages/tools
       DATAPREP_PROJECT_NAME: deces-dataprep
       DATAPREP_PROJECT_SOURCE_PATH: ${{ github.workspace }}/packages/deces-dataprep/projects/deces-dataprep
@@ -101,7 +99,7 @@ jobs:
       - name: Configure monorepo dataprep backend
         run: make -C packages/deces-dataprep config
       - name: Build or reuse backend image and run tests
-        run: make -C packages/dataprep-backend version backend-docker-check GIT_BRANCH=${GITHUB_REF_NAME} || ( make -C packages/dataprep-backend backend-build GIT_BRANCH=${GITHUB_REF_NAME} && make -C packages/dataprep-backend backend tests backend-stop GIT_BRANCH=${GITHUB_REF_NAME} )
+        run: make -C packages/dataprep-backend version backend-docker-check GIT_BRANCH=${GIT_BRANCH} || ( make -C packages/dataprep-backend backend-build GIT_BRANCH=${GIT_BRANCH} && make -C packages/dataprep-backend backend tests backend-stop GIT_BRANCH=${GIT_BRANCH} )
 
   dataprep-frontend-test:
     name: dataprep-frontend pull request test
@@ -128,18 +126,34 @@ jobs:
           make -C packages/dataprep-frontend frontend-docker-check GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev || make -C packages/dataprep-frontend build backend-docker-check up GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev
 
   deces-backend-build:
-    name: deces-backend build docker image and tests
+    name: deces-backend build docker image
     needs: changes
     if: needs.changes.outputs.deces_backend == 'true'
     runs-on: ubuntu-latest
+    env:
+      GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Build backend image
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
+
+  deces-backend-tests:
+    name: deces-backend tests
+    needs: changes
+    if: needs.changes.outputs.deces_backend == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
       - name: Make deploy dependencies
-        run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true deploy-dependencies GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true deploy-dependencies GIT_BRANCH=${GIT_BRANCH}
         env:
           FILES_TO_PROCESS: deces-2020-m01.txt.gz
           REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
@@ -147,10 +161,42 @@ jobs:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       - name: Run backend vitest tests
-        run: make -C packages/deces-backend DATA_DIR=${GITHUB_WORKSPACE}/packages/deces-backend/data NPM_AUDIT_DRY_RUN=true backend-test-vitest GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend DATA_DIR=${GITHUB_WORKSPACE}/packages/deces-backend/data NPM_AUDIT_DRY_RUN=true backend-test-vitest GIT_BRANCH=${GIT_BRANCH}
       - name: Stop backend test dependencies
         if: always()
-        run: make -C packages/deces-backend backend-redis-stop backend-smtp-stop GIT_BRANCH=${GITHUB_REF_NAME}
+        run: make -C packages/deces-backend backend-redis-stop backend-smtp-stop GIT_BRANCH=${GIT_BRANCH}
+
+  deces-backend-artillery:
+    name: deces-backend perf artillery
+    needs: changes
+    if: needs.changes.outputs.deces_backend == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
+      - name: Make deploy dependencies
+        run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true deploy-dependencies GIT_BRANCH=${GIT_BRANCH}
+        env:
+          FILES_TO_PROCESS: deces-2020-m01.txt.gz
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+          ES_MEM: 1024m
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Start backend stack
+        run: make -C packages/deces-backend backend-start GIT_BRANCH=${GIT_BRANCH}
+      - name: Run artillery scenario
+        run: make -C packages/deces-backend test-perf-v1 GIT_BRANCH=${GIT_BRANCH}
+      - name: Stop perf dependencies
+        if: always()
+        run: |
+          make -C packages/deces-backend backend-stop backend-redis-stop backend-smtp-stop GIT_BRANCH=${GIT_BRANCH}
+          make -C packages/deces-infra elasticsearch-stop GIT_BRANCH=${GIT_BRANCH}
 
   deces-ui-pull-request-test:
     name: deces-ui pull request test
@@ -197,13 +243,15 @@ jobs:
     needs: changes
     if: needs.changes.outputs.deces_dataprep == 'true'
     runs-on: ubuntu-latest
+    env:
+      GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Run small dataset
         run: |
-          make -C packages/deces-dataprep all FILES_TO_PROCESS=${FILES_TO_PROCESS} \
+          make -C packages/deces-dataprep all GIT_BRANCH=${GIT_BRANCH} FILES_TO_PROCESS=${FILES_TO_PROCESS} \
             REPOSITORY_BUCKET=${REPOSITORY_BUCKET} \
             CHUNK_SIZE=${CHUNK_SIZE} ES_THREADS=${ES_THREADS} RECIPE_THREADS=${RECIPE_THREADS} ES_MEM=${ES_MEM}
         env:

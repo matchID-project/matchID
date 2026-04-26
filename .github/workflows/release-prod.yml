@@ -10,6 +10,15 @@ on:
         description: Prod tag to release
         required: true
         type: string
+      release_mode:
+        description: Prod release mode
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - deploy_only
+          - full_and_deploy
 
 concurrency:
   group: release-prod-${{ github.event.inputs.prod_tag || github.ref_name }}
@@ -51,13 +60,22 @@ jobs:
         id: context
         env:
           INPUT_PROD_TAG: ${{ inputs.prod_tag }}
+          INPUT_RELEASE_MODE: ${{ inputs.release_mode }}
         run: |
           set -euo pipefail
           PROD_TAG="${INPUT_PROD_TAG:-${GITHUB_REF_NAME}}"
+          RELEASE_MODE="${INPUT_RELEASE_MODE:-auto}"
           case "${PROD_TAG}" in
             v*) ;;
             *)
               echo "prod tag must match v*"
+              exit 1
+              ;;
+          esac
+          case "${RELEASE_MODE}" in
+            auto|deploy_only|full_and_deploy) ;;
+            *)
+              echo "release mode must be one of auto, deploy_only, full_and_deploy"
               exit 1
               ;;
           esac
@@ -85,11 +103,12 @@ jobs:
             echo "commit_short=${COMMIT_SHORT}"
             echo "previous_prod_tag=${PREVIOUS_PROD_TAG}"
             echo "dataprep_changed=${DATAPREP_CHANGED}"
+            echo "release_mode=${RELEASE_MODE}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Resolve existing prod snapshot metadata
-        id: snapshot
-        if: steps.context.outputs.dataprep_changed != 'true'
+        id: snapshot_auto
+        if: steps.context.outputs.release_mode == 'auto' && steps.context.outputs.dataprep_changed != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -138,13 +157,79 @@ jobs:
             echo "data_version=${DATA_VERSION}"
           } >> "${GITHUB_OUTPUT}"
 
+      - name: Resolve tagged prod snapshot metadata
+        id: snapshot_tagged
+        if: steps.context.outputs.release_mode == 'deploy_only'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_SHA: ${{ steps.context.outputs.tag_sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-prod.yml/runs?status=completed&per_page=100" > /tmp/release-prod-runs.json
+          SOURCE_RUN_ID=$(
+            jq -r --argjson current "${GITHUB_RUN_ID}" --arg tag_sha "${TAG_SHA}" '
+              .workflow_runs[]
+              | select(.id != $current and .conclusion == "success" and .head_sha == $tag_sha)
+              | .id
+            ' /tmp/release-prod-runs.json | head -n 1
+          )
+          if [ -z "${SOURCE_RUN_ID}" ]; then
+            echo "missing_metadata=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts" > /tmp/release-prod-artifacts.json
+          ARTIFACT_URL=$(
+            jq -r '
+              .artifacts[]
+              | select(.name == "release-prod-metadata")
+              | .archive_download_url
+            ' /tmp/release-prod-artifacts.json | head -n 1
+          )
+          if [ -z "${ARTIFACT_URL}" ]; then
+            echo "missing_metadata=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${ARTIFACT_URL}" \
+            -o /tmp/release-prod-metadata.zip
+          unzip -p /tmp/release-prod-metadata.zip release-prod-metadata.txt > /tmp/release-prod-metadata.txt
+          SNAPSHOT_NAME=$(sed -n 's/^snapshot_name=//p' /tmp/release-prod-metadata.txt)
+          DATAPREP_VERSION=$(sed -n 's/^dataprep_version=//p' /tmp/release-prod-metadata.txt)
+          DATA_VERSION=$(sed -n 's/^data_version=//p' /tmp/release-prod-metadata.txt)
+          if [ -z "${SNAPSHOT_NAME}" ] || [ -z "${DATAPREP_VERSION}" ] || [ -z "${DATA_VERSION}" ]; then
+            echo "missing_metadata=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          {
+            echo "missing_metadata=false"
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "dataprep_version=${DATAPREP_VERSION}"
+            echo "data_version=${DATA_VERSION}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Validate deploy-only metadata
+        if: steps.context.outputs.release_mode == 'deploy_only' && steps.snapshot_tagged.outputs.missing_metadata == 'true'
+        run: |
+          echo "missing successful release-prod metadata for ${PROD_TAG}"
+          exit 1
+        env:
+          PROD_TAG: ${{ steps.context.outputs.prod_tag }}
+
       - name: Resolve published image versions
         id: images
         run: |
           set -euo pipefail
           COMMIT_SHORT="${{ steps.context.outputs.commit_short }}"
           DATAPREP_BACKEND_IMAGE_VERSION=
-          if [ "${{ steps.context.outputs.dataprep_changed }}" = "true" ] || [ "${{ steps.snapshot.outputs.run_full }}" = "true" ]; then
+          RUN_FULL=false
+          if [ "${{ steps.context.outputs.release_mode }}" = "full_and_deploy" ]; then
+            RUN_FULL=true
+          elif [ "${{ steps.context.outputs.release_mode }}" = "auto" ] && { [ "${{ steps.context.outputs.dataprep_changed }}" = "true" ] || [ "${{ steps.snapshot_auto.outputs.run_full }}" = "true" ]; }; then
+            RUN_FULL=true
+          fi
+          if [ "${RUN_FULL}" = "true" ]; then
             CURRENT_DATAPREP_BACKEND_VERSION=$(make -s -C packages/dataprep-backend version GIT_BRANCH=master | awk '{print $NF}')
             DATAPREP_BACKEND_IMAGE_VERSION="${COMMIT_SHORT}-${CURRENT_DATAPREP_BACKEND_VERSION##*-}"
           fi
@@ -243,14 +328,14 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Check dataprep full snapshot
-        if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
+        if: steps.context.outputs.release_mode == 'full_and_deploy' || (steps.context.outputs.release_mode == 'auto' && (steps.context.outputs.dataprep_changed == 'true' || steps.snapshot_auto.outputs.run_full == 'true'))
         run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
 
       - name: Run dataprep full remote-all
-        if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
+        if: steps.context.outputs.release_mode == 'full_and_deploy' || (steps.context.outputs.release_mode == 'auto' && (steps.context.outputs.dataprep_changed == 'true' || steps.snapshot_auto.outputs.run_full == 'true'))
         run: |
           make -C packages/deces-dataprep remote-all \
             GIT_BRANCH=master \
@@ -281,7 +366,7 @@ jobs:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
       - name: Capture prod snapshot metadata
-        if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
+        if: steps.context.outputs.release_mode == 'full_and_deploy' || (steps.context.outputs.release_mode == 'auto' && (steps.context.outputs.dataprep_changed == 'true' || steps.snapshot_auto.outputs.run_full == 'true'))
         run: |
           set -euo pipefail
           rm -f packages/deces-dataprep/repository-check
@@ -307,7 +392,7 @@ jobs:
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
 
       - name: Reuse current prod snapshot metadata
-        if: steps.context.outputs.dataprep_changed != 'true' && steps.snapshot.outputs.run_full == 'false'
+        if: steps.context.outputs.release_mode == 'auto' && steps.context.outputs.dataprep_changed != 'true' && steps.snapshot_auto.outputs.run_full == 'false'
         run: |
           {
             echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
@@ -315,9 +400,22 @@ jobs:
             echo "DATA_VERSION=${DATA_VERSION}"
           } >> "${GITHUB_ENV}"
         env:
-          SNAPSHOT_NAME: ${{ steps.snapshot.outputs.snapshot_name }}
-          DATAPREP_VERSION: ${{ steps.snapshot.outputs.dataprep_version }}
-          DATA_VERSION: ${{ steps.snapshot.outputs.data_version }}
+          SNAPSHOT_NAME: ${{ steps.snapshot_auto.outputs.snapshot_name }}
+          DATAPREP_VERSION: ${{ steps.snapshot_auto.outputs.dataprep_version }}
+          DATA_VERSION: ${{ steps.snapshot_auto.outputs.data_version }}
+
+      - name: Reuse tagged prod snapshot metadata
+        if: steps.context.outputs.release_mode == 'deploy_only'
+        run: |
+          {
+            echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
+            echo "DATAPREP_VERSION=${DATAPREP_VERSION}"
+            echo "DATA_VERSION=${DATA_VERSION}"
+          } >> "${GITHUB_ENV}"
+        env:
+          SNAPSHOT_NAME: ${{ steps.snapshot_tagged.outputs.snapshot_name }}
+          DATAPREP_VERSION: ${{ steps.snapshot_tagged.outputs.dataprep_version }}
+          DATA_VERSION: ${{ steps.snapshot_tagged.outputs.data_version }}
 
       - name: Deploy deces.matchid.io
         env:
