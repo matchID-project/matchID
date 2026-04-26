@@ -1,6 +1,9 @@
 # Makefile for deces-ui
 # Frontend and nginx services management
 
+export FRONTEND_PATH ?= $(shell pwd)
+export APP_FRONTEND ?= deces-ui
+
 # Frontend basic configuration variables
 export FRONTEND = ${FRONTEND_PATH}
 export FRONTEND_DEV_HOST = frontend-development
@@ -19,6 +22,10 @@ export BUILD_DIR=${APP_PATH}/${APP_FRONTEND}-build
 export FILE_FRONTEND_APP_VERSION = $(APP)-$(APP_VERSION)-frontend.tar.gz
 export FILE_FRONTEND_DIST_APP_VERSION = $(APP)-$(APP_VERSION)-frontend-dist.tar.gz
 export FILE_FRONTEND_DIST_LATEST_VERSION = $(APP)-latest-frontend-dist.tar.gz
+
+package_tag := $(shell sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' ${FRONTEND_PATH}/package.json | head -n 1)
+version_hash := $(shell cd ${FRONTEND_PATH} && cat tagfiles.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz' | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
+export APP_VERSION ?= ${package_tag}-${version_hash}
 
 # Test configuration variables
 export TEST_HOST=nginx
@@ -59,6 +66,14 @@ export NPM_AUDIT_IGNORE?=true
 
 # A/B testing configuration variables
 export AB_THRESHOLD=100
+
+ifeq ($(abspath $(CURDIR)),$(abspath $(FRONTEND_PATH)))
+version:
+	@echo ${APP_VERSION}
+
+version-files:
+	@cd ${FRONTEND_PATH} && cat tagfiles.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz' | sort
+endif
 
 # Frontend targets
 frontend-update:

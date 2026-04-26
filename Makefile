@@ -132,8 +132,8 @@ tag                 := $(shell printf '%s' "$(git_ref_raw)" | sed 's/-.*//' | se
 lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 
-export APP_VERSION := $(git_ref_safe)
-export DECES_BACKEND_APP_VERSION ?= $(shell cd ${BACKEND_PATH} && (git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's#[^A-Za-z0-9_.-]#-#g')
+export APP_VERSION ?= $(shell env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${FRONTEND_PATH} version 2>/dev/null | awk '{print $$NF}')
+export DECES_BACKEND_APP_VERSION ?= $(shell env -u APP_VERSION -u DECES_BACKEND_APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${BACKEND_PATH} version 2>/dev/null | awk '{print $$NF}')
 
 ifeq (${DEPLOY_TARGET},prod)
 export APP_DNS_TARGET ?= ${APP_DNS}
@@ -247,10 +247,10 @@ network: config
 
 
 backend-docker-check:
-	@${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=${APP_VERSION} GIT_BRANCH=${GIT_BRANCH}
+	@${MAKE} docker-check DC_IMAGE_NAME=deces-backend APP_VERSION=${DECES_BACKEND_APP_VERSION} GIT_BRANCH=${GIT_BRANCH}
 
 backend: backend-docker-check proofs-mount elasticsearch-index-readiness
-	@${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=${APP_VERSION} GIT_BRANCH=${GIT_BRANCH}\
+	@${MAKE} -C ${BACKEND_PATH} backend-start APP=deces-backend DC_NETWORK=${DC_NETWORK} APP_VERSION=${DECES_BACKEND_APP_VERSION} GIT_BRANCH=${GIT_BRANCH}\
 		APP_URL=${APP_URL} API_EMAIL=${API_EMAIL} API_SSL=${API_SSL}\
 		BACKEND_JOB_CONCURRENCY=${BACKEND_JOB_CONCURRENCY} BACKEND_CHUNK_CONCURRENCY=${BACKEND_CHUNK_CONCURRENCY}\
 		BACKEND_TOKEN_USER=${BACKEND_TOKEN_USER} BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
@@ -356,10 +356,10 @@ artifact-version-dataprep-frontend:
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-frontend version | awk '{print $$NF}'
 
 artifact-version-deces-backend:
-	@echo ${APP_VERSION}
+	@env -u APP_VERSION -u DECES_BACKEND_APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${BACKEND_PATH} version | awk '{print $$NF}'
 
 artifact-version-deces-ui:
-	@echo ${APP_VERSION}
+	@env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${FRONTEND_PATH} version | awk '{print $$NF}'
 
 artifact-version-dataprep-snapshot: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 	@echo esdata_$$(cat ${DATAPREP_VERSION_FILE})_$$(cat ${DATA_VERSION_FILE})
@@ -428,7 +428,7 @@ show-env:
 		fi; \
 	done
 
-deploy-local: config show-env stats-background elasticsearch-restore-async docker-login docker-check up local-test-api
+deploy-local: config show-env stats-background elasticsearch-restore-async docker-login frontend-docker-check up local-test-api
 
 # smtp:
 # 	@${MAKE} -C ${BACKEND_PATH} smtp DC_NETWORK=${DC_NETWORK}

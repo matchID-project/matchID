@@ -1,0 +1,11 @@
+src
+docker-compose.yml
+docker-compose-dev-backend.yml
+docker-compose-smtp.yml
+Dockerfile
+eslint.config.mjs
+package.json
+package-lock.json
+tsconfig.json
+tsconfig.tsoa.json
+tagfiles.version

@@ -1,6 +1,6 @@
 docker-compose-build.yml
 docker-compose-dev.yml
-docker-compose-elasticsearch.yml
+docker-compose-test.yml
 docker-compose.yml
 Dockerfile
 Makefile

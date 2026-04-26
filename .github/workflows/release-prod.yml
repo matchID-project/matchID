@@ -83,7 +83,6 @@ jobs:
           TAG_SHA=$(git rev-list -n 1 "${PROD_TAG}")
           git merge-base --is-ancestor "${TAG_SHA}" origin/main
           PREVIOUS_PROD_TAG=$(git tag --list 'v*' --sort=-creatordate | grep -Fxv "${PROD_TAG}" | head -n 1 || true)
-          COMMIT_SHORT=$(git rev-parse --short "${TAG_SHA}")
           DATAPREP_CHANGED=true
           if [ -n "${PREVIOUS_PROD_TAG}" ]; then
             if git diff --quiet "${PREVIOUS_PROD_TAG}" "${PROD_TAG}" -- \
@@ -100,7 +99,6 @@ jobs:
           {
             echo "prod_tag=${PROD_TAG}"
             echo "tag_sha=${TAG_SHA}"
-            echo "commit_short=${COMMIT_SHORT}"
             echo "previous_prod_tag=${PREVIOUS_PROD_TAG}"
             echo "dataprep_changed=${DATAPREP_CHANGED}"
             echo "release_mode=${RELEASE_MODE}"
@@ -221,8 +219,9 @@ jobs:
         id: images
         run: |
           set -euo pipefail
-          COMMIT_SHORT="${{ steps.context.outputs.commit_short }}"
           DATAPREP_BACKEND_IMAGE_VERSION=
+          DECES_UI_IMAGE_VERSION=$(make artifact-version-deces-ui GIT_BRANCH=master | tail -1)
+          DECES_BACKEND_IMAGE_VERSION=$(make artifact-version-deces-backend GIT_BRANCH=master | tail -1)
           RUN_FULL=false
           if [ "${{ steps.context.outputs.release_mode }}" = "full_and_deploy" ]; then
             RUN_FULL=true
@@ -230,12 +229,11 @@ jobs:
             RUN_FULL=true
           fi
           if [ "${RUN_FULL}" = "true" ]; then
-            CURRENT_DATAPREP_BACKEND_VERSION=$(make -s -C packages/dataprep-backend version GIT_BRANCH=master | awk '{print $NF}')
-            DATAPREP_BACKEND_IMAGE_VERSION="${COMMIT_SHORT}-${CURRENT_DATAPREP_BACKEND_VERSION##*-}"
+            DATAPREP_BACKEND_IMAGE_VERSION=$(make artifact-version-dataprep-backend GIT_BRANCH=master | tail -1)
           fi
           {
-            echo "deces_ui_image_version=${COMMIT_SHORT}"
-            echo "deces_backend_image_version=${COMMIT_SHORT}"
+            echo "deces_ui_image_version=${DECES_UI_IMAGE_VERSION}"
+            echo "deces_backend_image_version=${DECES_BACKEND_IMAGE_VERSION}"
             echo "dataprep_backend_image_version=${DATAPREP_BACKEND_IMAGE_VERSION}"
           } >> "${GITHUB_OUTPUT}"
 
