@@ -54,18 +54,15 @@ jobs:
               - 'Makefile'
               - 'packages/dataprep-backend/**'
               - 'packages/tools/**'
-              - '.github/workflows/cd.yml'
             dataprep_frontend:
               - 'Makefile'
               - 'packages/dataprep-frontend/**'
               - 'packages/tools/**'
-              - '.github/workflows/cd.yml'
             deces_backend:
               - 'Makefile'
               - 'packages/deces-backend/**'
               - 'packages/deces-infra/**'
               - 'packages/tools/**'
-              - '.github/workflows/cd.yml'
             deces_ui_app:
               - 'packages/deces-ui/**'
             deces_ui:
@@ -74,7 +71,6 @@ jobs:
               - 'packages/deces-backend/**'
               - 'packages/deces-infra/**'
               - 'packages/tools/**'
-              - '.github/workflows/cd.yml'
             dataprep_snapshot:
               - 'Makefile'
               - 'packages/deces-dataprep/**'
@@ -82,7 +78,6 @@ jobs:
               - 'packages/deces-infra/**'
               - 'packages/tools/**'
               - 'scripts/**'
-              - '.github/workflows/cd.yml'
 
   dataprep-backend:
     name: Publish matchid-backend image

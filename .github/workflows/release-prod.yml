@@ -85,6 +85,31 @@ jobs:
             echo "dataprep_changed=${DATAPREP_CHANGED}"
           } >> "${GITHUB_OUTPUT}"
 
+      - name: Resolve promoted image tags
+        id: images
+        run: |
+          set -euo pipefail
+          SOURCE_SHA=$(git rev-parse --short "${TAG_SHA}")
+          TARGET_DECES_UI=$(make artifact-version-deces-ui)
+          TARGET_DECES_BACKEND=$(make artifact-version-deces-backend)
+          TARGET_DATAPREP_BACKEND=$(make artifact-version-dataprep-backend)
+          TARGET_DATAPREP_FRONTEND=$(make artifact-version-dataprep-frontend)
+          SOURCE_DATAPREP_BACKEND=$(printf '%s\n' "${TARGET_DATAPREP_BACKEND}" | sed -E "s/^[^-]+/${SOURCE_SHA}/")
+          SOURCE_DATAPREP_FRONTEND=$(printf '%s\n' "${TARGET_DATAPREP_FRONTEND}" | sed -E "s/^[^-]+/${SOURCE_SHA}/")
+          {
+            echo "source_sha=${SOURCE_SHA}"
+            echo "source_deces_ui=${SOURCE_SHA}"
+            echo "target_deces_ui=${TARGET_DECES_UI}"
+            echo "source_deces_backend=${SOURCE_SHA}"
+            echo "target_deces_backend=${TARGET_DECES_BACKEND}"
+            echo "source_dataprep_backend=${SOURCE_DATAPREP_BACKEND}"
+            echo "target_dataprep_backend=${TARGET_DATAPREP_BACKEND}"
+            echo "source_dataprep_frontend=${SOURCE_DATAPREP_FRONTEND}"
+            echo "target_dataprep_frontend=${TARGET_DATAPREP_FRONTEND}"
+          } >> "${GITHUB_OUTPUT}"
+        env:
+          TAG_SHA: ${{ steps.context.outputs.tag_sha }}
+
       - name: Resolve existing prod snapshot metadata
         id: snapshot
         if: steps.context.outputs.dataprep_changed != 'true'
@@ -140,57 +165,54 @@ jobs:
         if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
         run: echo "prod release will publish a new full snapshot"
 
-      - name: Build deces-backend image
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=master
-
-      - name: Publish deces-backend image
-        run: make -C packages/deces-backend docker-push-backend GIT_BRANCH=master
+      - name: Promote deces app images from main artifacts
+        run: |
+          set -euo pipefail
+          echo "${DOCKER_PASSWORD}" | docker login -u "matchid" --password-stdin
+          promote_image() {
+            local image="$1"
+            local source_tag="$2"
+            local target_tag="$3"
+            local alias_tag="$4"
+            docker pull "matchid/${image}:${source_tag}"
+            docker tag "matchid/${image}:${source_tag}" "matchid/${image}:${target_tag}"
+            docker push "matchid/${image}:${target_tag}"
+            docker tag "matchid/${image}:${source_tag}" "matchid/${image}:${alias_tag}"
+            docker push "matchid/${image}:${alias_tag}"
+          }
+          promote_image deces-backend "${SOURCE_DECES_BACKEND}" "${TARGET_DECES_BACKEND}" latest
+          promote_image deces-ui "${SOURCE_DECES_UI}" "${TARGET_DECES_UI}" latest
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          SOURCE_DECES_BACKEND: ${{ steps.images.outputs.source_deces_backend }}
+          TARGET_DECES_BACKEND: ${{ steps.images.outputs.target_deces_backend }}
+          SOURCE_DECES_UI: ${{ steps.images.outputs.source_deces_ui }}
+          TARGET_DECES_UI: ${{ steps.images.outputs.target_deces_ui }}
 
-      - name: Build deces-ui image
-        run: make APP=deces-ui build GIT_BRANCH=master
-
-      - name: Publish deces-ui image
-        run: make frontend-docker-push GIT_BRANCH=master
-        env:
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build matchid-backend image
+      - name: Promote dataprep runtime images from main artifacts
         if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
         run: |
-          make -C packages/deces-dataprep config GIT_BRANCH=master
-          make -C packages/dataprep-backend backend-build GIT_BRANCH=master
-
-      - name: Publish matchid-backend image
-        if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
-        run: make -C packages/dataprep-backend backend-docker-push GIT_BRANCH=master
+          set -euo pipefail
+          echo "${DOCKER_PASSWORD}" | docker login -u "matchid" --password-stdin
+          promote_image() {
+            local image="$1"
+            local source_tag="$2"
+            local target_tag="$3"
+            local alias_tag="$4"
+            docker pull "matchid/${image}:${source_tag}"
+            docker tag "matchid/${image}:${source_tag}" "matchid/${image}:${target_tag}"
+            docker push "matchid/${image}:${target_tag}"
+            docker tag "matchid/${image}:${source_tag}" "matchid/${image}:${alias_tag}"
+            docker push "matchid/${image}:${alias_tag}"
+          }
+          promote_image matchid-backend "${SOURCE_DATAPREP_BACKEND}" "${TARGET_DATAPREP_BACKEND}" latest
+          promote_image matchid-frontend "${SOURCE_DATAPREP_FRONTEND}" "${TARGET_DATAPREP_FRONTEND}" latest
         env:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Publish legacy matchID package
-        if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
-        run: |
-          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=master
-          make -C packages/dataprep-backend package-publish GIT_BRANCH=master GIT_FRONTEND_BRANCH=master
-        env:
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-
-      - name: Build matchid-frontend image
-        if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
-        run: |
-          make -C packages/deces-dataprep config frontend-config GIT_BRANCH=master
-          make -C packages/dataprep-frontend build GIT_BRANCH=master GIT_BACKEND_BRANCH=master
-        env:
-          NPM_AUDIT_IGNORE: "true"
-
-      - name: Publish matchid-frontend image
-        if: steps.context.outputs.dataprep_changed == 'true' || steps.snapshot.outputs.run_full == 'true'
-        run: make -C packages/dataprep-frontend frontend-docker-push GIT_BRANCH=master GIT_BACKEND_BRANCH=master
-        env:
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          SOURCE_DATAPREP_BACKEND: ${{ steps.images.outputs.source_dataprep_backend }}
+          TARGET_DATAPREP_BACKEND: ${{ steps.images.outputs.target_dataprep_backend }}
+          SOURCE_DATAPREP_FRONTEND: ${{ steps.images.outputs.source_dataprep_frontend }}
+          TARGET_DATAPREP_FRONTEND: ${{ steps.images.outputs.target_dataprep_frontend }}
 
       - name: Install deploy SSH key
         run: |
