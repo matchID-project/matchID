@@ -120,7 +120,9 @@ dummy		    := $(shell touch artifacts)
 include ./artifacts
 
 SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
-NGINX_SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
+# Nginx publication must connect directly to the bastion/nginx host, even when
+# the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
+NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
 REMOTE_ACTION_MAKEOVERRIDES := $(filter-out CLOUD_SSHOPTS=% SSHKEY_PRIVATE=% SSHKEY=% SSHKEYNAME=% SSHID=% ${HOME}/.ssh/config ${HOME}/.ssh/% %/.ssh/%,$(MAKEOVERRIDES))
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
