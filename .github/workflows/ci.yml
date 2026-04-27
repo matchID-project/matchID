@@ -136,8 +136,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Build backend image
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
+      - name: Build or reuse backend image
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true docker-check-backend GIT_BRANCH=${GIT_BRANCH} || make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
 
   deces-backend-tests:
     name: deces-backend tests
@@ -150,8 +150,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Build backend image
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
+      - name: Build or reuse backend image
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true docker-check-backend GIT_BRANCH=${GIT_BRANCH} || make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
       - name: Make deploy dependencies
         run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true deploy-dependencies GIT_BRANCH=${GIT_BRANCH}
         env:
@@ -178,8 +178,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Build backend image
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
+      - name: Build or reuse backend image
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true docker-check-backend GIT_BRANCH=${GIT_BRANCH} || make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
       - name: Make deploy dependencies
         run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true deploy-dependencies GIT_BRANCH=${GIT_BRANCH}
         env:
@@ -215,8 +215,8 @@ jobs:
         run: make frontend-docker-check GIT_BRANCH=${GIT_BRANCH} || make APP=deces-ui build GIT_BRANCH=${GIT_BRANCH}
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
-      - name: Build backend image for deploy-local
-        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
+      - name: Build or reuse backend image for deploy-local
+        run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true docker-check-backend GIT_BRANCH=${GIT_BRANCH} || make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GIT_BRANCH}
         env:
           GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Deploy local and run backend/frontend tests
