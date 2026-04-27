@@ -199,7 +199,7 @@ backend-test-reset: backend-redis ${JOBS}
 	@export EXEC_ENV=development; ${DC_BACKEND} -f ${DC_FILE}-dev-backend.yml stop backend > /dev/null 2>&1 || true
 	@docker exec -i ${USE_TTY} ${APP}-redis redis-cli FLUSHALL > /dev/null
 
-backend-test-vitest: db-json-fake backend-smtp backend-test-reset ${BACKEND_PATH}/tests/clients_test.csv
+backend-test-vitest: db-json-fake backend-smtp backend-test-reset ${BACKEND_PATH}/tests/clients_test.csv ${WIKIDATA_LINKS} ${COMMUNES_JSON} ${DISPOSABLE_MAIL} ${PROOFS}
 	@echo Testing API with vitest tests
 	@if [ ! -f "${BACKEND_PATH}/src/routes/routes.ts" ]; then export EXEC_ENV=development; \
 		export BACKEND_LOG_LEVEL=error; \
