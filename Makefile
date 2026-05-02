@@ -405,8 +405,6 @@ artifact-produce-dataprep-snapshot:
 	@${MAKE} -C ${DATAPREP_PATH} config ${MAKEOVERRIDES}
 	@${MAKE} -C ${APP_PATH}/packages/dataprep-backend backend-build ${MAKEOVERRIDES}
 	@${MAKE} dataprep-run \
-		DATAPREP_BACKEND_LOCAL_TARGET=backend \
-		DATAPREP_BACKEND_LOCAL_STOP_TARGET=backend-stop \
 		RECIPE_RUN_MARKER=${ARTIFACT_RECIPE_RUN_MARKER} \
 		S3_PULL_MARKER=${ARTIFACT_S3_PULL_MARKER} \
 		${MAKEOVERRIDES}
