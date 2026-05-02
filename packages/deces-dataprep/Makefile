@@ -37,12 +37,7 @@ export REPOSITORY_BUCKET ?= ${DATAGOUV_DATASET}-elasticsearch
 export DATA_DIR=${PWD}/data
 export DATAPREP_BACKEND_PATH=${MONOREPO_ROOT}/packages/dataprep-backend
 export DATAPREP_FRONTEND_PATH=${MONOREPO_ROOT}/packages/dataprep-frontend
-export DATAPREP_BACKEND_LOCAL_TARGET ?= backend-dev
-export DATAPREP_BACKEND_LOCAL_STOP_TARGET ?= backend-dev-stop
 export DATAPREP_BACKEND_DEPLOY_TARGET ?= backend
-export DATAPREP_BACKEND_RUN_CONTAINER ?=
-export DATAPREP_BACKEND_PORT ?= 8080
-export DATAPREP_BACKEND_TIMEOUT ?= 60
 export BACKUP_DIR = ${DATAPREP_BACKEND_PATH}/backup
 export DATA_TAG=${MONOREPO_ROOT}/.data.sha1
 export BACKUP_METHOD=repository
@@ -78,7 +73,7 @@ export SCW_VOLUME_SIZE=50000000000
 export SCW_IMAGE_ID=8e7f9833-9787-4488-aea7-819183132acc
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
 export MONOREPO_ROOT=${APP_PATH}/../..
-DATAPREP_BACKEND_MAKEOVERRIDES := $(filter-out APP=%,$(MAKEOVERRIDES))
+DATAPREP_BACKEND_MAKEOVERRIDES := $(filter-out APP=% APP_VERSION=%,$(MAKEOVERRIDES))
 export INFRA_PATH=${MONOREPO_ROOT}/packages/deces-infra
 export FRONTEND_PATH=${DATAPREP_FRONTEND_PATH}
 
@@ -212,14 +207,14 @@ backup-pull: data-tag
 	touch backup-pull
 
 dev: config monorepo-elasticsearch frontend-config
-	@${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend &&\
+	@${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-dev ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend &&\
 	${MAKE} -C ${FRONTEND_PATH} frontend-dev GIT_BRANCH=${GIT_FRONTEND_BRANCH} NPM_AUDIT_IGNORE=true ${MAKEOVERRIDES} &&\
 		echo matchID started, go to http://localhost:8081
 
 dev-stop:
 	@if [ -f config ]; then\
 		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
+		${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-dev-stop ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
 		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 
@@ -229,54 +224,21 @@ up:
 	${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_DEPLOY_TARGET} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend && echo matchID backend services started
 
 dataprep-backend-recipe-run:
-	@if grep -q 'BACKEND_RUN_TARGET ?=' ${DATAPREP_BACKEND_PATH}/Makefile; then\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} recipe-run \
-			ES_HOST=${ES_HOST} \
-			BACKEND_RUN_TARGET=${DATAPREP_BACKEND_LOCAL_TARGET} \
-			BACKEND_RUN_CONTAINER=${DATAPREP_BACKEND_RUN_CONTAINER} \
-			CHUNK_SIZE=${CHUNK_SIZE} RECIPE=${RECIPE} RECIPE_THREADS=${RECIPE_THREADS} RECIPE_QUEUE=${RECIPE_QUEUE} \
-			ES_PRELOAD='${ES_PRELOAD}' ES_THREADS=${ES_THREADS} \
-			STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-			${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
-	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_TARGET} ES_HOST=${ES_HOST} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
-		BACKEND_CONTAINER="${DATAPREP_BACKEND_RUN_CONTAINER}";\
-		if [ -z "$$BACKEND_CONTAINER" ]; then\
-			if [ "${DATAPREP_BACKEND_LOCAL_TARGET}" = "backend-dev" ]; then\
-				BACKEND_CONTAINER="matchid-backend-dev";\
-			else\
-				BACKEND_CONTAINER="matchid-backend";\
-			fi;\
-		fi;\
-		timeout=${DATAPREP_BACKEND_TIMEOUT}; ret=1;\
-		until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ] ; do\
-			(docker exec -i ${USE_TTY} $$BACKEND_CONTAINER curl -s --noproxy "*" --fail -XGET localhost:${DATAPREP_BACKEND_PORT}/matchID/api/v0/ > /dev/null) ;\
-			ret=$$? ;\
-			if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for legacy dataprep backend to start $$timeout" ; fi ;\
-			((timeout--)); sleep 1 ;\
-		done ; echo ;\
-		if [ "$$ret" -ne "0" ]; then exit $$ret; fi;\
-		docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && mkdir -p /${APP_GROUP}/log && PYTHONPATH=/${APP_GROUP}/code nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/${APP_GROUP}/log/${RECIPE}.log 2>&1 &" \
-			&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
-			&& echo ${RECIPE} run;\
-	fi
+	@env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${DATAPREP_BACKEND_PATH} recipe-run \
+		ES_HOST=${ES_HOST} \
+		CHUNK_SIZE=${CHUNK_SIZE} RECIPE=${RECIPE} RECIPE_THREADS=${RECIPE_THREADS} RECIPE_QUEUE=${RECIPE_QUEUE} \
+		ES_PRELOAD='${ES_PRELOAD}' ES_THREADS=${ES_THREADS} \
+		STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} \
+		${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend
 
 dataprep-backend-logs:
-	@BACKEND_CONTAINER="${DATAPREP_BACKEND_RUN_CONTAINER}";\
-	if [ -z "$$BACKEND_CONTAINER" ]; then\
-		if [ "${DATAPREP_BACKEND_LOCAL_TARGET}" = "backend-dev" ]; then\
-			BACKEND_CONTAINER="matchid-backend-dev";\
-		else\
-			BACKEND_CONTAINER="matchid-backend";\
-		fi;\
-	fi;\
-	docker logs --tail=200 $$BACKEND_CONTAINER
+	@(docker logs --tail=200 matchid-backend 2>/dev/null || docker logs --tail=200 matchid-backend-dev)
 
 recipe-run-local: data-tag
 	@if [ ! -f "${RECIPE_RUN_MARKER}" ];then\
 		mkdir -p $$(dirname "${RECIPE_RUN_MARKER}") $$(dirname "${S3_PULL_MARKER}");\
 		echo running recipe on data FILES_TO_PROCESS="${FILES_TO_PROCESS}" $$(cat ${DATA_TAG}), dataprep ${DATAPREP_VERSION};\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} version APP=backend;\
+		env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${DATAPREP_BACKEND_PATH} version APP=backend;\
 		${MAKE} dataprep-backend-recipe-run ${MAKEOVERRIDES} \
 			&&\
 		touch "${RECIPE_RUN_MARKER}" "${S3_PULL_MARKER}" &&\
@@ -417,7 +379,8 @@ respository-cleanse:
 down:
 	@if [ -f config ]; then\
 		if [ -d "${FRONTEND_PATH}" ]; then ${MAKE} -C ${FRONTEND_PATH} frontend-dev-stop ${MAKEOVERRIDES}; fi;\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} ${DATAPREP_BACKEND_LOCAL_STOP_TARGET} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
+		(${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-stop ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend || true);\
+		(${MAKE} -C ${DATAPREP_BACKEND_PATH} backend-dev-stop ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend || true);\
 		${MAKE} monorepo-elasticsearch-stop ${MAKEOVERRIDES};\
 	fi
 

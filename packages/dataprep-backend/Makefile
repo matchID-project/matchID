@@ -61,9 +61,6 @@ export GIT_FRONTEND_BRANCH ?= ${GIT_BRANCH}
 
 export FRONTEND=${BACKEND}/../${GIT_FRONTEND}
 export FRONTEND_DC_IMAGE_NAME=${DC_PREFIX}-${GIT_FRONTEND}
-export BACKEND_RUN_TARGET ?= backend
-export BACKEND_RUN_CONTAINER ?=
-
 export API_SECRET_KEY:=$(shell openssl rand -base64 24)
 export ADMIN_PASSWORD:=$(shell openssl rand -base64 24)
 export ADMIN_PASSWORD_HASH:=$(shell echo -n ${ADMIN_PASSWORD} | sha384sum | sed 's/\s*\-.*//')
@@ -654,18 +651,8 @@ example-download:
 	@ln -s ${EXAMPLES}/projects ${BACKEND}/projects
 	@ln -s ${EXAMPLES}/data ${BACKEND}/upload
 
-recipe-run: ${BACKEND_RUN_TARGET}
-	@BACKEND_CONTAINER="${BACKEND_RUN_CONTAINER}";\
-	if [ -z "$$BACKEND_CONTAINER" ]; then\
-		if [ "${BACKEND_RUN_TARGET}" = "backend-dev" ]; then\
-			BACKEND_CONTAINER="${DC_PREFIX}-backend-dev";\
-		else\
-			BACKEND_CONTAINER="${DC_PREFIX}-backend";\
-		fi;\
-	fi;\
-	docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && mkdir -p /${APP_GROUP}/log && PYTHONPATH=/${APP_GROUP}/code nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/${APP_GROUP}/log/${RECIPE}.log 2>&1 &" \
-	&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
-	&& echo ${RECIPE} run
+recipe-run: backend
+	docker exec -i ${USE_TTY} ${DC_PREFIX}-backend curl -s -XPUT http://localhost:${PORT}/matchID/api/v0/recipes/${RECIPE}/run && echo ${RECIPE} run
 
 deploy-local: config up local-test-api
 

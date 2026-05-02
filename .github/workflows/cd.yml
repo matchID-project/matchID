@@ -514,17 +514,7 @@ jobs:
       - name: Export dataprep year snapshot metadata
         if: steps.year_context.outputs.should_run == 'true'
         run: |
-          rm -f packages/deces-dataprep/repository-check
-          for attempt in $(seq 1 12); do
-            make -C packages/deces-dataprep repository-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
-            if test -s packages/deces-dataprep/repository-check; then
-              break
-            fi
-            rm -f packages/deces-dataprep/repository-check
-            sleep 5
-          done
-          test -s packages/deces-dataprep/repository-check
-          SNAPSHOT_NAME=$(cat packages/deces-dataprep/repository-check)
+          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" | tail -1)
           {
             echo "snapshot_name=${SNAPSHOT_NAME}"
             echo "repository_bucket=${REPOSITORY_BUCKET}"
