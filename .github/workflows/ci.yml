@@ -16,57 +16,67 @@ jobs:
     permissions:
       contents: read
     outputs:
-      tools: ${{ steps.filter.outputs.tools }}
-      dataprep_backend: ${{ steps.filter.outputs.dataprep_backend }}
-      dataprep_frontend: ${{ steps.filter.outputs.dataprep_frontend }}
-      deces_backend: ${{ steps.filter.outputs.deces_backend }}
-      deces_ui: ${{ steps.filter.outputs.deces_ui }}
-      deces_dataprep: ${{ steps.filter.outputs.deces_dataprep }}
+      artifact_matchid_backend: ${{ steps.detect.outputs.artifact_matchid_backend }}
+      artifact_matchid_frontend: ${{ steps.detect.outputs.artifact_matchid_frontend }}
+      artifact_deces_backend: ${{ steps.detect.outputs.artifact_deces_backend }}
+      artifact_deces_ui: ${{ steps.detect.outputs.artifact_deces_ui }}
+      artifact_dataprep_snapshot: ${{ steps.detect.outputs.artifact_dataprep_snapshot }}
+      integration_stack: ${{ steps.detect.outputs.integration_stack }}
+      tools: ${{ steps.detect.outputs.tools }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
         with:
-          filters: |
-            tools:
-              - 'Makefile'
-              - 'packages/tools/**'
-              - '.github/workflows/ci.yml'
-            dataprep_backend:
-              - 'Makefile'
-              - 'packages/dataprep-backend/**'
-              - 'packages/deces-dataprep/**'
-              - 'packages/tools/**'
-              - '.github/workflows/ci.yml'
-            dataprep_frontend:
-              - 'Makefile'
-              - 'packages/dataprep-frontend/**'
-              - 'packages/dataprep-backend/**'
-              - 'packages/deces-dataprep/**'
-              - 'packages/tools/**'
-              - '.github/workflows/ci.yml'
-            deces_backend:
-              - 'Makefile'
-              - 'packages/deces-backend/**'
-              - 'packages/deces-infra/**'
-              - 'packages/tools/**'
-              - '.github/workflows/ci.yml'
-            deces_ui:
-              - 'Makefile'
-              - 'packages/deces-ui/**'
-              - 'packages/deces-backend/**'
-              - 'packages/deces-infra/**'
-              - 'packages/tools/**'
-              - '.github/workflows/ci.yml'
-            deces_dataprep:
-              - 'Makefile'
-              - 'packages/deces-dataprep/**'
-              - 'packages/dataprep-backend/**'
-              - 'packages/dataprep-frontend/**'
-              - 'packages/deces-infra/**'
-              - 'packages/tools/**'
-              - 'scripts/**'
-              - '.github/workflows/ci.yml'
+          fetch-depth: 0
+      - name: Resolve artifact and integration flags
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          BASE_COMMIT="$(git merge-base "${BASE_SHA}" "${HEAD_SHA}")"
+          git diff --name-only "${BASE_COMMIT}" "${HEAD_SHA}" | LC_ALL=C sort -u > /tmp/changed-files.txt
+          touch /tmp/changed-files.txt
+
+          prefixed_version_files() {
+            local dir="$1"
+            make -s -C "${dir}" version-files | sed "s#^#${dir}/#" | LC_ALL=C sort -u
+          }
+
+          emit_flag() {
+            echo "$1=$2" >> "${GITHUB_OUTPUT}"
+          }
+
+          resolve_artifact_flag() {
+            local name="$1"
+            local dir="$2"
+            local files="/tmp/${name}.files"
+            prefixed_version_files "${dir}" > "${files}"
+            if grep -Fxf "${files}" /tmp/changed-files.txt > /dev/null 2>&1; then
+              emit_flag "${name}" true
+            else
+              emit_flag "${name}" false
+            fi
+          }
+
+          resolve_artifact_flag artifact_matchid_backend packages/dataprep-backend
+          resolve_artifact_flag artifact_matchid_frontend packages/dataprep-frontend
+          resolve_artifact_flag artifact_deces_backend packages/deces-backend
+          resolve_artifact_flag artifact_deces_ui packages/deces-ui
+          resolve_artifact_flag artifact_dataprep_snapshot packages/deces-dataprep
+
+          if grep -Eq '^(Makefile$|packages/tools/|\.github/workflows/ci\.yml$)' /tmp/changed-files.txt; then
+            emit_flag tools true
+          else
+            emit_flag tools false
+          fi
+
+          if grep -Eq '^(Makefile$|packages/tools/|packages/deces-infra/|scripts/|\.github/workflows/(ci|cd|release-prod)\.yml$)' /tmp/changed-files.txt; then
+            emit_flag integration_stack true
+          else
+            emit_flag integration_stack false
+          fi
 
   tools-swift:
     name: build docker swift
@@ -85,7 +95,11 @@ jobs:
   dataprep-backend-test:
     name: dataprep-backend pull request test
     needs: changes
-    if: needs.changes.outputs.dataprep_backend == 'true'
+    if: >-
+      ${{
+        needs.changes.outputs.artifact_matchid_backend == 'true' ||
+        needs.changes.outputs.integration_stack == 'true'
+      }}
     runs-on: ubuntu-latest
     env:
       GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -96,15 +110,40 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve matchid-backend version
+        id: dataprep_backend_version
+        run: echo "app_version=$(make -s -C packages/dataprep-backend version | awk '{print $NF}')" >> "${GITHUB_OUTPUT}"
       - name: Configure monorepo dataprep backend
         run: make -C packages/deces-dataprep config
-      - name: Build or reuse backend image and run tests
-        run: make -C packages/dataprep-backend version backend-docker-check GIT_BRANCH=${GIT_BRANCH} || ( make -C packages/dataprep-backend backend-build GIT_BRANCH=${GIT_BRANCH} && make -C packages/dataprep-backend backend tests backend-stop GIT_BRANCH=${GIT_BRANCH} )
+      - name: Build or reuse backend image
+        run: make -C packages/dataprep-backend backend-docker-check GIT_BRANCH=${GIT_BRANCH} || make -C packages/dataprep-backend backend-build GIT_BRANCH=${GIT_BRANCH}
+      - name: Run dataprep-backend tests
+        run: make -C packages/dataprep-backend backend tests backend-stop GIT_BRANCH=${GIT_BRANCH}
+      - name: Save matchid-backend image artifact
+        run: docker save matchid/matchid-backend:${{ steps.dataprep_backend_version.outputs.app_version }} | gzip > /tmp/matchid-backend-image.tar.gz
+      - name: Upload matchid-backend image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: matchid-backend-image
+          path: /tmp/matchid-backend-image.tar.gz
+          if-no-files-found: error
 
   dataprep-frontend-test:
     name: dataprep-frontend pull request test
-    needs: changes
-    if: needs.changes.outputs.dataprep_frontend == 'true'
+    needs:
+      - changes
+      - dataprep-backend-test
+    if: >-
+      ${{
+        (
+          needs.dataprep-backend-test.result == 'success' ||
+          needs.dataprep-backend-test.result == 'skipped'
+        ) && (
+        needs.changes.outputs.artifact_matchid_frontend == 'true' ||
+        needs.changes.outputs.artifact_matchid_backend == 'true' ||
+        needs.changes.outputs.integration_stack == 'true'
+        )
+      }}
     runs-on: ubuntu-latest
     env:
       BACKEND: ${{ github.workspace }}/packages/dataprep-backend
@@ -119,6 +158,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure monorepo dataprep frontend
         run: make -C packages/deces-dataprep config frontend-config
+      - name: Download matchid-backend image artifact
+        if: needs.dataprep-backend-test.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: matchid-backend-image
+          path: /tmp
+      - name: Load matchid-backend image artifact
+        if: needs.dataprep-backend-test.result == 'success'
+        run: docker load -i /tmp/matchid-backend-image.tar.gz
       - name: Build or reuse frontend image and start stack
         run: |
           make -C packages/dataprep-frontend version-files
@@ -128,7 +176,11 @@ jobs:
   deces-backend-build:
     name: deces-backend build docker image
     needs: changes
-    if: needs.changes.outputs.deces_backend == 'true'
+    if: >-
+      ${{
+        needs.changes.outputs.artifact_deces_backend == 'true' ||
+        needs.changes.outputs.integration_stack == 'true'
+      }}
     runs-on: ubuntu-latest
     env:
       GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -141,8 +193,21 @@ jobs:
 
   deces-backend-tests:
     name: deces-backend tests
-    needs: changes
-    if: needs.changes.outputs.deces_backend == 'true'
+    needs:
+      - changes
+      - deces-dataprep-locally
+    if: >-
+      ${{
+        (
+          needs.deces-dataprep-locally.result == 'success' ||
+          needs.deces-dataprep-locally.result == 'skipped'
+        ) && (
+          needs.changes.outputs.artifact_deces_backend == 'true' ||
+          needs.changes.outputs.artifact_dataprep_snapshot == 'true' ||
+          needs.changes.outputs.artifact_matchid_backend == 'true' ||
+          needs.changes.outputs.integration_stack == 'true'
+        )
+      }}
     runs-on: ubuntu-latest
     env:
       GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -168,8 +233,26 @@ jobs:
 
   deces-backend-artillery:
     name: deces-backend perf artillery
-    needs: changes
-    if: needs.changes.outputs.deces_backend == 'true'
+    needs:
+      - changes
+      - deces-dataprep-locally
+      - deces-backend-tests
+    if: >-
+      ${{
+        (
+          needs.deces-dataprep-locally.result == 'success' ||
+          needs.deces-dataprep-locally.result == 'skipped'
+        ) &&
+        (
+          needs.deces-backend-tests.result == 'success' ||
+          needs.deces-backend-tests.result == 'skipped'
+        ) && (
+          needs.changes.outputs.artifact_deces_backend == 'true' ||
+          needs.changes.outputs.artifact_dataprep_snapshot == 'true' ||
+          needs.changes.outputs.artifact_matchid_backend == 'true' ||
+          needs.changes.outputs.integration_stack == 'true'
+        )
+      }}
     runs-on: ubuntu-latest
     continue-on-error: true
     env:
@@ -200,8 +283,27 @@ jobs:
 
   deces-ui-pull-request-test:
     name: deces-ui pull request test
-    needs: changes
-    if: needs.changes.outputs.deces_ui == 'true'
+    needs:
+      - changes
+      - deces-dataprep-locally
+      - deces-backend-tests
+    if: >-
+      ${{
+        (
+          needs.deces-dataprep-locally.result == 'success' ||
+          needs.deces-dataprep-locally.result == 'skipped'
+        ) &&
+        (
+          needs.deces-backend-tests.result == 'success' ||
+          needs.deces-backend-tests.result == 'skipped'
+        ) && (
+          needs.changes.outputs.artifact_deces_ui == 'true' ||
+          needs.changes.outputs.artifact_deces_backend == 'true' ||
+          needs.changes.outputs.artifact_dataprep_snapshot == 'true' ||
+          needs.changes.outputs.artifact_matchid_backend == 'true' ||
+          needs.changes.outputs.integration_stack == 'true'
+        )
+      }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -240,8 +342,20 @@ jobs:
 
   deces-dataprep-locally:
     name: deces-dataprep locally
-    needs: changes
-    if: needs.changes.outputs.deces_dataprep == 'true'
+    needs:
+      - changes
+      - dataprep-backend-test
+    if: >-
+      ${{
+        (
+          needs.dataprep-backend-test.result == 'success' ||
+          needs.dataprep-backend-test.result == 'skipped'
+        ) && (
+        needs.changes.outputs.artifact_dataprep_snapshot == 'true' ||
+        needs.changes.outputs.artifact_matchid_backend == 'true' ||
+        needs.changes.outputs.integration_stack == 'true'
+        )
+      }}
     runs-on: ubuntu-latest
     env:
       GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -249,6 +363,17 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Configure local dataprep stack
+        run: make -C packages/deces-dataprep config
+      - name: Download matchid-backend image artifact
+        if: needs.dataprep-backend-test.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: matchid-backend-image
+          path: /tmp
+      - name: Load matchid-backend image artifact
+        if: needs.dataprep-backend-test.result == 'success'
+        run: docker load -i /tmp/matchid-backend-image.tar.gz
       - name: Run small dataset
         run: |
           make -C packages/deces-dataprep all GIT_BRANCH=${GIT_BRANCH} FILES_TO_PROCESS=${FILES_TO_PROCESS} \

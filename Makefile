@@ -101,6 +101,7 @@ export DATAPREP_VERSION_OVERRIDE ?=
 export DATA_VERSION_OVERRIDE ?=
 export DATA_VERSION_SOURCE ?= storage
 export DATA_VERSION_INPUT_DIR ?=
+dataprep_version_inputs := $(shell cd ${DATAPREP_PATH} && export LC_COLLATE=C; export LC_ALL=C; cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v '.tar.gz$$|.pyc$$|.gitignore$$' | sort)
 export FILES_TO_PROCESS?=deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz
 export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz
 export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz
@@ -310,11 +311,8 @@ ifneq (${DATAPREP_VERSION_OVERRIDE},)
 ${DATAPREP_VERSION_FILE}: FORCE
 	@printf '%s\n' "${DATAPREP_VERSION_OVERRIDE}" > ${DATAPREP_VERSION_FILE}
 else
-${DATAPREP_VERSION_FILE}: ${DATAPREP_PATH}/Makefile ${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml ${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml
-	@cat ${DATAPREP_PATH}/Makefile\
-		${DATAPREP_PATH}/projects/deces-dataprep/recipes/deces_dataprep.yml\
-		${DATAPREP_PATH}/projects/deces-dataprep/datasets/deces_index.yml\
-	| sha1sum | awk '{print $1}' | cut -c-8 > ${DATAPREP_VERSION_FILE}
+${DATAPREP_VERSION_FILE}: $(addprefix ${DATAPREP_PATH}/,${dataprep_version_inputs})
+	@cd ${DATAPREP_PATH} && export LC_COLLATE=C; export LC_ALL=C; cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v '.tar.gz$$|.pyc$$|.gitignore$$' | sort | xargs cat | sha1sum - | sed 's/\(........\).*/\1/' > ${DATAPREP_VERSION_FILE}
 endif
 
 dataprep-version: ${DATAPREP_VERSION_FILE}
