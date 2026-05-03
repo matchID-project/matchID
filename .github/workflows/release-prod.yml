@@ -25,31 +25,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  release-prod:
-    name: Release prod
+  release-context:
+    name: release-context
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
-    env:
-      APP_DNS: deces.matchid.io
-      PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
-      BACKEND_JOB_CONCURRENCY_PROD: 6
-      BACKEND_CHUNK_CONCURRENCY_PROD: 3
-      ES_MEM_PROD: 8192m
-      SCW_FLAVOR_PROD: GP1-XS
-      SCW_VOLUME_SIZE_PROD: 60000000000
-      SCW_VOLUME_TYPE_PROD: l_ssd
-      DATAPREP_SCW_FLAVOR_PROD: PRO2-L
-      DATAPREP_SCW_VOLUME_SIZE_PROD: 50000000000
-      DATAPREP_SCW_VOLUME_TYPE_PROD: sbs_volume
-      DATAPREP_CHUNK_SIZE_PROD: 75000
-      DATAPREP_ES_THREADS_PROD: 30
-      DATAPREP_RECIPE_THREADS_PROD: 32
-      DATAPREP_RECIPE_QUEUE_PROD: 34
-      DATAPREP_ES_MEM_PROD: 62000m
-      DATAPREP_FILES_TO_PROCESS_PROD: 'deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz'
+    outputs:
+      prod_tag: ${{ steps.context.outputs.prod_tag }}
+      tag_sha: ${{ steps.context.outputs.tag_sha }}
+      previous_prod_tag: ${{ steps.context.outputs.previous_prod_tag }}
+      dataprep_changed: ${{ steps.context.outputs.dataprep_changed }}
+      artifact_dataprep_snapshot: ${{ steps.context.outputs.artifact_dataprep_snapshot }}
+      artifact_matchid_backend: ${{ steps.context.outputs.artifact_matchid_backend }}
+      dataprep_runtime_changed: ${{ steps.context.outputs.dataprep_runtime_changed }}
+      release_mode: ${{ steps.context.outputs.release_mode }}
+      should_run_full: ${{ steps.selection.outputs.should_run_full }}
+      snapshot_name: ${{ steps.selection.outputs.snapshot_name }}
+      dataprep_version: ${{ steps.selection.outputs.dataprep_version }}
+      data_version: ${{ steps.selection.outputs.data_version }}
+      deces_ui_image_version: ${{ steps.images.outputs.deces_ui_image_version }}
+      deces_backend_image_version: ${{ steps.images.outputs.deces_backend_image_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -236,27 +233,316 @@ jobs:
         env:
           PROD_TAG: ${{ steps.context.outputs.prod_tag }}
 
-      - name: Resolve published image versions
+      - name: Select prod snapshot mode
+        id: selection
+        run: |
+          set -euo pipefail
+          SHOULD_RUN_FULL=false
+          SNAPSHOT_NAME=
+          DATAPREP_VERSION=
+          DATA_VERSION=
+          if [ "${RELEASE_MODE}" = "full_and_deploy" ]; then
+            SHOULD_RUN_FULL=true
+          elif [ "${RELEASE_MODE}" = "auto" ]; then
+            if [ "${DATAPREP_CHANGED}" = "true" ] || [ "${AUTO_RUN_FULL}" = "true" ]; then
+              SHOULD_RUN_FULL=true
+            else
+              SNAPSHOT_NAME="${AUTO_SNAPSHOT_NAME}"
+              DATAPREP_VERSION="${AUTO_DATAPREP_VERSION}"
+              DATA_VERSION="${AUTO_DATA_VERSION}"
+            fi
+          else
+            SNAPSHOT_NAME="${TAGGED_SNAPSHOT_NAME}"
+            DATAPREP_VERSION="${TAGGED_DATAPREP_VERSION}"
+            DATA_VERSION="${TAGGED_DATA_VERSION}"
+          fi
+          {
+            echo "should_run_full=${SHOULD_RUN_FULL}"
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "dataprep_version=${DATAPREP_VERSION}"
+            echo "data_version=${DATA_VERSION}"
+          } >> "${GITHUB_OUTPUT}"
+        env:
+          RELEASE_MODE: ${{ steps.context.outputs.release_mode }}
+          DATAPREP_CHANGED: ${{ steps.context.outputs.dataprep_changed }}
+          AUTO_RUN_FULL: ${{ steps.snapshot_auto.outputs.run_full || 'false' }}
+          AUTO_SNAPSHOT_NAME: ${{ steps.snapshot_auto.outputs.snapshot_name }}
+          AUTO_DATAPREP_VERSION: ${{ steps.snapshot_auto.outputs.dataprep_version }}
+          AUTO_DATA_VERSION: ${{ steps.snapshot_auto.outputs.data_version }}
+          TAGGED_SNAPSHOT_NAME: ${{ steps.snapshot_tagged.outputs.snapshot_name }}
+          TAGGED_DATAPREP_VERSION: ${{ steps.snapshot_tagged.outputs.dataprep_version }}
+          TAGGED_DATA_VERSION: ${{ steps.snapshot_tagged.outputs.data_version }}
+
+      - name: Resolve deploy image versions
         id: images
         run: |
           set -euo pipefail
-          DATAPREP_BACKEND_IMAGE_VERSION=
-          DECES_UI_IMAGE_VERSION=$(make artifact-version-deces-ui GIT_BRANCH=master | tail -1)
-          DECES_BACKEND_IMAGE_VERSION=$(make artifact-version-deces-backend GIT_BRANCH=master | tail -1)
-          RUN_FULL=false
-          if [ "${{ steps.context.outputs.release_mode }}" = "full_and_deploy" ]; then
-            RUN_FULL=true
-          elif [ "${{ steps.context.outputs.release_mode }}" = "auto" ] && { [ "${{ steps.context.outputs.dataprep_changed }}" = "true" ] || [ "${{ steps.snapshot_auto.outputs.run_full }}" = "true" ]; }; then
-            RUN_FULL=true
-          fi
-          if [ "${RUN_FULL}" = "true" ]; then
-            DATAPREP_BACKEND_IMAGE_VERSION=$(make artifact-version-dataprep-backend GIT_BRANCH=master | tail -1)
+          {
+            echo "deces_ui_image_version=$(make artifact-version-deces-ui GIT_BRANCH=master | tail -1)"
+            echo "deces_backend_image_version=$(make artifact-version-deces-backend GIT_BRANCH=master | tail -1)"
+          } >> "${GITHUB_OUTPUT}"
+
+  ensure-matchid-backend-image-prod:
+    name: ensure-matchid-backend-image-prod
+    needs: release-context
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      image_version: ${{ steps.resolve.outputs.image_version }}
+      should_validate: ${{ steps.resolve.outputs.should_validate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+
+      - name: Resolve matchid-backend prod image
+        id: resolve
+        run: |
+          set -euo pipefail
+          IMAGE_VERSION=
+          SHOULD_VALIDATE=false
+          if [ "${SHOULD_RUN_FULL}" = "true" ]; then
+            IMAGE_VERSION=$(make artifact-version-dataprep-backend GIT_BRANCH=master | tail -1)
+            SHOULD_VALIDATE=true
           fi
           {
-            echo "deces_ui_image_version=${DECES_UI_IMAGE_VERSION}"
-            echo "deces_backend_image_version=${DECES_BACKEND_IMAGE_VERSION}"
-            echo "dataprep_backend_image_version=${DATAPREP_BACKEND_IMAGE_VERSION}"
+            echo "image_version=${IMAGE_VERSION}"
+            echo "should_validate=${SHOULD_VALIDATE}"
           } >> "${GITHUB_OUTPUT}"
+        env:
+          SHOULD_RUN_FULL: ${{ needs.release-context.outputs.should_run_full }}
+
+      - name: Validate matchid-backend prod image availability
+        if: steps.resolve.outputs.should_validate == 'true'
+        run: make -C packages/dataprep-backend backend-docker-check GIT_BRANCH=master APP_VERSION="${APP_VERSION}"
+        env:
+          APP_VERSION: ${{ steps.resolve.outputs.image_version }}
+
+      - name: No-op matchid-backend prod image
+        if: steps.resolve.outputs.should_validate != 'true'
+        run: echo "No matchid-backend prod image validation needed"
+
+  ensure-prod-snapshot:
+    name: ensure-prod-snapshot
+    needs:
+      - release-context
+      - ensure-matchid-backend-image-prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      APP_DNS: deces.matchid.io
+      PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+      DATAPREP_SCW_FLAVOR_PROD: PRO2-L
+      DATAPREP_SCW_VOLUME_SIZE_PROD: 50000000000
+      DATAPREP_SCW_VOLUME_TYPE_PROD: sbs_volume
+      DATAPREP_CHUNK_SIZE_PROD: 75000
+      DATAPREP_ES_THREADS_PROD: 30
+      DATAPREP_RECIPE_THREADS_PROD: 32
+      DATAPREP_RECIPE_QUEUE_PROD: 34
+      DATAPREP_ES_MEM_PROD: 62000m
+      DATAPREP_FILES_TO_PROCESS_PROD: 'deces-((19[7-9][0-9]|20(0[0-9]|1[0-9]|2[0-4]))|202[56]-m(0[1-9]|1[0-2]))\.txt\.gz'
+    outputs:
+      snapshot_name: ${{ steps.snapshot.outputs.snapshot_name }}
+      dataprep_version: ${{ steps.snapshot.outputs.dataprep_version }}
+      data_version: ${{ steps.snapshot.outputs.data_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+
+      - name: Install deploy SSH key
+        if: needs.release-context.outputs.should_run_full == 'true'
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          export SSH_AUTH_SOCK=/tmp/ssh_agent.sock
+          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
+          ssh-add "${HOME}/.ssh/id_rsa_matchID"
+          sanitize_host() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#http://}"
+            value="${value#https://}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value##*@}"; fi
+            value="${value%%/*}"
+            if [[ "${value}" =~ ^\[[^]]+\]:[0-9]+$ ]]; then
+              value="${value#\[}"
+              value="${value%%\]:*}"
+            elif [[ "${value}" =~ ^[^:]+:[0-9]+$ ]]; then
+              value="${value%%:*}"
+            fi
+            printf '%s' "${value}"
+          }
+          sanitize_user() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value%%@*}"; fi
+            printf '%s' "${value}"
+          }
+          BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          BASTION_USER_RESOLVED=ubuntu
+          NGINX_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          NGINX_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
+          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
+          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
+          if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
+          if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
+          if ! getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
+            BASTION_HOST_RESOLVED=163.172.185.238
+          fi
+          NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"
+          NGINX_USER_RESOLVED="${BASTION_USER_RESOLVED}"
+          test -n "${BASTION_HOST_RESOLVED}"
+          test -n "${BASTION_USER_RESOLVED}"
+          test -n "${NGINX_HOST_RESOLVED}"
+          test -n "${NGINX_USER_RESOLVED}"
+          printf '%s\n' \
+            "Host bastion" \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            "Host * !bastion" \
+            "  ProxyJump bastion" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            > "${HOME}/.ssh/config"
+          {
+            echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
+            echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
+            echo "NGINX_HOST_RESOLVED=${NGINX_HOST_RESOLVED}"
+            echo "NGINX_USER_RESOLVED=${NGINX_USER_RESOLVED}"
+          } >> "${GITHUB_ENV}"
+          chmod 600 "${HOME}/.ssh/config"
+        env:
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Check dataprep full snapshot
+        if: needs.release-context.outputs.should_run_full == 'true'
+        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+
+      - name: Run dataprep full remote-all
+        if: needs.release-context.outputs.should_run_full == 'true'
+        run: |
+          make -C packages/deces-dataprep remote-all \
+            GIT_BRANCH=master \
+            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
+            SCW_FLAVOR="${DATAPREP_SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${DATAPREP_SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${DATAPREP_SCW_VOLUME_TYPE_PROD}" \
+            CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
+            SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
+            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
+            DATAPREP_BACKEND_MAKEOVERRIDES="APP_VERSION=${DATAPREP_BACKEND_IMAGE_VERSION}" \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
+        env:
+          DATAPREP_BACKEND_IMAGE_VERSION: ${{ needs.ensure-matchid-backend-image-prod.outputs.image_version }}
+          PROD_TAG: ${{ needs.release-context.outputs.prod_tag }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Capture prod snapshot metadata
+        id: full_snapshot
+        if: needs.release-context.outputs.should_run_full == 'true'
+        run: |
+          set -euo pipefail
+          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${DATAPREP_FILES_TO_PROCESS_PROD}" REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" | tail -1)
+          DATAPREP_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_([^_]+)_.*/\1/')
+          DATA_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_[^_]+_([^_]+)$/\1/')
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "dataprep_version=${DATAPREP_VERSION}"
+            echo "data_version=${DATA_VERSION}"
+          } >> "${GITHUB_OUTPUT}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+
+      - name: Select prod snapshot metadata
+        id: snapshot
+        run: |
+          set -euo pipefail
+          if [ "${SHOULD_RUN_FULL}" = "true" ]; then
+            SNAPSHOT_NAME="${FULL_SNAPSHOT_NAME}"
+            DATAPREP_VERSION="${FULL_DATAPREP_VERSION}"
+            DATA_VERSION="${FULL_DATA_VERSION}"
+          else
+            SNAPSHOT_NAME="${REUSED_SNAPSHOT_NAME}"
+            DATAPREP_VERSION="${REUSED_DATAPREP_VERSION}"
+            DATA_VERSION="${REUSED_DATA_VERSION}"
+          fi
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "dataprep_version=${DATAPREP_VERSION}"
+            echo "data_version=${DATA_VERSION}"
+          } >> "${GITHUB_OUTPUT}"
+        env:
+          SHOULD_RUN_FULL: ${{ needs.release-context.outputs.should_run_full }}
+          FULL_SNAPSHOT_NAME: ${{ steps.full_snapshot.outputs.snapshot_name }}
+          FULL_DATAPREP_VERSION: ${{ steps.full_snapshot.outputs.dataprep_version }}
+          FULL_DATA_VERSION: ${{ steps.full_snapshot.outputs.data_version }}
+          REUSED_SNAPSHOT_NAME: ${{ needs.release-context.outputs.snapshot_name }}
+          REUSED_DATAPREP_VERSION: ${{ needs.release-context.outputs.dataprep_version }}
+          REUSED_DATA_VERSION: ${{ needs.release-context.outputs.data_version }}
+
+  deploy-prod:
+    name: deploy-prod
+    needs:
+      - release-context
+      - ensure-prod-snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      APP_DNS: deces.matchid.io
+      PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+      BACKEND_JOB_CONCURRENCY_PROD: 6
+      BACKEND_CHUNK_CONCURRENCY_PROD: 3
+      ES_MEM_PROD: 8192m
+      SCW_FLAVOR_PROD: GP1-XS
+      SCW_VOLUME_SIZE_PROD: 60000000000
+      SCW_VOLUME_TYPE_PROD: l_ssd
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
 
       - name: Install deploy SSH key
         run: |
@@ -309,10 +595,8 @@ jobs:
           if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
           if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
           if ! getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
-            # Temporary fallback while monorepo runner secrets still expose a non-resolving bastion host.
             BASTION_HOST_RESOLVED=163.172.185.238
           fi
-          # Current deploy topology publishes nginx through the bastion host.
           NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"
           NGINX_USER_RESOLVED="${BASTION_USER_RESOLVED}"
           test -n "${BASTION_HOST_RESOLVED}"
@@ -346,90 +630,9 @@ jobs:
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Check dataprep full snapshot
-        if: steps.context.outputs.release_mode == 'full_and_deploy' || (steps.context.outputs.release_mode == 'auto' && (steps.context.outputs.dataprep_changed == 'true' || steps.snapshot_auto.outputs.run_full == 'true'))
-        run: make -C packages/deces-dataprep clean full-check GIT_BRANCH=master REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}"
-        env:
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-
-      - name: Run dataprep full remote-all
-        if: steps.context.outputs.release_mode == 'full_and_deploy' || (steps.context.outputs.release_mode == 'auto' && (steps.context.outputs.dataprep_changed == 'true' || steps.snapshot_auto.outputs.run_full == 'true'))
-        run: |
-          make -C packages/deces-dataprep remote-all \
-            GIT_BRANCH=master \
-            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
-            SCW_FLAVOR="${DATAPREP_SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${DATAPREP_SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${DATAPREP_SCW_VOLUME_TYPE_PROD}" \
-            CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
-            SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
-            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
-            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
-            DATAPREP_BACKEND_MAKEOVERRIDES="APP_VERSION=${DATAPREP_BACKEND_IMAGE_VERSION}" \
-            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
-        env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
-          DATAPREP_BACKEND_IMAGE_VERSION: ${{ steps.images.outputs.dataprep_backend_image_version }}
-          PROD_TAG: ${{ steps.context.outputs.prod_tag }}
-          remote_http_proxy: ${{ secrets.remote_http_proxy }}
-          remote_https_proxy: ${{ secrets.remote_https_proxy }}
-          remote_no_proxy: localhost
-          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
-          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
-          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-
-      - name: Capture prod snapshot metadata
-        if: steps.context.outputs.release_mode == 'full_and_deploy' || (steps.context.outputs.release_mode == 'auto' && (steps.context.outputs.dataprep_changed == 'true' || steps.snapshot_auto.outputs.run_full == 'true'))
-        run: |
-          set -euo pipefail
-          SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${DATAPREP_FILES_TO_PROCESS_PROD}" REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" | tail -1)
-          DATAPREP_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_([^_]+)_.*/\1/')
-          DATA_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_[^_]+_([^_]+)$/\1/')
-          {
-            echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
-            echo "DATAPREP_VERSION=${DATAPREP_VERSION}"
-            echo "DATA_VERSION=${DATA_VERSION}"
-          } >> "${GITHUB_ENV}"
-        env:
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-
-      - name: Reuse current prod snapshot metadata
-        if: steps.context.outputs.release_mode == 'auto' && steps.context.outputs.dataprep_changed != 'true' && steps.snapshot_auto.outputs.run_full == 'false'
-        run: |
-          {
-            echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
-            echo "DATAPREP_VERSION=${DATAPREP_VERSION}"
-            echo "DATA_VERSION=${DATA_VERSION}"
-          } >> "${GITHUB_ENV}"
-        env:
-          SNAPSHOT_NAME: ${{ steps.snapshot_auto.outputs.snapshot_name }}
-          DATAPREP_VERSION: ${{ steps.snapshot_auto.outputs.dataprep_version }}
-          DATA_VERSION: ${{ steps.snapshot_auto.outputs.data_version }}
-
-      - name: Reuse tagged prod snapshot metadata
-        if: steps.context.outputs.release_mode == 'deploy_only'
-        run: |
-          {
-            echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
-            echo "DATAPREP_VERSION=${DATAPREP_VERSION}"
-            echo "DATA_VERSION=${DATA_VERSION}"
-          } >> "${GITHUB_ENV}"
-        env:
-          SNAPSHOT_NAME: ${{ steps.snapshot_tagged.outputs.snapshot_name }}
-          DATAPREP_VERSION: ${{ steps.snapshot_tagged.outputs.dataprep_version }}
-          DATA_VERSION: ${{ steps.snapshot_tagged.outputs.data_version }}
-
       - name: Deploy deces.matchid.io
         env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
-          PROD_TAG: ${{ steps.context.outputs.prod_tag }}
+          PROD_TAG: ${{ needs.release-context.outputs.prod_tag }}
           GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
           GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
@@ -467,8 +670,11 @@ jobs:
           NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
           MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-          DECES_UI_IMAGE_VERSION: ${{ steps.images.outputs.deces_ui_image_version }}
-          DECES_BACKEND_IMAGE_VERSION: ${{ steps.images.outputs.deces_backend_image_version }}
+          DECES_UI_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_ui_image_version }}
+          DECES_BACKEND_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_backend_image_version }}
+          SNAPSHOT_NAME: ${{ needs.ensure-prod-snapshot.outputs.snapshot_name }}
+          DATAPREP_VERSION: ${{ needs.ensure-prod-snapshot.outputs.dataprep_version }}
+          DATA_VERSION: ${{ needs.ensure-prod-snapshot.outputs.data_version }}
         run: |
           make deploy-remote-preflight \
             GIT_BRANCH=master \
@@ -508,14 +714,29 @@ jobs:
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
             CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
 
+  publish-release-prod-metadata:
+    name: publish-release-prod-metadata
+    needs:
+      - release-context
+      - ensure-prod-snapshot
+      - deploy-prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+
       - name: Write release metadata artifact
         run: |
           cat <<EOF > /tmp/release-prod-metadata.txt
-          prod_tag=${{ steps.context.outputs.prod_tag }}
-          commit_sha=${{ steps.context.outputs.tag_sha }}
-          snapshot_name=${SNAPSHOT_NAME}
-          dataprep_version=${DATAPREP_VERSION}
-          data_version=${DATA_VERSION}
+          prod_tag=${{ needs.release-context.outputs.prod_tag }}
+          commit_sha=${{ needs.release-context.outputs.tag_sha }}
+          snapshot_name=${{ needs.ensure-prod-snapshot.outputs.snapshot_name }}
+          dataprep_version=${{ needs.ensure-prod-snapshot.outputs.dataprep_version }}
+          data_version=${{ needs.ensure-prod-snapshot.outputs.data_version }}
           deces_ui_version=$(make package-version-deces-ui)
           deces_backend_version=$(make package-version-deces-backend)
           dataprep_backend_version=$(make package-version-dataprep-backend)
