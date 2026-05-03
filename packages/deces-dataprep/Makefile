@@ -1,6 +1,6 @@
 SHELL=/bin/bash
 
-export DATAPREP_VERSION := $(shell cat Makefile projects/deces-dataprep/recipes/deces_dataprep.yml projects/deces-dataprep/datasets/deces_index.yml  | sha1sum | awk '{print $1}' | cut -c-8)
+export DATAPREP_VERSION := $(shell export LC_COLLATE=C; export LC_ALL=C; cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v '.tar.gz$$|.pyc$$|.gitignore$$' | sort | xargs cat | sha1sum - | sed 's/\(........\).*/\1/')
 export APP=deces-dataprep
 export APP_GROUP=matchID
 export PWD := $(shell pwd)
@@ -152,6 +152,9 @@ data-tag: ${DATA_TAG}
 
 dataprep-version:
 	@echo ${DATAPREP_VERSION}
+
+version-files:
+	@export LC_COLLATE=C; export LC_ALL=C; cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v '.tar.gz$$|.pyc$$|.gitignore$$' | sort
 
 ${BACKUP_CHECK}: data-tag
 	${MAKE} -s -C ${MONOREPO_TOOLS_PATH} get-catalog CATALOG=${BACKUP_CHECK}\

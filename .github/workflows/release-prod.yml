@@ -84,15 +84,33 @@ jobs:
           git merge-base --is-ancestor "${TAG_SHA}" origin/main
           PREVIOUS_PROD_TAG=$(git tag --list 'v*' --sort=-creatordate | grep -Fxv "${PROD_TAG}" | head -n 1 || true)
           DATAPREP_CHANGED=true
+          ARTIFACT_DATAPREP_SNAPSHOT=false
+          ARTIFACT_MATCHID_BACKEND=false
+          DATAPREP_RUNTIME_CHANGED=false
           if [ -n "${PREVIOUS_PROD_TAG}" ]; then
-            if git diff --quiet "${PREVIOUS_PROD_TAG}" "${PROD_TAG}" -- \
-              Makefile \
-              packages/deces-dataprep \
-              packages/dataprep-backend \
-              packages/dataprep-frontend \
-              packages/deces-infra \
-              packages/tools \
-              scripts; then
+            git diff --name-only "${PREVIOUS_PROD_TAG}" "${PROD_TAG}" | LC_ALL=C sort -u > /tmp/release-prod-changed-files.txt
+            touch /tmp/release-prod-changed-files.txt
+
+            prefixed_version_files() {
+              local dir="$1"
+              make -s -C "${dir}" version-files | sed "s#^#${dir}/#" | LC_ALL=C sort -u
+            }
+
+            prefixed_version_files packages/deces-dataprep > /tmp/release-prod-dataprep-snapshot.files
+            prefixed_version_files packages/dataprep-backend > /tmp/release-prod-matchid-backend.files
+
+            if grep -Fxf /tmp/release-prod-dataprep-snapshot.files /tmp/release-prod-changed-files.txt > /dev/null 2>&1; then
+              ARTIFACT_DATAPREP_SNAPSHOT=true
+            fi
+            if grep -Fxf /tmp/release-prod-matchid-backend.files /tmp/release-prod-changed-files.txt > /dev/null 2>&1; then
+              ARTIFACT_MATCHID_BACKEND=true
+            fi
+            if grep -Eq '^(Makefile$|packages/tools/|packages/deces-infra/|scripts/|\.github/workflows/release-prod\.yml$)' /tmp/release-prod-changed-files.txt; then
+              DATAPREP_RUNTIME_CHANGED=true
+            fi
+            if [ "${ARTIFACT_DATAPREP_SNAPSHOT}" != "true" ] && \
+               [ "${ARTIFACT_MATCHID_BACKEND}" != "true" ] && \
+               [ "${DATAPREP_RUNTIME_CHANGED}" != "true" ]; then
               DATAPREP_CHANGED=false
             fi
           fi
@@ -101,6 +119,9 @@ jobs:
             echo "tag_sha=${TAG_SHA}"
             echo "previous_prod_tag=${PREVIOUS_PROD_TAG}"
             echo "dataprep_changed=${DATAPREP_CHANGED}"
+            echo "artifact_dataprep_snapshot=${ARTIFACT_DATAPREP_SNAPSHOT}"
+            echo "artifact_matchid_backend=${ARTIFACT_MATCHID_BACKEND}"
+            echo "dataprep_runtime_changed=${DATAPREP_RUNTIME_CHANGED}"
             echo "release_mode=${RELEASE_MODE}"
           } >> "${GITHUB_OUTPUT}"
 
