@@ -1107,7 +1107,36 @@ remote-config-proxy: ${CONFIG_DIR} ${CLOUD_FIRST_USER_FILE}
 		touch ${CONFIG_REMOTE_PROXY_FILE};\
 	fi;
 
-${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
+remote-apt-sources-sanitize: ${CLOUD_HOST_FILE}
+	@\
+	if [ "${CLOUD}" = "SCW" ]; then\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		echo sanitizing remote apt sources on $$H;\
+		ssh ${SSHOPTS} root@$$H 'set -eu; \
+			for apt_source in /etc/apt/sources.list /etc/apt/sources.list.d/*; do \
+				[ -f "$$apt_source" ] || continue; \
+				grep -q "ppa.launchpadcontent.net/scaleway/stable/ubuntu\|download.docker.com/linux/ubuntu" "$$apt_source" || continue; \
+				case "$$apt_source" in \
+					*.sources) \
+						if grep -q "^Enabled:" "$$apt_source"; then \
+							sed -i "s/^Enabled:.*/Enabled: no/" "$$apt_source"; \
+						else \
+							tmp_file=$$(mktemp); \
+							printf "%s\n" "Enabled: no" > "$$tmp_file"; \
+							cat "$$apt_source" >> "$$tmp_file"; \
+							cat "$$tmp_file" > "$$apt_source"; \
+							rm -f "$$tmp_file"; \
+						fi; \
+						;; \
+					*) \
+						sed -i "/ppa.launchpadcontent.net\/scaleway\/stable\/ubuntu/s/^[[:space:]]*deb/# deb/" "$$apt_source"; \
+						sed -i "/download.docker.com\/linux\/ubuntu/s/^[[:space:]]*deb/# deb/" "$$apt_source"; \
+						;; \
+				esac; \
+			done';\
+	fi
+
+${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy remote-apt-sources-sanitize ${CONFIG_DIR}
 		@\
 		if [ ! -f "${CONFIG_REMOTE_FILE}" ];then\
 			H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
@@ -1116,7 +1145,7 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 				ssh ${SSHOPTS} root@$$H 'DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Lock::Timeout=300 install -yq sudo';\
 			fi;\
 			ssh ${SSHOPTS} $$U@$$H mkdir -p ${APP_GROUP};\
-			ssh ${SSHOPTS} $$U@$$H 'sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300 install -yq make';\
+			ssh ${SSHOPTS} $$U@$$H 'sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300 install -yq git make';\
 			REMOTE_TOOLS_BRANCH_OPT="";\
 			if [ -n "${REMOTE_TOOLS_BRANCH}" ];then\
 				REMOTE_TOOLS_BRANCH_OPT="--branch ${REMOTE_TOOLS_BRANCH}";\
@@ -1132,7 +1161,7 @@ remote-cmd: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}
 	@\
 		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
 		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
-		ssh ${SSHOPTS} $$U@$$H ${REMOTE_CMD};
+		ssh ${SSHOPTS} $$U@$$H "${REMOTE_CMD}";
 
 
 remote-docker-pull: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}

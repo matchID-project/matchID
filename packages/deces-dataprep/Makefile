@@ -457,13 +457,27 @@ remote-all:
 
 # optimize delays
 remote-docker-pull-base: config remote-config remote-deploy
+	@DATAPREP_BACKEND_APP_VERSION=$$(env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${DATAPREP_BACKEND_PATH} version APP=backend | awk '{print $$NF}');\
+	if [ -z "$$DATAPREP_BACKEND_APP_VERSION" ]; then\
+		echo "missing dataprep backend Docker version";\
+		exit 1;\
+	fi;\
+	echo prewarming matchid/matchid-backend:$$DATAPREP_BACKEND_APP_VERSION
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=python:3.9-slim-bullseye
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
+	@DATAPREP_BACKEND_APP_VERSION=$$(env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${DATAPREP_BACKEND_PATH} version APP=backend | awk '{print $$NF}');\
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=matchid/matchid-backend:$$DATAPREP_BACKEND_APP_VERSION
 
-update-base-image: config remote-config remote-deploy remote-docker-pull-base
+remote-base-image-prepare: config remote-config remote-deploy remote-docker-pull-base
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v recode >/dev/null 2>&1 || sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300 install -yq recode"
+
+remote-base-image-smoke: config remote-config remote-deploy
+	@DATAPREP_BACKEND_APP_VERSION=$$(env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${DATAPREP_BACKEND_PATH} version APP=backend | awk '{print $$NF}');\
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="set -e; command -v git >/dev/null; command -v make >/dev/null; command -v rclone >/dev/null; command -v recode >/dev/null; docker version >/dev/null; docker image inspect python:3.9-slim-bullseye >/dev/null; docker image inspect docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION} >/dev/null; docker image inspect matchid/matchid-backend:$$DATAPREP_BACKEND_APP_VERSION >/dev/null"
+
+update-base-image: config remote-config remote-deploy remote-base-image-prepare remote-base-image-smoke
 	@\
 	APP_VERSION=$$(cd ${DATAPREP_BACKEND_PATH} && make version | awk '{print $$NF}');\
-	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sudo apt upgrade -y"; \
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
 	sleep 5;\
@@ -472,7 +486,7 @@ update-base-image: config remote-config remote-deploy remote-docker-pull-base
 		CLOUD_APP=deces-dataprep;\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-image \
 		CLOUD_APP=deces-dataprep;\
-	SCW_IMAGE_ID=$$(cat ${MONOREPO_TOOLS_PATH}/cloud/SCW.image.id)/;\
+	SCW_IMAGE_ID=$$(cat ${MONOREPO_TOOLS_PATH}/cloud/SCW.image.id);\
 	cat ${APP_PATH}/Makefile | sed "s/^export SCW_IMAGE_ID=.*/export SCW_IMAGE_ID=$${SCW_IMAGE_ID}" \
 		> ${APP_PATH}/Makefile.tmp && mv ${APP_PATH}/Makefile.tmp ${APP_PATH}/Makefile;\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-clean;\
