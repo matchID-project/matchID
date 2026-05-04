@@ -87,6 +87,7 @@ SSHKEYNAME = ${TOOLS}
 SSH_TIMEOUT = 90
 
 export CURL_OPTS = --retry 5 --retry-delay 2 -A "GitHub Actions"
+export SCW_CURL_OPTS = --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2
 
 EC2=ec2 ${EC2_ENDPOINT_OPTION} --profile ${EC2_PROFILE}
 
@@ -515,13 +516,13 @@ nginx-conf-apply: nginx-conf-create nginx-conf-backup
 
 #Scaleway section
 SCW-check-api:
-	@if curl -s --fail --connect-timeout 5 ${SCW_API} | egrep -q '"api":\s*"api-compute"'; then\
+	@if curl -s --fail --connect-timeout 5 --max-time 20 ${SCW_API} | egrep -q '"api":\s*"api-compute"'; then\
 		echo "SCW API: OK";\
 	else\
 		echo -e "\e[31mSCW API: KO!\e[0m";\
 		echo -e "endpoint: ${SCW_API}";\
 		ping -c 3 -W 5 `echo ${SCW_API} | sed 's|.*://||;s|/.*||'`;\
-		curl -s --fail --connect-timeout 5 -vv ${SCW_API};\
+		curl -s --fail --connect-timeout 5 --max-time 20 -vv ${SCW_API};\
 		exit 1;\
 	fi
 
@@ -546,16 +547,16 @@ SCW-instance-order: ${CLOUD_DIR} SCW-check-api
 		if [ ! -z "${VERBOSE}" ]; then\
 			echo "SCW server options $$SCW_SERVER_OPTS";\
 		fi;\
-		curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+		curl -s ${SCW_CURL_OPTS} ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
 			-H "Content-Type: application/json" \
 			-d "$$SCW_SERVER_OPTS" \
 		| jq -r '.server.id' > ${CLOUD_SERVER_ID_FILE};\
 		if [ "$$(cat ${CLOUD_SERVER_ID_FILE})" == "null" ]; then\
 			rm ${CLOUD_SERVER_ID_FILE} && echo "SCW id: failed to order SCW instance"; \
-			echo 'curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}"\
+			echo 'curl -s ${SCW_API}/servers -H "X-Auth-Token: [REDACTED]"\
 				-H "Content-Type: application/json" \
 				-d "'$$SCW_SERVER_OPTS'"';\
-			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+			curl -s ${SCW_CURL_OPTS} ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
 				-H "Content-Type: application/json" \
 				-d "$$SCW_SERVER_OPTS";\
 			exit 1;\
@@ -564,12 +565,12 @@ SCW-instance-order: ${CLOUD_DIR} SCW-check-api
 
 SCW-instance-start: ${CLOUD_SERVER_ID_FILE}
 	@SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE});\
-		(curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".servers[] | select (.id == \"$$SCW_SERVER_ID\") | .state" | (grep running > /dev/null) && \
+		(curl -s ${SCW_CURL_OPTS} ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".servers[] | select (.id == \"$$SCW_SERVER_ID\") | .state" | (grep running > /dev/null) && \
 		echo scaleway instance already running)\
 		|| \
 		(\
 			(\
-				(curl -s --fail ${SCW_API}/servers/$$SCW_SERVER_ID/action -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+				(curl -s --fail ${SCW_CURL_OPTS} ${SCW_API}/servers/$$SCW_SERVER_ID/action -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
 					-H "Content-Type: application/json" -d '{"action": "poweron"}' > /dev/null) &&\
 				echo scaleway instance starting\
 			) || echo scaleway instance still starting\
@@ -598,7 +599,7 @@ SCW-instance-wait-running: SCW-instance-start SCW-instance-attach-private-networ
 		SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE});\
 		timeout=${START_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".servers[] | select (.id == \"$$SCW_SERVER_ID\") | .state" | (grep running > /dev/null);\
+			curl -s ${SCW_CURL_OPTS} ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".servers[] | select (.id == \"$$SCW_SERVER_ID\") | .state" | (grep running > /dev/null);\
 			ret=$$? ; \
 			if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for scaleway instance $$SCW_SERVER_ID to start $$timeout" ; fi ;\
 			((timeout--)); sleep 1 ; \
@@ -610,17 +611,17 @@ SCW-instance-get-host: SCW-instance-wait-running
 	@if [ ! -f "${CLOUD_HOST_FILE}" ];then\
 		SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE});\
 		if [ ! -z "${SCW_PRIVATE_NETWORK_ID}" ];then\
-			curl -s "${SCW_API}/servers/$$SCW_SERVER_ID/private_nics"\
+			curl -s ${SCW_CURL_OPTS} "${SCW_API}/servers/$$SCW_SERVER_ID/private_nics"\
 				-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
 				| jq -cr '.private_nics[]' | grep ${SCW_PRIVATE_NETWORK_ID} | jq -cr '.id'\
 				> ${CLOUD_NIC_FILE};\
 			SCW_NIC_ID=$$(cat ${CLOUD_NIC_FILE});\
-			curl -s "${SCW_IPAM_API}/ips" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}"\
+			curl -s ${SCW_CURL_OPTS} "${SCW_IPAM_API}/ips" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}"\
 				| jq -cr '.ips[]' | grep $$SCW_NIC_ID | grep '"is_ipv6":false'\
 				| jq -cr '.address' | sed 's|/.*||' | tr -d '\r' \
 				> ${CLOUD_HOST_FILE};\
 		else\
-			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+			curl -s ${SCW_CURL_OPTS} ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
 				| jq -cr  ".servers[] | select (.id == \"$$SCW_SERVER_ID\") | .${SCW_IP}" | tr -d '\r' \
 				> ${CLOUD_HOST_FILE};\
 		fi;\
@@ -668,17 +669,17 @@ SCW-instance-delete-invalid: SCW-instance-get-tagged-ids-invalid
 
 ${CLOUD_SNAPSHOT_ID_FILE}.done: ${CLOUD_DIR}
 	@if [ ! -f "${CLOUD_SNAPSHOT_ID_FILE}.done" ];then\
-		CLOUD_VOLUME_ID=$$(curl -s --fail ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
+		CLOUD_VOLUME_ID=$$(curl -s --fail ${SCW_CURL_OPTS} ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
 			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .volumes["0"].id'\
 		);\
-		curl -s --fail ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
+		curl -s --fail ${SCW_CURL_OPTS} ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
 			-d '{"name": "${CLOUD_HOSTNAME}", "project": "${SCW_PROJECT_ID}", "volume_id": "'$${CLOUD_VOLUME_ID}'"}' \
 			| jq -r '.snapshot.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
 		CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
 		echo -n snapshotting volume $${CLOUD_VOLUME_ID} to $${CLOUD_SNAPSHOT_ID};\
 		timeout=${SNAPSHOT_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			curl -s ${SCW_API}/snapshots/$${CLOUD_SNAPSHOT_ID} -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".snapshot.state" | (grep available > /dev/null);\
+			curl -s ${SCW_CURL_OPTS} ${SCW_API}/snapshots/$${CLOUD_SNAPSHOT_ID} -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".snapshot.state" | (grep available > /dev/null);\
 			ret=$$? ; \
 			if [ "$$ret" -ne "0" ] ; then echo -en "." ; fi ;\
 			((timeout--));((timeout--)); sleep 2 ; \
@@ -702,7 +703,7 @@ SCW-instance-image: ${CLOUD_SNAPSHOT_ID_FILE}.done
 	@\
 	if [ ! -f "${CLOUD_IMAGE_ID_FILE}" ];then\
 		CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
-		curl -s --fail ${SCW_API}/images -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
+		curl -s --fail ${SCW_CURL_OPTS} ${SCW_API}/images -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
 			-d '{"name":"${CLOUD_HOSTNAME}", "project": "${SCW_PROJECT_ID}", "arch": "x86_64", "root_volume": "'$$CLOUD_SNAPSHOT_ID'", "public": "true"}' \
 			| jq -cr '.image.id' > ${CLOUD_IMAGE_ID_FILE};\
 	fi
