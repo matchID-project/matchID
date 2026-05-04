@@ -65,7 +65,7 @@ EC2=ec2 ${EC2_ENDPOINT_OPTION} --profile ${EC2_PROFILE}
 EC2_SERVER_FILE_ID=${PWD}/ec2.id
 EC2_TIMEOUT= 120
 CLOUD=SCW
-SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY} ${CLOUD_SSHOPTS}
 RCLONE_OPTS=--s3-acl=public-read
 export SCW_FLAVOR=PRO2-M
 export SCW_VOLUME_TYPE=sbs_15k

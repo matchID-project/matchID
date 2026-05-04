@@ -119,11 +119,12 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 # Nginx publication must connect directly to the bastion/nginx host, even when
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
 REMOTE_ACTION_MAKEOVERRIDES := $(filter-out CLOUD_SSHOPTS=% SSHKEY_PRIVATE=% SSHKEY=% SSHKEYNAME=% SSHID=% ${HOME}/.ssh/config ${HOME}/.ssh/% %/.ssh/%,$(MAKEOVERRIDES))
+APT_GET ?= sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
@@ -223,7 +224,7 @@ config-proxy:
 tools-install:
 	@if [ ! -f "/usr/bin/curl" ] || [ ! -f "/usr/bin/jq" ] ; then\
 		if [ "${OS_TYPE}" = "DEB" ]; then\
-			sudo apt-get install -yqq curl jq; true;\
+			${APT_GET} install -yqq curl jq; true;\
 		fi;\
 		if [ "${OS_TYPE}" = "RPM" ]; then\
 			sudo yum install -y curl jq; true;\
@@ -279,8 +280,8 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 			fi;\
 		done;\
 		(sudo echo '* libraries/restart-without-asking boolean true' | sudo debconf-set-selections);\
-		sudo apt-get update -yqq;\
-		sudo apt-get install -yqq \
+		${APT_GET} update -yqq;\
+		${APT_GET} install -yqq \
 			apt-transport-https \
 			ca-certificates \
 			curl \
@@ -290,8 +291,8 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 			"deb https://download.docker.com/linux/ubuntu \
 			`lsb_release -cs` \
 			stable";\
-		sudo apt-get update -yqq;\
-		sudo apt-get install -yqq docker-ce;\
+		${APT_GET} update -yqq;\
+		${APT_GET} install -yqq docker-ce;\
 	fi;
 	@if [ "${OS_TYPE}" = "RPM" ]; then\
 		sudo yum install -y yum-utils;\
@@ -1112,10 +1113,10 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 			H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
 			U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 			if [ "${CLOUD}" == "SCW" ];then\
-				ssh ${SSHOPTS} root@$$H apt-get install -o Dpkg::Options::="--force-confold" -yq sudo;\
+				ssh ${SSHOPTS} root@$$H 'DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Lock::Timeout=300 install -yq sudo';\
 			fi;\
 			ssh ${SSHOPTS} $$U@$$H mkdir -p ${APP_GROUP};\
-			ssh ${SSHOPTS} $$U@$$H sudo apt-get install -yq make;\
+			ssh ${SSHOPTS} $$U@$$H 'sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300 install -yq make';\
 			REMOTE_TOOLS_BRANCH_OPT="";\
 			if [ -n "${REMOTE_TOOLS_BRANCH}" ];then\
 				REMOTE_TOOLS_BRANCH_OPT="--branch ${REMOTE_TOOLS_BRANCH}";\
