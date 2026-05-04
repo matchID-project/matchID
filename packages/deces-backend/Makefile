@@ -167,7 +167,7 @@ deploy-dependencies: config
 	@${MAKE} -C ${INFRA_PATH} elasticsearch-index-readiness ${MAKEOVERRIDES}
 
 # production mode
-backend-start: backend-redis backend-smtp
+backend-start: backend-redis
 	@echo docker-compose up backend for production ${VERSION}
 	@export EXEC_ENV=production; ${DC_BACKEND} up -d 2>&1 | grep -v orphan
 	@timeout=${BACKEND_TIMEOUT} ; ret=1 ;\
