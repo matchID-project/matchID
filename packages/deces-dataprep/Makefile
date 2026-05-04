@@ -60,6 +60,7 @@ export SSHKEYNAME = ${APP}
 export OS_TIMEOUT = 60
 export SCW_SERVER_FILE_ID=scw.id
 SCW_TIMEOUT= 180
+export SNAPSHOT_TIMEOUT ?= 900
 EC2_PROFILE=default
 EC2=ec2 ${EC2_ENDPOINT_OPTION} --profile ${EC2_PROFILE}
 EC2_SERVER_FILE_ID=${PWD}/ec2.id
@@ -477,15 +478,16 @@ remote-base-image-smoke: config remote-config remote-deploy
 
 update-base-image: config remote-config remote-deploy remote-base-image-prepare remote-base-image-smoke
 	@\
+	set -e;\
 	APP_VERSION=$$(cd ${DATAPREP_BACKEND_PATH} && make version | awk '{print $$NF}');\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
 	sleep 5;\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=$${APP_VERSION} CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION}\
-		CLOUD_APP=deces-dataprep;\
+		CLOUD_APP=deces-dataprep SNAPSHOT_TIMEOUT=${SNAPSHOT_TIMEOUT};\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-image \
-		CLOUD_APP=deces-dataprep;\
+		CLOUD_APP=deces-dataprep SNAPSHOT_TIMEOUT=${SNAPSHOT_TIMEOUT};\
 	SCW_IMAGE_ID=$$(cat ${MONOREPO_TOOLS_PATH}/cloud/SCW.image.id);\
 	cat ${APP_PATH}/Makefile | sed "s/^export SCW_IMAGE_ID=.*/export SCW_IMAGE_ID=$${SCW_IMAGE_ID}" \
 		> ${APP_PATH}/Makefile.tmp && mv ${APP_PATH}/Makefile.tmp ${APP_PATH}/Makefile;\
