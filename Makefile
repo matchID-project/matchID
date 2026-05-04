@@ -596,9 +596,17 @@ export $(DEPLOY_REMOTE_REQUIRED_VARS) $(DEPLOY_REMOTE_OPTIONAL_VARS)
 deploy-remote-preflight: config-minimal
 	@missing=0; \
 	for var in ${DEPLOY_REMOTE_REQUIRED_VARS}; do \
-		if [ -z "$${!var}" ]; then \
+		value="$${!var}"; \
+		if [ -z "$$value" ]; then \
 			echo "missing $$var"; \
 			missing=1; \
+		elif [ "$$value" = "-" ] || [ "$$value" = "override/me" ]; then \
+			echo "invalid $$var"; \
+			missing=1; \
+		else \
+			case "$$value" in \
+				"<"*">") echo "invalid $$var"; missing=1 ;; \
+			esac; \
 		fi; \
 	done; \
 	if [ "$$missing" -ne 0 ]; then exit 1; fi; \
