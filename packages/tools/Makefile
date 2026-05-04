@@ -126,7 +126,7 @@ SSHOPTS=-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o ServerAliveInterval=
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
 REMOTE_ACTION_MAKEOVERRIDES := $(filter-out CLOUD_SSHOPTS=% SSHKEY_PRIVATE=% SSHKEY=% SSHKEYNAME=% SSHID=% ${HOME}/.ssh/config ${HOME}/.ssh/% %/.ssh/%,$(MAKEOVERRIDES))
-APT_GET ?= sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300
+APT_GET ?= sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300 -o Acquire::Retries=5 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
@@ -1147,10 +1147,10 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy remote-apt-sources-
 			H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
 			U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 			if [ "${CLOUD}" == "SCW" ];then\
-				ssh ${SSHOPTS} root@$$H 'DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Lock::Timeout=300 install -yq sudo';\
+				ssh ${SSHOPTS} root@$$H 'DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Lock::Timeout=300 -o Acquire::Retries=5 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -yq sudo';\
 			fi;\
 			ssh ${SSHOPTS} $$U@$$H mkdir -p ${APP_GROUP};\
-			ssh ${SSHOPTS} $$U@$$H 'sudo env DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Lock::Timeout=300 install -yq git make';\
+			ssh ${SSHOPTS} $$U@$$H '${APT_GET} install -yq git make';\
 			REMOTE_TOOLS_BRANCH_OPT="";\
 			if [ -n "${REMOTE_TOOLS_BRANCH}" ];then\
 				REMOTE_TOOLS_BRANCH_OPT="--branch ${REMOTE_TOOLS_BRANCH}";\
