@@ -120,7 +120,7 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 # Nginx publication must connect directly to the bastion/nginx host, even when
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
