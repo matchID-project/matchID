@@ -88,6 +88,7 @@ SSH_TIMEOUT = 90
 
 export CURL_OPTS = --retry 5 --retry-delay 2 -A "GitHub Actions"
 export SCW_CURL_OPTS = --connect-timeout 5 --max-time 20 --retry 3 --retry-delay 2
+export SCW_SNAPSHOT_CURL_OPTS = --connect-timeout 5 --max-time 180 --retry 3 --retry-delay 2
 
 EC2=ec2 ${EC2_ENDPOINT_OPTION} --profile ${EC2_PROFILE}
 
@@ -669,13 +670,16 @@ SCW-instance-delete-invalid: SCW-instance-get-tagged-ids-invalid
 
 ${CLOUD_SNAPSHOT_ID_FILE}.done: ${CLOUD_DIR}
 	@if [ ! -f "${CLOUD_SNAPSHOT_ID_FILE}.done" ];then\
+		set -e -o pipefail;\
 		CLOUD_VOLUME_ID=$$(curl -s --fail ${SCW_CURL_OPTS} ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
 			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .volumes["0"].id'\
 		);\
-		curl -s --fail ${SCW_CURL_OPTS} ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
+		if [ -z "$${CLOUD_VOLUME_ID}" ] || [ "$${CLOUD_VOLUME_ID}" = "null" ]; then echo "scaleway error while resolving boot volume"; exit 1; fi;\
+		curl -sS --fail ${SCW_SNAPSHOT_CURL_OPTS} ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
 			-d '{"name": "${CLOUD_HOSTNAME}", "project": "${SCW_PROJECT_ID}", "volume_id": "'$${CLOUD_VOLUME_ID}'"}' \
 			| jq -r '.snapshot.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
 		CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
+		if [ -z "$${CLOUD_SNAPSHOT_ID}" ] || [ "$${CLOUD_SNAPSHOT_ID}" = "null" ]; then echo "scaleway error while creating snapshot"; exit 1; fi;\
 		echo -n snapshotting volume $${CLOUD_VOLUME_ID} to $${CLOUD_SNAPSHOT_ID};\
 		timeout=${SNAPSHOT_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
