@@ -264,6 +264,20 @@ ${CONFIG_DOCKER_FILE}: ${CONFIG_DIR}
 ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 	echo install docker-ce
 	@if [ "${OS_TYPE}" = "DEB" ]; then\
+		for scaleway_source in /etc/apt/sources.list.d/scaleway-ubuntu-stable-*.sources; do\
+			[ -f "$$scaleway_source" ] || continue;\
+			if grep -q "ppa.launchpadcontent.net/scaleway/stable/ubuntu" "$$scaleway_source"; then\
+				if grep -q "^Enabled:" "$$scaleway_source"; then\
+					sudo sed -i 's/^Enabled:.*/Enabled: no/' "$$scaleway_source";\
+				else\
+					tmp_file=$$(mktemp);\
+					printf '%s\n' "Enabled: no" > "$$tmp_file";\
+					sudo cat "$$scaleway_source" >> "$$tmp_file";\
+					sudo cp "$$tmp_file" "$$scaleway_source";\
+					rm -f "$$tmp_file";\
+				fi;\
+			fi;\
+		done;\
 		(sudo echo '* libraries/restart-without-asking boolean true' | sudo debconf-set-selections);\
 		sudo apt-get update -yqq;\
 		sudo apt-get install -yqq \
@@ -291,6 +305,12 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 	fi;
 endif
 	@(if (id -Gn ${USER} | grep -vc docker); then sudo usermod -aG docker ${USER} ;fi) > /dev/null
+	@if ([ -f "/usr/bin/docker" ] || [ -f "/usr/local/bin/docker" ]); then\
+		(sudo systemctl start docker > /dev/null 2>&1 || true);\
+		if [ -S /var/run/docker.sock ] && ! docker version > /dev/null 2>&1; then\
+			sudo chown ${USER}:docker /var/run/docker.sock;\
+		fi;\
+	fi
 ifeq ("$(wildcard /usr/bin/docker-compose ${HOME}/.local/bin/docker-compose /usr/local/bin/docker-compose)","")
 	@echo installing docker-compose
 	@mkdir -p ${HOME}/.local/bin && curl -s -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$$(uname -s)-$$(uname -m)" -o ${HOME}/.local/bin/docker-compose
