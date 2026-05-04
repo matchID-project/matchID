@@ -68,12 +68,15 @@ CLOUD=SCW
 SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY} ${CLOUD_SSHOPTS}
 RCLONE_OPTS=--s3-acl=public-read
 export SCW_FLAVOR=PRO2-M
-export SCW_VOLUME_TYPE=sbs_15k
+export SCW_VOLUME_TYPE=sbs_volume
 export SCW_VOLUME_SIZE=50000000000
-export SCW_IMAGE_ID=8e7f9833-9787-4488-aea7-819183132acc
+# Ubuntu 26.04 Resolute Raccoon, x86_64, instance_sbs, compatible PRO2/* and SBS volumes.
+export SCW_IMAGE_ID=98c9d356-4857-4566-ab57-af554a0086fe
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
 export MONOREPO_ROOT=${APP_PATH}/../..
 DATAPREP_BACKEND_MAKEOVERRIDES := $(filter-out APP=% APP_VERSION=%,$(MAKEOVERRIDES))
+export DATAPREP_BACKEND_DOCKER_IMAGE_VERSION ?= $(shell cd ${DATAPREP_BACKEND_PATH} && make -s version | awk '{print $$NF}')
+export DATAPREP_BACKEND_DOCKER_IMAGE ?= matchid/matchid-backend:${DATAPREP_BACKEND_DOCKER_IMAGE_VERSION}
 export INFRA_PATH=${MONOREPO_ROOT}/packages/deces-infra
 export FRONTEND_PATH=${DATAPREP_FRONTEND_PATH}
 
@@ -459,6 +462,43 @@ remote-all:
 remote-docker-pull-base: config remote-config remote-deploy
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=python:3.9-slim-bullseye
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${DATAPREP_BACKEND_DOCKER_IMAGE}
+
+remote-base-image-prepare: config remote-config remote-deploy remote-docker-pull-base
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sudo env DEBIAN_FRONTEND=noninteractive apt-get install -yq recode"
+
+remote-base-image-smoke: config remote-config remote-deploy
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="lsb_release -a"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v docker"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker version"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker compose version"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker-compose version"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v rclone"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v recode"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect python:3.9-slim-bullseye"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${DATAPREP_BACKEND_DOCKER_IMAGE}"
+
+dataprep-backend-base-image:
+	@set -e; \
+	cleanup() { ${MAKE} remote-clean ${MAKEOVERRIDES} || true; }; \
+	trap cleanup EXIT; \
+	${MAKE} remote-config remote-deploy remote-base-image-prepare remote-base-image-smoke ${MAKEOVERRIDES}; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	sleep 5; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-snapshot \
+		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${DATAPREP_BACKEND_DOCKER_IMAGE_VERSION} \
+		CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION} CLOUD_APP=deces-dataprep \
+		${MAKEOVERRIDES}; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-image \
+		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${DATAPREP_BACKEND_DOCKER_IMAGE_VERSION} \
+		CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION} CLOUD_APP=deces-dataprep \
+		${MAKEOVERRIDES}; \
+	SCW_IMAGE_ID=$$(cat ${MONOREPO_TOOLS_PATH}/cloud/SCW.image.id); \
+	echo "dataprep-backend base image: $$SCW_IMAGE_ID"; \
+	trap - EXIT; \
+	cleanup
 
 update-base-image: config remote-config remote-deploy remote-docker-pull-base
 	@\

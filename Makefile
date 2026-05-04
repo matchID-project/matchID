@@ -113,11 +113,11 @@ export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev
 
 export STORAGE_BUCKET=${DATASET}
 export SCW_VOLUME_SIZE=20000000000
-export SCW_VOLUME_TYPE=l_ssd
+export SCW_VOLUME_TYPE=sbs_volume
 export SSHKEY_PRIVATE ?= ${HOME}/.ssh/id_rsa_${APP_GROUP}
 
-#prebuild image with docker and nginx-node-elasticsearch docker images
-export SCW_IMAGE_ID=d48f33cd-127d-4315-be8e-083978c9be63
+# Ubuntu 26.04 Resolute Raccoon, x86_64, instance_sbs, compatible PRO2/* and SBS volumes.
+export SCW_IMAGE_ID=98c9d356-4857-4566-ab57-af554a0086fe
 
 -include ${TOOLS_PATH}/artifacts.SCW
 dummy		    := $(shell touch artifacts)
@@ -650,6 +650,53 @@ deploy-docker-pull-base: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=nginx:alpine
 	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
 	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=redis:alpine
+
+deces-ui-base-image-smoke: deploy-remote-instance
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="lsb_release -a"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="command -v docker"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker version"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker compose version"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker-compose version"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="command -v rclone"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect node:12.14.0-slim"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect nginx:alpine"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect redis:alpine"
+
+deces-ui-base-image:
+	@set -e; \
+	cleanup() { \
+		${MAKE} -C ${TOOLS_PATH} remote-clean \
+			APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui \
+			GIT_ROOT=${GIT_ROOT} REMOTE_TOOLS_REPOSITORY=${APP_MONOREPO} REMOTE_TOOLS_BRANCH=${REMOTE_DEPLOY_BRANCH} \
+			REMOTE_TOOLS_PATH=${REMOTE_MONOREPO_PATH} REMOTE_TOOLS_MAKE_PATH=${REMOTE_MONOREPO_TOOLS_PATH} \
+			REMOTE_APP_REPOSITORY=${APP_MONOREPO} REMOTE_APP_BRANCH=${REMOTE_DEPLOY_BRANCH} \
+			REMOTE_APP_PATH=${REMOTE_MONOREPO_PATH} REMOTE_APP_MAKE_PATH=${REMOTE_MONOREPO_PATH} \
+			SCW_IMAGE_ID=${SCW_IMAGE_ID} SCW_VOLUME_SIZE=${SCW_VOLUME_SIZE} SCW_VOLUME_TYPE=${SCW_VOLUME_TYPE} \
+			GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES} || true; \
+	}; \
+	trap cleanup EXIT; \
+	${MAKE} deploy-remote-instance ${MAKEOVERRIDES}; \
+	${MAKE} deploy-docker-pull-base ${MAKEOVERRIDES}; \
+	${MAKE} deces-ui-base-image-smoke ${MAKEOVERRIDES}; \
+	BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION}; \
+	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE}); \
+	DATA_VERSION=$$(cat ${DATA_VERSION_FILE}); \
+	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
+	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	sleep 5; \
+	${MAKE} -C ${TOOLS_PATH} SCW-instance-snapshot \
+		CLOUD_TAG=ui:${APP_VERSION}-backend:$$BACKEND_APP_VERSION-data:$$DATAPREP_VERSION-$$DATA_VERSION \
+		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui \
+		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}; \
+	${MAKE} -C ${TOOLS_PATH} SCW-instance-image \
+		CLOUD_TAG=ui:${APP_VERSION}-backend:$$BACKEND_APP_VERSION-data:$$DATAPREP_VERSION-$$DATA_VERSION \
+		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui \
+		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}; \
+	SCW_IMAGE_ID=$$(cat ${TOOLS_PATH}/cloud/SCW.image.id); \
+	echo "deces-ui base image: $$SCW_IMAGE_ID"; \
+	trap - EXIT; \
+	cleanup
 
 
 update-base-image: deploy-remote-instance deploy-docker-pull-base

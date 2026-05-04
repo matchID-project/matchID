@@ -267,17 +267,24 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 		(sudo echo '* libraries/restart-without-asking boolean true' | sudo debconf-set-selections);\
 		sudo apt-get update -yqq;\
 		sudo apt-get install -yqq \
-			apt-transport-https \
 			ca-certificates \
-			curl \
-			software-properties-common;\
-		curl -fsSL https://download.docker.com/linux/${ID}/gpg | sudo apt-key add -;\
-		sudo add-apt-repository \
-			"deb https://download.docker.com/linux/ubuntu \
-			`lsb_release -cs` \
-			stable";\
+			curl;\
+		DOCKER_APT_OS=$$(. /etc/os-release && echo "$$ID");\
+		DOCKER_APT_CODENAME=$$(. /etc/os-release && echo "$${UBUNTU_CODENAME:-$${VERSION_CODENAME}}");\
+		sudo install -m 0755 -d /etc/apt/keyrings;\
+		sudo curl -fsSL https://download.docker.com/linux/$$DOCKER_APT_OS/gpg -o /etc/apt/keyrings/docker.asc;\
+		sudo chmod a+r /etc/apt/keyrings/docker.asc;\
+		printf '%s\n' \
+			'Types: deb' \
+			'URIs: https://download.docker.com/linux/'$$DOCKER_APT_OS \
+			'Suites: '$$DOCKER_APT_CODENAME \
+			'Components: stable' \
+			'Architectures: '$$(dpkg --print-architecture) \
+			'Signed-By: /etc/apt/keyrings/docker.asc' \
+			| sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null;\
 		sudo apt-get update -yqq;\
-		sudo apt-get install -yqq docker-ce;\
+		sudo apt-get install -yqq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin;\
+		sudo systemctl start docker || true;\
 	fi;
 	@if [ "${OS_TYPE}" = "RPM" ]; then\
 		sudo yum install -y yum-utils;\
@@ -292,10 +299,9 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 endif
 	@(if (id -Gn ${USER} | grep -vc docker); then sudo usermod -aG docker ${USER} ;fi) > /dev/null
 ifeq ("$(wildcard /usr/bin/docker-compose ${HOME}/.local/bin/docker-compose /usr/local/bin/docker-compose)","")
-	@echo installing docker-compose
-	@mkdir -p ${HOME}/.local/bin && curl -s -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$$(uname -s)-$$(uname -m)" -o ${HOME}/.local/bin/docker-compose
-	@chmod +x ${HOME}/.local/bin/docker-compose
-	@sudo cp ${HOME}/.local/bin/docker-compose /usr/local/bin
+	@echo installing docker-compose compatibility wrapper
+	@printf '%s\n' '#!/bin/sh' 'exec docker compose "$$@"' | sudo tee /usr/local/bin/docker-compose > /dev/null
+	@sudo chmod +x /usr/local/bin/docker-compose
 endif
 	@touch ${CONFIG_DOCKER_FILE}
 

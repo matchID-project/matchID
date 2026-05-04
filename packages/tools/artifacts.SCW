@@ -6,9 +6,9 @@ export SCW_API=https://api.scaleway.com/instance/v1/zones/${SCW_ZONE}
 export SCW_IPAM_API=https://api.scaleway.com/ipam/v1alpha1/regions/${SCW_REGION}
 SCW_FLAVOR=DEV1-S
 SCW_VOLUME_SIZE?=10000000000
-SCW_VOLUME_TYPE?=l_ssd
+SCW_VOLUME_TYPE?=sbs_volume
 
-#ubuntu 18.04
+# Ubuntu 26.04 Resolute Raccoon, x86_64, instance_sbs.
 
 SCW_SSHUSER=ubuntu
 
@@ -40,6 +40,6 @@ export RCLONE_CONFIG_S3_STORAGE_CLASS=
 SCW_KUBE_API=https://api.scaleway.com/k8s/v1/regions/${SCW_REGION}/clusters
 SCW_KUBE_NODES=1
 SCW_KUBE_VERSION=1.27.2
-SCW_IMAGE_BASE_ID=bfcb8579-a98f-464c-a958-af80eeef020b
-SCW_IMAGE_ID=d48f33cd-127d-4315-be8e-083978c9be63
-SCW_IMAGE_TOOLS_ID=bfcb8579-a98f-464c-a958-af80eeef020b
+SCW_IMAGE_BASE_ID=98c9d356-4857-4566-ab57-af554a0086fe
+SCW_IMAGE_ID=98c9d356-4857-4566-ab57-af554a0086fe
+SCW_IMAGE_TOOLS_ID=98c9d356-4857-4566-ab57-af554a0086fe
