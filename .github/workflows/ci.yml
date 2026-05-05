@@ -135,6 +135,8 @@ jobs:
       - dataprep-backend-test
     if: >-
       ${{
+        always() &&
+        !cancelled() &&
         (
           needs.dataprep-backend-test.result == 'success' ||
           needs.dataprep-backend-test.result == 'skipped'
@@ -388,3 +390,186 @@ jobs:
           ES_MEM: 1024m
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+
+  deces-dataprep-year-remote-ci-hack:
+    name: deces-dataprep year remote CI hack
+    needs:
+      - changes
+      - dataprep-backend-test
+    if: >-
+      ${{
+        (
+          needs.dataprep-backend-test.result == 'success' ||
+          needs.dataprep-backend-test.result == 'skipped'
+        ) && (
+          needs.changes.outputs.artifact_dataprep_snapshot == 'true' ||
+          needs.changes.outputs.artifact_matchid_backend == 'true' ||
+          needs.changes.outputs.integration_stack == 'true'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      CD_GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+      FILES_TO_PROCESS: deces-2020-m[0-1][0-9].txt.gz
+      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
+      CHUNK_SIZE: 75000
+      ES_THREADS: 14
+      RECIPE_THREADS: 16
+      RECIPE_QUEUE: 18
+      ES_MEM: 30000m
+    steps:
+      - uses: actions/checkout@v4
+      # TEMP LOT8 CI HACK: copied from cd.yml to force a real dataprep year remote run.
+      # Revert this job after the Resolute/SBS base image has been validated in CI.
+      - name: Install dataprep deploy SSH key
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          export SSH_AUTH_SOCK=/tmp/ssh_agent.sock
+          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
+          ssh-add "${HOME}/.ssh/id_rsa_matchID"
+          sanitize_host() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#http://}"
+            value="${value#https://}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value##*@}"; fi
+            value="${value%%/*}"
+            if [[ "${value}" =~ ^\[[^]]+\]:[0-9]+$ ]]; then
+              value="${value#\[}"
+              value="${value%%\]:*}"
+            elif [[ "${value}" =~ ^[^:]+:[0-9]+$ ]]; then
+              value="${value%%:*}"
+            fi
+            printf '%s' "${value}"
+          }
+          sanitize_user() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value%%@*}"; fi
+            printf '%s' "${value}"
+          }
+          BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          BASTION_USER_RESOLVED=ubuntu
+          NGINX_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          NGINX_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
+          BASTION_SOURCE=nginx
+          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
+          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
+          if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
+          if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
+          if [ -z "$(sanitize_host "${NGINX_HOST}")" ]; then BASTION_SOURCE=bastion; fi
+          echo "bastion_source=${BASTION_SOURCE}"
+          if printf '%s' "${BASTION_HOST_RESOLVED}" | grep -Eq '^[0-9.]+$'; then
+            echo "bastion_input_host_kind=ip"
+          else
+            echo "bastion_input_host_kind=name"
+          fi
+          if getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
+            echo "bastion_input_host_resolves=yes"
+          else
+            echo "bastion_input_host_resolves=no"
+            # Temporary fallback while monorepo runner secrets still expose a non-resolving bastion host.
+            BASTION_HOST_RESOLVED=163.172.185.238
+            BASTION_SOURCE=fallback_ip
+            echo "bastion_source=${BASTION_SOURCE}"
+            echo "bastion_input_host_kind=ip"
+          fi
+          # Current deploy topology publishes nginx through the bastion host.
+          NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"
+          NGINX_USER_RESOLVED="${BASTION_USER_RESOLVED}"
+          test -n "${BASTION_HOST_RESOLVED}"
+          test -n "${BASTION_USER_RESOLVED}"
+          test -n "${NGINX_HOST_RESOLVED}"
+          test -n "${NGINX_USER_RESOLVED}"
+          printf '%s\n' \
+            "Host bastion" \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            "Host * !bastion" \
+            "  ProxyJump bastion" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            > "${HOME}/.ssh/config"
+          {
+            echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
+            echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
+            echo "NGINX_HOST_RESOLVED=${NGINX_HOST_RESOLVED}"
+            echo "NGINX_USER_RESOLVED=${NGINX_USER_RESOLVED}"
+          } >> "${GITHUB_ENV}"
+          sed -n 'l' "${HOME}/.ssh/config"
+          chmod 600 "${HOME}/.ssh/config"
+        env:
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Debug dataprep bastion resolution
+        run: |
+          set -euo pipefail
+          PROXY_ROUTE="$(ssh -G -F "${HOME}/.ssh/config" 10.0.0.1 | awk '
+            $1 == "proxyjump" || $1 == "proxycommand" {
+              $1 = ""
+              sub(/^ /, "")
+              print
+              exit
+            }
+          ')"
+          echo "proxy_route_present=$([ -n "${PROXY_ROUTE}" ] && echo yes || echo no)"
+          if [ -z "${PROXY_ROUTE}" ]; then
+            exit 1
+          fi
+      - name: Force dataprep year remote run markers
+        run: make -C packages/deces-dataprep clean GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
+        env:
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+      - name: Run dataprep year remote-all
+        run: |
+          make -C packages/deces-dataprep remote-all \
+            GIT_BRANCH=dev \
+            FILES_TO_PROCESS="${FILES_TO_PROCESS}" \
+            REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
+            SCW_FLAVOR="${SCW_FLAVOR}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE}" \
+            CHUNK_SIZE="${CHUNK_SIZE}" ES_THREADS="${ES_THREADS}" RECIPE_THREADS="${RECIPE_THREADS}" ES_MEM="${ES_MEM}" RECIPE_QUEUE="${RECIPE_QUEUE}" \
+            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${CD_GIT_BRANCH}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${CD_GIT_BRANCH}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
+        env:
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
+          SCW_FLAVOR: PRO2-M
+          SCW_VOLUME_SIZE: 20000000000
+          SCW_VOLUME_TYPE: sbs_volume
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
