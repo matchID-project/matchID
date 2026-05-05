@@ -112,7 +112,7 @@ lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 id                  := $(shell openssl rand -base64 8)
 
-vm_max_count		:= $(shell cat /etc/sysctl.conf | egrep vm.max_map_count\s*=\s*262144 && echo true)
+vm_max_count		:= $(shell sysctl -n vm.max_map_count 2>/dev/null | awk '$$1 >= 262144 {print "true"}')
 
 PG := 'postgres'
 DC := 'docker-compose'

@@ -92,6 +92,7 @@ EC2=ec2 ${EC2_ENDPOINT_OPTION} --profile ${EC2_PROFILE}
 
 SNAPSHOT_TIMEOUT = 120
 START_TIMEOUT = 120
+DELETE_VOLUME_TIMEOUT = 180
 CLOUD_DIR=${TOOLS_PATH}/cloud
 
 NGINX_DIR=${TOOLS_PATH}/nginx
@@ -119,7 +120,7 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 # Nginx publication must connect directly to the bastion/nginx host, even when
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
@@ -265,19 +266,32 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 	echo install docker-ce
 	@if [ "${OS_TYPE}" = "DEB" ]; then\
 		(sudo echo '* libraries/restart-without-asking boolean true' | sudo debconf-set-selections);\
+		for source_file in /etc/apt/sources.list.d/*; do\
+			if [ -f "$$source_file" ] && grep -q 'ppa.launchpadcontent.net/scaleway/stable' "$$source_file"; then\
+				echo disabling unreachable Scaleway PPA "$$source_file";\
+				sudo mv "$$source_file" "$$source_file.disabled";\
+			fi;\
+		done;\
 		sudo apt-get update -yqq;\
 		sudo apt-get install -yqq \
-			apt-transport-https \
 			ca-certificates \
-			curl \
-			software-properties-common;\
-		curl -fsSL https://download.docker.com/linux/${ID}/gpg | sudo apt-key add -;\
-		sudo add-apt-repository \
-			"deb https://download.docker.com/linux/ubuntu \
-			`lsb_release -cs` \
-			stable";\
+			curl;\
+		DOCKER_APT_OS=$$(. /etc/os-release && echo "$$ID");\
+		DOCKER_APT_CODENAME=$$(. /etc/os-release && echo "$${UBUNTU_CODENAME:-$${VERSION_CODENAME}}");\
+		sudo install -m 0755 -d /etc/apt/keyrings;\
+		sudo curl -fsSL https://download.docker.com/linux/$$DOCKER_APT_OS/gpg -o /etc/apt/keyrings/docker.asc;\
+		sudo chmod a+r /etc/apt/keyrings/docker.asc;\
+		printf '%s\n' \
+			'Types: deb' \
+			'URIs: https://download.docker.com/linux/'$$DOCKER_APT_OS \
+			'Suites: '$$DOCKER_APT_CODENAME \
+			'Components: stable' \
+			'Architectures: '$$(dpkg --print-architecture) \
+			'Signed-By: /etc/apt/keyrings/docker.asc' \
+			| sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null;\
 		sudo apt-get update -yqq;\
-		sudo apt-get install -yqq docker-ce;\
+		sudo apt-get install -yqq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin;\
+		sudo systemctl start docker || true;\
 	fi;
 	@if [ "${OS_TYPE}" = "RPM" ]; then\
 		sudo yum install -y yum-utils;\
@@ -292,10 +306,9 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 endif
 	@(if (id -Gn ${USER} | grep -vc docker); then sudo usermod -aG docker ${USER} ;fi) > /dev/null
 ifeq ("$(wildcard /usr/bin/docker-compose ${HOME}/.local/bin/docker-compose /usr/local/bin/docker-compose)","")
-	@echo installing docker-compose
-	@mkdir -p ${HOME}/.local/bin && curl -s -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$$(uname -s)-$$(uname -m)" -o ${HOME}/.local/bin/docker-compose
-	@chmod +x ${HOME}/.local/bin/docker-compose
-	@sudo cp ${HOME}/.local/bin/docker-compose /usr/local/bin
+	@echo installing docker-compose compatibility wrapper
+	@printf '%s\n' '#!/bin/sh' 'exec docker compose "$$@"' | sudo tee /usr/local/bin/docker-compose > /dev/null
+	@sudo chmod +x /usr/local/bin/docker-compose
 endif
 	@touch ${CONFIG_DOCKER_FILE}
 
@@ -609,16 +622,79 @@ SCW-instance-get-host: SCW-instance-wait-running
 SCW-instance-delete:
 	@if [ -f "${CLOUD_SERVER_ID_FILE}" ];then\
 		SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE});\
-		(\
+		if [ "${SCW_VOLUME_TYPE}" = "sbs_volume" ]; then\
+			CLOUD_VOLUME_ID=$$(curl -s --fail "${SCW_API}/servers/$$SCW_SERVER_ID" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+				| jq -r '.server.volumes["0"].id // empty');\
+			if [ -z "$${CLOUD_VOLUME_ID}" ]; then\
+				echo "failed to resolve attached SBS volume for scaleway server $$SCW_SERVER_ID";\
+				exit 1;\
+			fi;\
+			SERVER_STATE=$$(curl -s --fail "${SCW_API}/servers/$$SCW_SERVER_ID" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+				| jq -r '.server.state // empty');\
+			if [ "$$SERVER_STATE" != "stopped" ]; then\
+				if ! curl -s --fail -X POST "${SCW_API}/servers/$$SCW_SERVER_ID/action" \
+					-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
+					-d '{"action": "poweroff"}' > /dev/null; then\
+					echo "failed to power off scaleway server $$SCW_SERVER_ID before SBS volume deletion";\
+					exit 1;\
+				fi;\
+				timeout=${DELETE_VOLUME_TIMEOUT}; ret=1;\
+				until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ]; do\
+					SERVER_STATE=$$(curl -s --fail "${SCW_API}/servers/$$SCW_SERVER_ID" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+						| jq -r '.server.state // empty');\
+					if [ "$$SERVER_STATE" = "stopped" ]; then ret=0; else sleep 2; fi;\
+					((timeout--));\
+				done;\
+				if [ "$$ret" -ne "0" ]; then\
+					echo "failed to stop scaleway server $$SCW_SERVER_ID before SBS volume deletion";\
+					exit 1;\
+				fi;\
+			fi;\
+			if ! curl -s --fail -X DELETE "${SCW_API}/servers/$$SCW_SERVER_ID?with_ip=true&with_volumes=none" \
+				-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" > /dev/null; then\
+				echo "scaleway error while deleting server $$SCW_SERVER_ID with attached SBS volumes";\
+				exit 1;\
+			fi;\
+			timeout=${DELETE_VOLUME_TIMEOUT}; ret=0;\
+			until [ "$$timeout" -le 0 -o "$$ret" -ne "0" ]; do\
+				curl -s --fail "${SCW_API}/servers/$$SCW_SERVER_ID" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" > /dev/null 2>&1;\
+				ret=$$?;\
+				if [ "$$ret" -eq "0" ]; then sleep 2; fi;\
+				((timeout--));\
+			done;\
+			if [ "$$ret" -eq "0" ]; then\
+				echo "failed to delete scaleway server $$SCW_SERVER_ID with attached SBS volumes";\
+				exit 1;\
+			fi;\
+			timeout=${DELETE_VOLUME_TIMEOUT}; ret=1;\
+			until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ]; do\
+				if command -v scw >/dev/null 2>&1; then\
+					scw block volume delete "$${CLOUD_VOLUME_ID}" zone=${SCW_ZONE} >/dev/null 2>&1;\
+				else\
+					curl -s --fail -X DELETE "https://api.scaleway.com/block/v1/zones/${SCW_ZONE}/volumes/$${CLOUD_VOLUME_ID}" \
+						-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" > /dev/null 2>&1;\
+				fi;\
+				ret=$$?;\
+				if [ "$$ret" -ne "0" ]; then sleep 2; fi;\
+				((timeout--));\
+			done;\
+			if [ "$$ret" -ne "0" ]; then\
+				echo "failed to delete detached SBS volume $${CLOUD_VOLUME_ID}";\
+				exit $$ret;\
+			fi;\
+			echo scaleway server $$SCW_SERVER_ID and SBS volume $${CLOUD_VOLUME_ID} deleted;\
+		else\
 			(\
-				curl -s --fail ${SCW_API}/servers/$$SCW_SERVER_ID/action -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
-					-H "Content-Type: application/json" -d '{"action": "terminate"}' > /dev/null \
-			) \
-		&& \
-			(\
-				echo scaleway server $$(cat ${CLOUD_SERVER_ID_FILE}) terminating\
-			)\
-		) || (echo scaleway error while terminating server && exit 1);\
+				(\
+					curl -s --fail ${SCW_API}/servers/$$SCW_SERVER_ID/action -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+						-H "Content-Type: application/json" -d '{"action": "terminate"}' > /dev/null \
+				) \
+			&& \
+				(\
+					echo scaleway server $$(cat ${CLOUD_SERVER_ID_FILE}) terminating\
+				)\
+			) || (echo scaleway error while terminating server && exit 1);\
+		fi;\
 	else\
 		(echo no ${CLOUD_SERVER_ID_FILE} for deletion);\
 	fi
@@ -650,20 +726,44 @@ ${CLOUD_SNAPSHOT_ID_FILE}.done: ${CLOUD_DIR}
 		CLOUD_VOLUME_ID=$$(curl -s --fail ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
 			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .volumes["0"].id'\
 		);\
-		curl -s --fail ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
-			-d '{"name": "${CLOUD_HOSTNAME}", "project": "${SCW_PROJECT_ID}", "volume_id": "'$${CLOUD_VOLUME_ID}'"}' \
-			| jq -r '.snapshot.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
-		CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
-		echo -n snapshotting volume $${CLOUD_VOLUME_ID} to $${CLOUD_SNAPSHOT_ID};\
-		timeout=${SNAPSHOT_TIMEOUT} ; ret=1 ;\
-		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			curl -s ${SCW_API}/snapshots/$${CLOUD_SNAPSHOT_ID} -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".snapshot.state" | (grep available > /dev/null);\
-			ret=$$? ; \
-			if [ "$$ret" -ne "0" ] ; then echo -en "." ; fi ;\
-			((timeout--));((timeout--)); sleep 2 ; \
-		done ; echo ;\
-		if [ "$$ret" -ne "0" ]; then\
-			exit $$ret;\
+		if [ -z "$${CLOUD_VOLUME_ID}" ] || [ "$${CLOUD_VOLUME_ID}" = "null" ]; then\
+			echo "failed to resolve root volume for ${CLOUD_HOSTNAME}";\
+			exit 1;\
+		fi;\
+		if [ "${SCW_VOLUME_TYPE}" = "sbs_volume" ]; then\
+			if ! command -v scw >/dev/null 2>&1; then\
+				echo "scw CLI is required to snapshot sbs_volume via the Block Storage API";\
+				exit 1;\
+			fi;\
+			echo snapshotting sbs volume $${CLOUD_VOLUME_ID};\
+			scw block snapshot create "$${CLOUD_VOLUME_ID}" name="${CLOUD_HOSTNAME}" project-id="${SCW_PROJECT_ID}" zone=${SCW_ZONE} --wait -o json \
+				| jq -r '.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
+			CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
+			if [ -z "$${CLOUD_SNAPSHOT_ID}" ] || [ "$${CLOUD_SNAPSHOT_ID}" = "null" ]; then\
+				echo "failed to create Block snapshot for $${CLOUD_VOLUME_ID}";\
+				exit 1;\
+			fi;\
+			echo snapshot available $${CLOUD_SNAPSHOT_ID};\
+		else\
+			curl -s --fail ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
+				-d '{"name": "${CLOUD_HOSTNAME}", "project": "${SCW_PROJECT_ID}", "volume_id": "'$${CLOUD_VOLUME_ID}'"}' \
+				| jq -r '.snapshot.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
+			CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
+			if [ -z "$${CLOUD_SNAPSHOT_ID}" ] || [ "$${CLOUD_SNAPSHOT_ID}" = "null" ]; then\
+				echo "failed to create Instance snapshot for $${CLOUD_VOLUME_ID}";\
+				exit 1;\
+			fi;\
+			echo -n snapshotting volume $${CLOUD_VOLUME_ID} to $${CLOUD_SNAPSHOT_ID};\
+			timeout=${SNAPSHOT_TIMEOUT} ; ret=1 ;\
+			until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
+				curl -s ${SCW_API}/snapshots/$${CLOUD_SNAPSHOT_ID} -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".snapshot.state" | (grep available > /dev/null);\
+				ret=$$? ; \
+				if [ "$$ret" -ne "0" ] ; then echo -en "." ; fi ;\
+				((timeout--));((timeout--)); sleep 2 ; \
+			done ; echo ;\
+			if [ "$$ret" -ne "0" ]; then\
+				exit $$ret;\
+			fi;\
 		fi;\
 		touch ${CLOUD_SNAPSHOT_ID_FILE}.done;\
 	fi
@@ -1100,7 +1200,9 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 			if [ -n "${REMOTE_TOOLS_BRANCH}" ];then\
 				REMOTE_TOOLS_BRANCH_OPT="--branch ${REMOTE_TOOLS_BRANCH}";\
 			fi;\
-			ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_TOOLS_BRANCH_OPT ${GIT_ROOT}/${REMOTE_TOOLS_REPOSITORY} ${REMOTE_TOOLS_PATH};\
+			if ! ssh ${SSHOPTS} $$U@$$H test -d ${REMOTE_TOOLS_PATH}/.git;then\
+				ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_TOOLS_BRANCH_OPT ${GIT_ROOT}/${REMOTE_TOOLS_REPOSITORY} ${REMOTE_TOOLS_PATH};\
+			fi;\
 			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-init http_proxy=${remote_http_proxy} https_proxy=${remote_https_proxy};\
 			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-next STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};\
 			touch ${CONFIG_REMOTE_FILE};\
@@ -1111,7 +1213,7 @@ remote-cmd: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}
 	@\
 		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
 		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
-		ssh ${SSHOPTS} $$U@$$H ${REMOTE_CMD};
+		ssh ${SSHOPTS} $$U@$$H "${REMOTE_CMD}";
 
 
 remote-docker-pull: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}

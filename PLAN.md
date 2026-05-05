@@ -6,7 +6,43 @@
   - update third-party actions still warning on Node 20 deprecation
 - [ ] Dataprep remote performance
   - investigate the remaining delta on true `year/full` remote runs
-  - keep the post-merge option `SCW prebaked dataprep image` as a separate follow-up, not in the current workstream
+
+## Lot 8 - Resolute SCW Base Images
+
+Reference plan:
+
+- [Lot 8 Resolute Base Images](docs/superpowers/plans/2026-05-04-lot8-resolute-base-images.md)
+
+### Exec
+
+- [ ] Switch common SCW bootstrap defaults to Ubuntu 26.04 Resolute Raccoon SBS image
+  - [ ] root/deces-ui integration stack default image uses `98c9d356-4857-4566-ab57-af554a0086fe`
+  - [x] dataprep remote default image uses generated image `b60d3767-7daa-4f1a-b908-8604134333c2`
+  - [ ] both use `SCW_VOLUME_TYPE=sbs_volume`
+  - [ ] keep `SCW_VOLUME_TYPE` propagated through `ci.yml`, `cd.yml`, `release-prod.yml`, and `dataprep-monthly.yml`
+  - [ ] document/handle the `sbs_15k` migration: it is no longer an Instance API `volume_type`, while the CLI/UI still expose 15k through SBS IOPS (`root-volume=sbs:<size>:15000`)
+  - [ ] create reference images from `sbs_volume` roots through a Block Storage snapshot, then an Instance image (`root_volume.volume_type=sbs_snapshot`)
+  - [ ] keep reference images free of application checkouts and delete detached SBS volumes during cleanup
+  - [ ] disable the unreachable Scaleway Ubuntu PPA before Docker apt bootstrap
+  - [x] smoke-tested generated dataprep image: no application checkout, Docker/Compose, rclone, recode, and Docker cache OK
+- [ ] Modernize shared `packages/tools` `docker-install`
+  - [ ] replace `apt-key` / `add-apt-repository`
+  - [ ] install Docker Engine + Compose plugin from Docker official apt repository
+  - [ ] keep a `docker-compose` compatibility wrapper for existing Makefiles
+- [ ] Add explicit base image publication targets
+  - [ ] `dataprep-backend` base image target using common `remote-config`
+  - [ ] `deces-ui` integration stack base image target using common `remote-config`
+- [ ] Demonstrate before PR
+  - [ ] remote-config canary on Ubuntu 26.04
+  - [ ] publish and smoke `dataprep-backend` base image
+  - [ ] run small dataprep `deces-2020-m01.txt.gz`
+  - [ ] publish and smoke `deces-ui` integration stack image
+  - [ ] prove no test SCW instance remains running
+
+### Gate
+
+- [ ] No PR before both image paths are demonstrated
+- [ ] No prod tag in this lot
 
 ## Current Workstream
 

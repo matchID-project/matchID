@@ -135,6 +135,8 @@ jobs:
       - dataprep-backend-test
     if: >-
       ${{
+        always() &&
+        !cancelled() &&
         (
           needs.dataprep-backend-test.result == 'success' ||
           needs.dataprep-backend-test.result == 'skipped'

@@ -68,12 +68,18 @@ CLOUD=SCW
 SSHOPTS=-o StrictHostKeyChecking=no -i ${SSHKEY} ${CLOUD_SSHOPTS}
 RCLONE_OPTS=--s3-acl=public-read
 export SCW_FLAVOR=PRO2-M
-export SCW_VOLUME_TYPE=sbs_15k
+export SCW_VOLUME_TYPE=sbs_volume
 export SCW_VOLUME_SIZE=50000000000
-export SCW_IMAGE_ID=8e7f9833-9787-4488-aea7-819183132acc
+# Ubuntu 26.04 Resolute Raccoon with Docker, rclone, recode and dataprep Docker base layers.
+export SCW_IMAGE_ID=b60d3767-7daa-4f1a-b908-8604134333c2
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
 export MONOREPO_ROOT=${APP_PATH}/../..
 DATAPREP_BACKEND_MAKEOVERRIDES := $(filter-out APP=% APP_VERSION=%,$(MAKEOVERRIDES))
+ifndef DATAPREP_BACKEND_DOCKER_IMAGE_VERSION
+DATAPREP_BACKEND_DOCKER_IMAGE_VERSION := $(shell cd ${DATAPREP_BACKEND_PATH} && make -s version | awk '{print $$NF}')
+endif
+export DATAPREP_BACKEND_DOCKER_IMAGE_VERSION
+export DATAPREP_BACKEND_DOCKER_IMAGE ?= matchid/matchid-backend:${DATAPREP_BACKEND_DOCKER_IMAGE_VERSION}
 export INFRA_PATH=${MONOREPO_ROOT}/packages/deces-infra
 export FRONTEND_PATH=${DATAPREP_FRONTEND_PATH}
 
@@ -113,16 +119,16 @@ config: dataprep-backend-check dataprep-project-check
 
 monorepo-elasticsearch:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
-		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-local ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
+		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${INFRA_PATH} elasticsearch-local ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
+		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
 	fi
 
 monorepo-elasticsearch-stop:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
-		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-stop ${MAKEOVERRIDES};\
+		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${INFRA_PATH} elasticsearch-stop ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
+		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
 	fi
 
 frontend-config: dataprep-frontend-check
@@ -146,7 +152,12 @@ datagouv-to-upload: FORCE
 FORCE:
 
 ${DATA_TAG}: FORCE config
-	@${MAKE} -C ${MONOREPO_ROOT} data-version ${MAKEOVERRIDES} > /dev/null
+	@if [ -n "${DATA_VERSION_OVERRIDE}" ]; then\
+		printf '%s\n' "${DATA_VERSION_OVERRIDE}" > ${DATA_TAG};\
+	else\
+		env -u MAKEFLAGS -u MFLAGS APP_VERSION=data-version DECES_BACKEND_APP_VERSION=data-version \
+			${MAKE} -C ${MONOREPO_ROOT} data-version ${MAKEOVERRIDES} > /dev/null;\
+	fi
 
 data-tag: ${DATA_TAG}
 
@@ -422,13 +433,13 @@ remote-deploy:
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		${MAKEOVERRIDES}
 
-remote-step1:
+remote-step1: data-tag
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		ACTIONS="all-step1"\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		CHUNK_SIZE=${CHUNK_SIZE} ES_THREADS=${ES_THREADS} RECIPE_THREADS=${RECIPE_THREADS} ES_MEM=${ES_MEM} RECIPE_QUEUE=${RECIPE_QUEUE} \
-		BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
+		DATA_VERSION_OVERRIDE=$$(cat ${DATA_TAG}) DECES_BACKEND_APP_VERSION=data-version BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
 
 remote-watch:
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
@@ -436,18 +447,18 @@ remote-watch:
 		ACTIONS="watch-run"\
 		${MAKEOVERRIDES}
 
-remote-step2:
+remote-step2: data-tag
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		ACTIONS="all-step2"\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-		BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
+		DATA_VERSION_OVERRIDE=$$(cat ${DATA_TAG}) DECES_BACKEND_APP_VERSION=data-version BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
 
 remote-clean:
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-clean\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		${MAKEOVERRIDES}
-	@rm ${MONOREPO_TOOLS_PATH}/configured/*.deployed > /dev/null 2>&1
+	@rm -f ${MONOREPO_TOOLS_PATH}/configured/*.deployed > /dev/null 2>&1
 
 remote-all:
 	@if [ ! -f "no-remote" ];then\
@@ -459,13 +470,50 @@ remote-all:
 remote-docker-pull-base: config remote-config remote-deploy
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=python:3.9-slim-bullseye
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${DATAPREP_BACKEND_DOCKER_IMAGE}
+
+remote-base-image-prepare: config remote-config remote-deploy remote-docker-pull-base
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sudo env DEBIAN_FRONTEND=noninteractive apt-get install -yq recode"
+
+remote-base-image-smoke: config remote-config remote-deploy
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="lsb_release -a"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v docker"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker version"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker compose version"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker-compose version"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v rclone"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v recode"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect python:3.9-slim-bullseye"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${DATAPREP_BACKEND_DOCKER_IMAGE}"
+
+dataprep-backend-base-image:
+	@set -e; \
+	cleanup() { ${MAKE} remote-clean ${MAKEOVERRIDES} || true; }; \
+	trap cleanup EXIT; \
+	${MAKE} remote-config remote-deploy remote-base-image-prepare remote-base-image-smoke ${MAKEOVERRIDES}; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP} && sync"; \
+	sleep 5; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-snapshot \
+		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${DATAPREP_BACKEND_DOCKER_IMAGE_VERSION} \
+		CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION} CLOUD_APP=deces-dataprep \
+		${MAKEOVERRIDES}; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-image \
+		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${DATAPREP_BACKEND_DOCKER_IMAGE_VERSION} \
+		CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION} CLOUD_APP=deces-dataprep \
+		${MAKEOVERRIDES}; \
+	SCW_IMAGE_ID=$$(cat ${MONOREPO_TOOLS_PATH}/cloud/SCW.image.id); \
+	echo "dataprep-backend base image: $$SCW_IMAGE_ID"; \
+	trap - EXIT; \
+	cleanup
 
 update-base-image: config remote-config remote-deploy remote-docker-pull-base
 	@\
 	APP_VERSION=$$(cd ${DATAPREP_BACKEND_PATH} && make version | awk '{print $$NF}');\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sudo apt upgrade -y"; \
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
-	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP} && sync"; \
 	sleep 5;\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=$${APP_VERSION} CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION}\
