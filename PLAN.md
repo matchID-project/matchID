@@ -19,6 +19,8 @@ Reference plan:
   - [ ] root/deces-ui integration stack default image uses `98c9d356-4857-4566-ab57-af554a0086fe`
   - [ ] dataprep remote default image uses `98c9d356-4857-4566-ab57-af554a0086fe`
   - [ ] both use `SCW_VOLUME_TYPE=sbs_volume`
+  - [ ] keep `SCW_VOLUME_TYPE` propagated through `ci.yml`, `cd.yml`, `release-prod.yml`, and `dataprep-monthly.yml`
+  - [ ] document/handle the `sbs_15k` migration: it is no longer an Instance API `volume_type`, while the CLI/UI still expose 15k through SBS IOPS (`root-volume=sbs:<size>:15000`)
 - [ ] Modernize shared `packages/tools` `docker-install`
   - [ ] replace `apt-key` / `add-apt-repository`
   - [ ] install Docker Engine + Compose plugin from Docker official apt repository
