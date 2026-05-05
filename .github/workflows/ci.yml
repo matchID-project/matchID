@@ -396,11 +396,18 @@ jobs:
     needs:
       - changes
       - dataprep-backend-test
+      - deces-dataprep-locally
     if: >-
       ${{
+        always() &&
+        !cancelled() &&
         (
           needs.dataprep-backend-test.result == 'success' ||
           needs.dataprep-backend-test.result == 'skipped'
+        ) &&
+        (
+          needs.deces-dataprep-locally.result == 'success' ||
+          needs.deces-dataprep-locally.result == 'skipped'
         ) && (
           needs.changes.outputs.artifact_dataprep_snapshot == 'true' ||
           needs.changes.outputs.artifact_matchid_backend == 'true' ||
