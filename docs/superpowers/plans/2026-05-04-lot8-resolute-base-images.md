@@ -24,6 +24,7 @@
 - [ ] Account for the `sbs_15k` contract change: existing workflows used a volume-type environment variable, but current Instance API rejects `volumes.0.volume_type=sbs_15k`; 15k must be represented through the current SBS/IOPS contract rather than by silently dropping the variable.
 - [ ] Snapshot `sbs_volume` roots with the Block Storage snapshot API/CLI before creating the Instance image; the resulting image root volume is `sbs_snapshot`.
 - [ ] Remove application checkouts before snapshot with a remote `sync` after deletion, and delete detached SBS volumes during cleanup.
+- [ ] Disable the unreachable Scaleway Ubuntu PPA before Docker apt bootstrap, otherwise `apt-get update` can block on `ppa.launchpadcontent.net`.
 
 Validation:
 

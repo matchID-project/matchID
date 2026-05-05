@@ -266,6 +266,12 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 	echo install docker-ce
 	@if [ "${OS_TYPE}" = "DEB" ]; then\
 		(sudo echo '* libraries/restart-without-asking boolean true' | sudo debconf-set-selections);\
+		for source_file in /etc/apt/sources.list.d/*; do\
+			if [ -f "$$source_file" ] && grep -q 'ppa.launchpadcontent.net/scaleway/stable' "$$source_file"; then\
+				echo disabling unreachable Scaleway PPA "$$source_file";\
+				sudo mv "$$source_file" "$$source_file.disabled";\
+			fi;\
+		done;\
 		sudo apt-get update -yqq;\
 		sudo apt-get install -yqq \
 			ca-certificates \
