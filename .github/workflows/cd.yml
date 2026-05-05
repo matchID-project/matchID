@@ -573,7 +573,7 @@ jobs:
           BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
           BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SCW_FLAVOR: PRO2-M
-          SCW_VOLUME_SIZE: 20000000000
+          SCW_VOLUME_SIZE: 50000000000
           SCW_VOLUME_TYPE: sbs_volume
           remote_http_proxy: ${{ secrets.remote_http_proxy }}
           remote_https_proxy: ${{ secrets.remote_https_proxy }}
