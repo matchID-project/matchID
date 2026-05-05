@@ -428,13 +428,13 @@ remote-deploy:
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		${MAKEOVERRIDES}
 
-remote-step1:
+remote-step1: data-tag
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		ACTIONS="all-step1"\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
 		CHUNK_SIZE=${CHUNK_SIZE} ES_THREADS=${ES_THREADS} RECIPE_THREADS=${RECIPE_THREADS} ES_MEM=${ES_MEM} RECIPE_QUEUE=${RECIPE_QUEUE} \
-		BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
+		DATA_VERSION_OVERRIDE=$$(cat ${DATA_TAG}) BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
 
 remote-watch:
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
@@ -442,22 +442,27 @@ remote-watch:
 		ACTIONS="watch-run"\
 		${MAKEOVERRIDES}
 
-remote-step2:
+remote-step2: data-tag
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-actions\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		ACTIONS="all-step2"\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET} STORAGE_BUCKET=${STORAGE_BUCKET} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}\
-		BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
+		DATA_VERSION_OVERRIDE=$$(cat ${DATA_TAG}) BACKUP_METHOD=${BACKUP_METHOD} ${MAKEOVERRIDES}
 
 remote-clean:
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-clean\
 		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
 		${MAKEOVERRIDES}
-	@rm ${MONOREPO_TOOLS_PATH}/configured/*.deployed > /dev/null 2>&1
+	@rm -f ${MONOREPO_TOOLS_PATH}/configured/*.deployed > /dev/null 2>&1
 
 remote-all:
 	@if [ ! -f "no-remote" ];then\
-		${MAKE} remote-config remote-deploy remote-step1 remote-watch remote-step2 remote-clean ${MAKEOVERRIDES};\
+		set -e;\
+		cleanup() { ${MAKE} remote-clean ${MAKEOVERRIDES} || true; };\
+		trap cleanup EXIT;\
+		${MAKE} remote-config remote-deploy remote-step1 remote-watch remote-step2 ${MAKEOVERRIDES};\
+		trap - EXIT;\
+		cleanup;\
 	fi
 
 
