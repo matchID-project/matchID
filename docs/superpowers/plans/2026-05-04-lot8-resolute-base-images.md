@@ -18,6 +18,7 @@
 - Modify: `packages/tools/artifacts.SCW`
 
 - [ ] Replace the default SCW base image with Ubuntu 26.04 Resolute Raccoon SBS image `98c9d356-4857-4566-ab57-af554a0086fe`.
+- [ ] Use generated dataprep-backend reference image `b60d3767-7daa-4f1a-b908-8604134333c2` after smoke validation.
 - [ ] Use `SCW_VOLUME_TYPE=sbs_volume` for the Resolute SBS image.
 - [ ] Keep existing variables overrideable from command line and `artifacts`.
 - [ ] Keep `SCW_VOLUME_TYPE` explicitly propagated wherever remote dataprep/deploy instances are launched: `ci.yml`, `cd.yml`, `release-prod.yml`, and `dataprep-monthly.yml`.
@@ -37,6 +38,7 @@ make -C packages/tools -n remote-cmd REMOTE_CMD="rm -rf matchID && sync" CLOUD_S
 ```
 
 Expected: both dry runs pass Make parsing and show the Resolute image/volume values in remote-config calls.
+Dataprep-backend reference image smoke: `b60d3767-7daa-4f1a-b908-8604134333c2` booted with no application checkout, Docker/Compose, rclone, recode, and the expected Docker image cache.
 
 ### Task 2: Modern Docker Install Target
 

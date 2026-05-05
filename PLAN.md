@@ -17,13 +17,14 @@ Reference plan:
 
 - [ ] Switch common SCW bootstrap defaults to Ubuntu 26.04 Resolute Raccoon SBS image
   - [ ] root/deces-ui integration stack default image uses `98c9d356-4857-4566-ab57-af554a0086fe`
-  - [ ] dataprep remote default image uses `98c9d356-4857-4566-ab57-af554a0086fe`
+  - [x] dataprep remote default image uses generated image `b60d3767-7daa-4f1a-b908-8604134333c2`
   - [ ] both use `SCW_VOLUME_TYPE=sbs_volume`
   - [ ] keep `SCW_VOLUME_TYPE` propagated through `ci.yml`, `cd.yml`, `release-prod.yml`, and `dataprep-monthly.yml`
   - [ ] document/handle the `sbs_15k` migration: it is no longer an Instance API `volume_type`, while the CLI/UI still expose 15k through SBS IOPS (`root-volume=sbs:<size>:15000`)
   - [ ] create reference images from `sbs_volume` roots through a Block Storage snapshot, then an Instance image (`root_volume.volume_type=sbs_snapshot`)
   - [ ] keep reference images free of application checkouts and delete detached SBS volumes during cleanup
   - [ ] disable the unreachable Scaleway Ubuntu PPA before Docker apt bootstrap
+  - [x] smoke-tested generated dataprep image: no application checkout, Docker/Compose, rclone, recode, and Docker cache OK
 - [ ] Modernize shared `packages/tools` `docker-install`
   - [ ] replace `apt-key` / `add-apt-repository`
   - [ ] install Docker Engine + Compose plugin from Docker official apt repository

@@ -70,8 +70,8 @@ RCLONE_OPTS=--s3-acl=public-read
 export SCW_FLAVOR=PRO2-M
 export SCW_VOLUME_TYPE=sbs_volume
 export SCW_VOLUME_SIZE=50000000000
-# Ubuntu 26.04 Resolute Raccoon, x86_64, instance_sbs, compatible PRO2/* and SBS volumes.
-export SCW_IMAGE_ID=98c9d356-4857-4566-ab57-af554a0086fe
+# Ubuntu 26.04 Resolute Raccoon with Docker, rclone, recode and dataprep Docker base layers.
+export SCW_IMAGE_ID=b60d3767-7daa-4f1a-b908-8604134333c2
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
 export MONOREPO_ROOT=${APP_PATH}/../..
 DATAPREP_BACKEND_MAKEOVERRIDES := $(filter-out APP=% APP_VERSION=%,$(MAKEOVERRIDES))
