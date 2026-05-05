@@ -462,12 +462,7 @@ remote-clean:
 
 remote-all:
 	@if [ ! -f "no-remote" ];then\
-		set -e;\
-		cleanup() { ${MAKE} remote-clean ${MAKEOVERRIDES} || true; };\
-		trap cleanup EXIT;\
-		${MAKE} remote-config remote-deploy remote-step1 remote-watch remote-step2 ${MAKEOVERRIDES};\
-		trap - EXIT;\
-		cleanup;\
+		${MAKE} remote-config remote-deploy remote-step1 remote-watch remote-step2 remote-clean ${MAKEOVERRIDES};\
 	fi
 
 

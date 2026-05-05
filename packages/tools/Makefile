@@ -623,13 +623,25 @@ SCW-instance-delete:
 	@if [ -f "${CLOUD_SERVER_ID_FILE}" ];then\
 		SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE});\
 		if [ "${SCW_VOLUME_TYPE}" = "sbs_volume" ]; then\
+			CLOUD_VOLUME_ID=$$(curl -s --fail "${SCW_API}/servers/$$SCW_SERVER_ID" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+				| jq -r '.server.volumes["0"].id // empty');\
+			if [ -z "$${CLOUD_VOLUME_ID}" ]; then\
+				echo "failed to resolve attached SBS volume for scaleway server $$SCW_SERVER_ID";\
+				exit 1;\
+			fi;\
 			if command -v scw >/dev/null 2>&1; then\
-				scw instance server delete "$$SCW_SERVER_ID" zone=${SCW_ZONE} with-ip=true with-volumes=all force-shutdown=true -w >/dev/null;\
+				if ! scw instance server delete "$$SCW_SERVER_ID" zone=${SCW_ZONE} with-ip=true with-volumes=none force-shutdown=true -w >/dev/null; then\
+					echo "failed to delete scaleway server $$SCW_SERVER_ID with attached SBS volumes";\
+					exit 1;\
+				fi;\
 			else\
-				curl -s --fail -X DELETE "${SCW_API}/servers/$$SCW_SERVER_ID?with_ip=true&with_volumes=all&force_shutdown=true" \
-					-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" > /dev/null;\
-				timeout=${DELETE_VOLUME_TIMEOUT}; ret=1;\
-				until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ]; do\
+				if ! curl -s --fail -X DELETE "${SCW_API}/servers/$$SCW_SERVER_ID?with_ip=true&with_volumes=none&force_shutdown=true" \
+					-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" > /dev/null; then\
+					echo "scaleway error while deleting server $$SCW_SERVER_ID with attached SBS volumes";\
+					exit 1;\
+				fi;\
+				timeout=${DELETE_VOLUME_TIMEOUT}; ret=0;\
+				until [ "$$timeout" -le 0 -o "$$ret" -ne "0" ]; do\
 					curl -s --fail "${SCW_API}/servers/$$SCW_SERVER_ID" -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" > /dev/null 2>&1;\
 					ret=$$?;\
 					if [ "$$ret" -eq "0" ]; then sleep 2; fi;\
@@ -640,7 +652,23 @@ SCW-instance-delete:
 					exit 1;\
 				fi;\
 			fi;\
-			echo scaleway server $$SCW_SERVER_ID deleted with attached SBS volumes;\
+			timeout=${DELETE_VOLUME_TIMEOUT}; ret=1;\
+			until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ]; do\
+				if command -v scw >/dev/null 2>&1; then\
+					scw block volume delete "$${CLOUD_VOLUME_ID}" zone=${SCW_ZONE} >/dev/null 2>&1;\
+				else\
+					curl -s --fail -X DELETE "https://api.scaleway.com/block/v1/zones/${SCW_ZONE}/volumes/$${CLOUD_VOLUME_ID}" \
+						-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" > /dev/null 2>&1;\
+				fi;\
+				ret=$$?;\
+				if [ "$$ret" -ne "0" ]; then sleep 2; fi;\
+				((timeout--));\
+			done;\
+			if [ "$$ret" -ne "0" ]; then\
+				echo "failed to delete detached SBS volume $${CLOUD_VOLUME_ID}";\
+				exit $$ret;\
+			fi;\
+			echo scaleway server $$SCW_SERVER_ID and SBS volume $${CLOUD_VOLUME_ID} deleted;\
 		else\
 			(\
 				(\
