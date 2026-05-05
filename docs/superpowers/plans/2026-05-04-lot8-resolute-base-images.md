@@ -22,6 +22,7 @@
 - [ ] Keep existing variables overrideable from command line and `artifacts`.
 - [ ] Keep `SCW_VOLUME_TYPE` explicitly propagated wherever remote dataprep/deploy instances are launched: `ci.yml`, `cd.yml`, `release-prod.yml`, and `dataprep-monthly.yml`.
 - [ ] Account for the `sbs_15k` contract change: existing workflows used a volume-type environment variable, but current Instance API rejects `volumes.0.volume_type=sbs_15k`; 15k must be represented through the current SBS/IOPS contract rather than by silently dropping the variable.
+- [ ] Snapshot `sbs_volume` roots with the Block Storage snapshot API/CLI before creating the Instance image; the resulting image root volume is `sbs_snapshot`.
 
 Validation:
 
@@ -29,6 +30,7 @@ Validation:
 make -n deploy-remote-instance SCW_IMAGE_ID=98c9d356-4857-4566-ab57-af554a0086fe SCW_VOLUME_TYPE=sbs_volume
 make -C packages/deces-dataprep -n remote-config SCW_IMAGE_ID=98c9d356-4857-4566-ab57-af554a0086fe SCW_VOLUME_TYPE=sbs_volume
 rg -n 'SCW_VOLUME_TYPE|DATAPREP_SCW_VOLUME_TYPE' .github/workflows/ci.yml .github/workflows/cd.yml .github/workflows/release-prod.yml .github/workflows/dataprep-monthly.yml
+make -C packages/tools -n SCW-instance-snapshot SCW_VOLUME_TYPE=sbs_volume SCW_ZONE=fr-par-1 SCW_PROJECT_ID=dummy SCW_SECRET_TOKEN=dummy
 ```
 
 Expected: both dry runs pass Make parsing and show the Resolute image/volume values in remote-config calls.

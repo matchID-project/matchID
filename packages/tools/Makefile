@@ -656,20 +656,44 @@ ${CLOUD_SNAPSHOT_ID_FILE}.done: ${CLOUD_DIR}
 		CLOUD_VOLUME_ID=$$(curl -s --fail ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
 			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .volumes["0"].id'\
 		);\
-		curl -s --fail ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
-			-d '{"name": "${CLOUD_HOSTNAME}", "project": "${SCW_PROJECT_ID}", "volume_id": "'$${CLOUD_VOLUME_ID}'"}' \
-			| jq -r '.snapshot.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
-		CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
-		echo -n snapshotting volume $${CLOUD_VOLUME_ID} to $${CLOUD_SNAPSHOT_ID};\
-		timeout=${SNAPSHOT_TIMEOUT} ; ret=1 ;\
-		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			curl -s ${SCW_API}/snapshots/$${CLOUD_SNAPSHOT_ID} -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".snapshot.state" | (grep available > /dev/null);\
-			ret=$$? ; \
-			if [ "$$ret" -ne "0" ] ; then echo -en "." ; fi ;\
-			((timeout--));((timeout--)); sleep 2 ; \
-		done ; echo ;\
-		if [ "$$ret" -ne "0" ]; then\
-			exit $$ret;\
+		if [ -z "$${CLOUD_VOLUME_ID}" ] || [ "$${CLOUD_VOLUME_ID}" = "null" ]; then\
+			echo "failed to resolve root volume for ${CLOUD_HOSTNAME}";\
+			exit 1;\
+		fi;\
+		if [ "${SCW_VOLUME_TYPE}" = "sbs_volume" ]; then\
+			if ! command -v scw >/dev/null 2>&1; then\
+				echo "scw CLI is required to snapshot sbs_volume via the Block Storage API";\
+				exit 1;\
+			fi;\
+			echo snapshotting sbs volume $${CLOUD_VOLUME_ID};\
+			scw block snapshot create "$${CLOUD_VOLUME_ID}" name="${CLOUD_HOSTNAME}" project-id="${SCW_PROJECT_ID}" zone=${SCW_ZONE} --wait -o json \
+				| jq -r '.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
+			CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
+			if [ -z "$${CLOUD_SNAPSHOT_ID}" ] || [ "$${CLOUD_SNAPSHOT_ID}" = "null" ]; then\
+				echo "failed to create Block snapshot for $${CLOUD_VOLUME_ID}";\
+				exit 1;\
+			fi;\
+			echo snapshot available $${CLOUD_SNAPSHOT_ID};\
+		else\
+			curl -s --fail ${SCW_API}/snapshots -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
+				-d '{"name": "${CLOUD_HOSTNAME}", "project": "${SCW_PROJECT_ID}", "volume_id": "'$${CLOUD_VOLUME_ID}'"}' \
+				| jq -r '.snapshot.id' > ${CLOUD_SNAPSHOT_ID_FILE};\
+			CLOUD_SNAPSHOT_ID=$$(cat ${CLOUD_SNAPSHOT_ID_FILE});\
+			if [ -z "$${CLOUD_SNAPSHOT_ID}" ] || [ "$${CLOUD_SNAPSHOT_ID}" = "null" ]; then\
+				echo "failed to create Instance snapshot for $${CLOUD_VOLUME_ID}";\
+				exit 1;\
+			fi;\
+			echo -n snapshotting volume $${CLOUD_VOLUME_ID} to $${CLOUD_SNAPSHOT_ID};\
+			timeout=${SNAPSHOT_TIMEOUT} ; ret=1 ;\
+			until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
+				curl -s ${SCW_API}/snapshots/$${CLOUD_SNAPSHOT_ID} -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" | jq -cr  ".snapshot.state" | (grep available > /dev/null);\
+				ret=$$? ; \
+				if [ "$$ret" -ne "0" ] ; then echo -en "." ; fi ;\
+				((timeout--));((timeout--)); sleep 2 ; \
+			done ; echo ;\
+			if [ "$$ret" -ne "0" ]; then\
+				exit $$ret;\
+			fi;\
 		fi;\
 		touch ${CLOUD_SNAPSHOT_ID_FILE}.done;\
 	fi

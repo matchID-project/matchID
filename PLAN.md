@@ -21,6 +21,7 @@ Reference plan:
   - [ ] both use `SCW_VOLUME_TYPE=sbs_volume`
   - [ ] keep `SCW_VOLUME_TYPE` propagated through `ci.yml`, `cd.yml`, `release-prod.yml`, and `dataprep-monthly.yml`
   - [ ] document/handle the `sbs_15k` migration: it is no longer an Instance API `volume_type`, while the CLI/UI still expose 15k through SBS IOPS (`root-volume=sbs:<size>:15000`)
+  - [ ] create reference images from `sbs_volume` roots through a Block Storage snapshot, then an Instance image (`root_volume.volume_type=sbs_snapshot`)
 - [ ] Modernize shared `packages/tools` `docker-install`
   - [ ] replace `apt-key` / `add-apt-repository`
   - [ ] install Docker Engine + Compose plugin from Docker official apt repository
