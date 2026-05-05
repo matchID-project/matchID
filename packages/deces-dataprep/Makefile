@@ -152,7 +152,12 @@ datagouv-to-upload: FORCE
 FORCE:
 
 ${DATA_TAG}: FORCE config
-	@APP_VERSION=data-version DECES_BACKEND_APP_VERSION=data-version ${MAKE} -C ${MONOREPO_ROOT} data-version ${MAKEOVERRIDES} > /dev/null
+	@if [ -n "${DATA_VERSION_OVERRIDE}" ]; then\
+		printf '%s\n' "${DATA_VERSION_OVERRIDE}" > ${DATA_TAG};\
+	else\
+		env -u MAKEFLAGS -u MFLAGS APP_VERSION=data-version DECES_BACKEND_APP_VERSION=data-version \
+			${MAKE} -C ${MONOREPO_ROOT} data-version ${MAKEOVERRIDES} > /dev/null;\
+	fi
 
 data-tag: ${DATA_TAG}
 
