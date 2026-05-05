@@ -92,6 +92,7 @@ EC2=ec2 ${EC2_ENDPOINT_OPTION} --profile ${EC2_PROFILE}
 
 SNAPSHOT_TIMEOUT = 120
 START_TIMEOUT = 120
+DELETE_VOLUME_TIMEOUT = 180
 CLOUD_DIR=${TOOLS_PATH}/cloud
 
 NGINX_DIR=${TOOLS_PATH}/nginx
@@ -615,6 +616,11 @@ SCW-instance-get-host: SCW-instance-wait-running
 SCW-instance-delete:
 	@if [ -f "${CLOUD_SERVER_ID_FILE}" ];then\
 		SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE});\
+		CLOUD_VOLUME_ID="";\
+		if [ "${SCW_VOLUME_TYPE}" = "sbs_volume" ]; then\
+			CLOUD_VOLUME_ID=$$(curl -s ${SCW_API}/servers/$$SCW_SERVER_ID -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+				| jq -r '.server.volumes["0"].id // empty');\
+		fi;\
 		(\
 			(\
 				curl -s --fail ${SCW_API}/servers/$$SCW_SERVER_ID/action -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
@@ -625,6 +631,24 @@ SCW-instance-delete:
 				echo scaleway server $$(cat ${CLOUD_SERVER_ID_FILE}) terminating\
 			)\
 		) || (echo scaleway error while terminating server && exit 1);\
+		if [ "${SCW_VOLUME_TYPE}" = "sbs_volume" ] && [ -n "$${CLOUD_VOLUME_ID}" ]; then\
+			if ! command -v scw >/dev/null 2>&1; then\
+				echo "scw CLI is required to delete detached sbs_volume $${CLOUD_VOLUME_ID}";\
+				exit 1;\
+			fi;\
+			timeout=${DELETE_VOLUME_TIMEOUT}; ret=1;\
+			until [ "$$timeout" -le 0 -o "$$ret" -eq "0" ]; do\
+				scw block volume delete "$${CLOUD_VOLUME_ID}" zone=${SCW_ZONE} >/dev/null 2>&1;\
+				ret=$$?;\
+				if [ "$$ret" -ne "0" ]; then sleep 2; fi;\
+				((timeout--));\
+			done;\
+			if [ "$$ret" -ne "0" ]; then\
+				echo "failed to delete detached sbs_volume $${CLOUD_VOLUME_ID}";\
+				exit $$ret;\
+			fi;\
+			echo scaleway block volume $${CLOUD_VOLUME_ID} deleted;\
+		fi;\
 	else\
 		(echo no ${CLOUD_SERVER_ID_FILE} for deletion);\
 	fi
@@ -1130,7 +1154,9 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 			if [ -n "${REMOTE_TOOLS_BRANCH}" ];then\
 				REMOTE_TOOLS_BRANCH_OPT="--branch ${REMOTE_TOOLS_BRANCH}";\
 			fi;\
-			ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_TOOLS_BRANCH_OPT ${GIT_ROOT}/${REMOTE_TOOLS_REPOSITORY} ${REMOTE_TOOLS_PATH};\
+			if ! ssh ${SSHOPTS} $$U@$$H test -d ${REMOTE_TOOLS_PATH}/.git;then\
+				ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_TOOLS_BRANCH_OPT ${GIT_ROOT}/${REMOTE_TOOLS_REPOSITORY} ${REMOTE_TOOLS_PATH};\
+			fi;\
 			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-init http_proxy=${remote_http_proxy} https_proxy=${remote_https_proxy};\
 			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-next STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};\
 			touch ${CONFIG_REMOTE_FILE};\
@@ -1141,7 +1167,7 @@ remote-cmd: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}
 	@\
 		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
 		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
-		ssh ${SSHOPTS} $$U@$$H ${REMOTE_CMD};
+		ssh ${SSHOPTS} $$U@$$H "${REMOTE_CMD}";
 
 
 remote-docker-pull: ${CLOUD_HOST_FILE} ${CLOUD_USER_FILE}

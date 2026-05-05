@@ -488,7 +488,7 @@ dataprep-backend-base-image:
 	trap cleanup EXIT; \
 	${MAKE} remote-config remote-deploy remote-base-image-prepare remote-base-image-smoke ${MAKEOVERRIDES}; \
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
-	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP} && sync"; \
 	sleep 5; \
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=${DATAPREP_BACKEND_DOCKER_IMAGE_VERSION} \
@@ -508,7 +508,7 @@ update-base-image: config remote-config remote-deploy remote-docker-pull-base
 	APP_VERSION=$$(cd ${DATAPREP_BACKEND_PATH} && make version | awk '{print $$NF}');\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sudo apt upgrade -y"; \
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
-	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP} && sync"; \
 	sleep 5;\
 	${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP} APP_VERSION=$${APP_VERSION} CLOUD_TAG=data:$$(cat ${DATA_TAG})-prep:${DATAPREP_VERSION}\

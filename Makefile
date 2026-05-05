@@ -683,7 +683,7 @@ deces-ui-base-image:
 	DATAPREP_VERSION=$$(cat ${DATAPREP_VERSION_FILE}); \
 	DATA_VERSION=$$(cat ${DATA_VERSION_FILE}); \
 	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
-	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP} && sync"; \
 	sleep 5; \
 	${MAKE} -C ${TOOLS_PATH} SCW-instance-snapshot \
 		CLOUD_TAG=ui:${APP_VERSION}-backend:$$BACKEND_APP_VERSION-data:$$DATAPREP_VERSION-$$DATA_VERSION \
@@ -702,7 +702,7 @@ deces-ui-base-image:
 update-base-image: deploy-remote-instance deploy-docker-pull-base
 	@BACKEND_APP_VERSION=${DECES_BACKEND_APP_VERSION}; \
 	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="sync"; \
-	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP}"; \
+	${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="rm -rf ${APP_GROUP} && sync"; \
 	sleep 5;\
 	${MAKE} -C ${TOOLS_PATH} SCW-instance-snapshot \
 		GIT_BRANCH=${GIT_BRANCH} APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION}\
