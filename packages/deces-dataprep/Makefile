@@ -119,16 +119,16 @@ config: dataprep-backend-check dataprep-project-check
 
 monorepo-elasticsearch:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
-		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${MONOREPO_ROOT} elasticsearch-local ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
+		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${INFRA_PATH} elasticsearch-local ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${MAKEOVERRIDES};\
 	else\
 		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch ES_NODES=${ES_NODES} ES_MEM=${ES_MEM} ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
 	fi
 
 monorepo-elasticsearch-stop:
 	@if [ -d "${MONOREPO_ROOT}/packages/deces-infra" ]; then\
-		${MAKE} -C ${MONOREPO_ROOT} elasticsearch-stop ${MAKEOVERRIDES};\
+		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${INFRA_PATH} elasticsearch-stop ${MAKEOVERRIDES};\
 	else\
-		${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
+		env -u MAKEFLAGS -u MFLAGS ${MAKE} -C ${DATAPREP_BACKEND_PATH} elasticsearch-stop ${DATAPREP_BACKEND_MAKEOVERRIDES} APP=backend;\
 	fi
 
 frontend-config: dataprep-frontend-check
