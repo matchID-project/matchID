@@ -3,6 +3,7 @@ docker-compose.yml
 docker-compose-dev-backend.yml
 docker-compose-smtp.yml
 Dockerfile
+Makefile
 eslint.config.mjs
 package.json
 package-lock.json
