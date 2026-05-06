@@ -57,6 +57,11 @@ export MAILDEV_UI_PORT ?= 37343
 export BACKEND_TIMEOUT ?= 180
 export ES_MEM ?= 512m
 export ES_TIMEOUT ?= 120
+export ES_VERSION ?= $(shell awk -F= '/^export ES_VERSION[[:space:]]*=/ { gsub(/[[:space:]]/, "", $$2); print $$2; exit }' ${INFRA_PATH}/Makefile)
+export BACKEND_NODE_IMAGE ?= $(shell awk 'toupper($$1) == "FROM" && $$2 ~ /^node:/ { print $$2; exit }' ${BACKEND_PATH}/Dockerfile)
+export FRONTEND_NGINX_IMAGE ?= $(shell awk 'toupper($$1) == "FROM" && $$2 ~ /^nginx:/ { print $$2; exit }' ${FRONTEND_PATH}/nginx/Dockerfile)
+export REDIS_IMAGE ?= $(shell awk '$$1 == "image:" && $$2 ~ /^redis:/ { print $$2; exit }' ${INFRA_PATH}/docker-compose-redis.yml)
+export ELASTICSEARCH_IMAGE ?= docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
 
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
@@ -116,8 +121,8 @@ export SCW_VOLUME_SIZE=20000000000
 export SCW_VOLUME_TYPE=sbs_volume
 export SSHKEY_PRIVATE ?= ${HOME}/.ssh/id_rsa_${APP_GROUP}
 
-# Ubuntu 26.04 Resolute Raccoon, x86_64, instance_sbs, compatible PRO2/* and SBS volumes.
-export SCW_IMAGE_ID=98c9d356-4857-4566-ab57-af554a0086fe
+# Ubuntu 24.04 Noble Numbat with Docker, rclone and deces-ui base Docker layers.
+export SCW_IMAGE_ID=e88c1486-84bc-43e6-a87a-c83d10f8a7b1
 
 -include ${TOOLS_PATH}/artifacts.SCW
 dummy		    := $(shell touch artifacts)
@@ -518,6 +523,7 @@ deploy-remote-services:
 		REMOTE_APP_PATH=${REMOTE_MONOREPO_PATH} REMOTE_APP_MAKE_PATH=${REMOTE_MONOREPO_PATH}\
 		TOOLS_STORAGE_ACCESS_KEY=${TOOLS_STORAGE_ACCESS_KEY}\
 		TOOLS_STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY}\
+		REPOSITORY_BUCKET=${REPOSITORY_BUCKET}\
 		LOG_BUCKET=${LOG_BUCKET} LOG_DB_BUCKET=${LOG_DB_BUCKET} STATS_BUCKET=${STATS_BUCKET} PROOFS_BUCKET=${PROOFS_BUCKET}\
 		BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
 		SMTP_TLS_SELFSIGNED=${SMTP_TLS_SELFSIGNED} SMTP_HOST=${SMTP_HOST} SMTP_PORT=${SMTP_PORT} SMTP_USER=${SMTP_USER} SMTP_PWD=${SMTP_PWD}\
@@ -646,10 +652,10 @@ deploy-remote-preflight: config-minimal
 deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
 
 deploy-docker-pull-base: deploy-remote-instance
-	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=node:12.14.0-slim
-	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=nginx:alpine
-	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
-	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=redis:alpine
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${BACKEND_NODE_IMAGE}
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${FRONTEND_NGINX_IMAGE}
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${ELASTICSEARCH_IMAGE}
+	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${REDIS_IMAGE}
 
 deces-ui-base-image-smoke: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="lsb_release -a"
@@ -658,10 +664,10 @@ deces-ui-base-image-smoke: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker compose version"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker-compose version"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="command -v rclone"
-	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect node:12.14.0-slim"
-	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect nginx:alpine"
-	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}"
-	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect redis:alpine"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${BACKEND_NODE_IMAGE}"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${FRONTEND_NGINX_IMAGE}"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${ELASTICSEARCH_IMAGE}"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${REDIS_IMAGE}"
 
 deces-ui-base-image:
 	@set -e; \
