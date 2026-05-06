@@ -1087,7 +1087,7 @@ datagouv-to-aws: aws-get-catalog datagouv-get-files
 ${DATAGOUV_CATALOG}: config ${DATA_DIR}
 	@echo getting ${DATAGOUV_DATASET} catalog from data.gouv API ${DATAGOUV_API}
 	@curl -s --fail ${DATAGOUV_API}/${DATAGOUV_DATASET}/ | \
-		jq  -cr '.resources[] | (.url | sub(".*/";"")) + " " +.checksum.value + " " + .url' | sort > ${DATAGOUV_CATALOG}
+		jq  -cr '.resources[] | (.url | sub(".*/";"")) + " no-more-checksum " + .url' | sort > ${DATAGOUV_CATALOG}
 
 datagouv-get-catalog: ${DATAGOUV_CATALOG}
 
@@ -1114,10 +1114,13 @@ datagouv-get-files: ${DATAGOUV_CATALOG}
 		for file in $$(awk '{print $$1}' ${DATA_DIR}/tmp.list); do\
 			if [ ! -f ${DATA_DIR}/$$file.gz.sha1 ]; then\
 				echo getting $$file ;\
-				grep $$file ${DATA_DIR}/tmp.list | awk '{print $$3}' | xargs curl -s > ${DATA_DIR}/$$file; \
+				url=$$(grep $$file ${DATA_DIR}/tmp.list | awk '{print $$3}'); \
+				if [ -z "$$url" ]; then echo "error: missing datagouv URL for $$file"; exit 1; fi; \
+				curl -fsSL "$$url" > ${DATA_DIR}/$$file; \
+				if [ ! -s ${DATA_DIR}/$$file ]; then echo "error: empty datagouv download for $$file"; exit 1; fi; \
 				grep $$file ${DATA_DIR}/tmp.list | awk '{print $$2}' > ${DATA_DIR}/$$file.sha1.src; \
 				sha1sum < ${DATA_DIR}/$$file | awk '{print $$1}' > ${DATA_DIR}/$$file.sha1.dst; \
-				((diff ${DATA_DIR}/$$file.sha1.src ${DATA_DIR}/$$file.sha1.dst > /dev/null) || echo error downloading $$file); \
+				((diff ${DATA_DIR}/$$file.sha1.src ${DATA_DIR}/$$file.sha1.dst > /dev/null) || echo warning: checksum mismatch for $$file); \
 				if [[ "$$file" == "deces"* ]]; then\
 					if [ "$$file" \> "deces-2010" ];then\
 						recode utf8..latin1 ${DATA_DIR}/$$file;\
@@ -1138,10 +1141,13 @@ datagouv-get-files: ${DATAGOUV_CATALOG}
 		for file in $$(awk '{print $$1}' ${DATA_DIR}/tmp.force.list); do\
 			if [ ! -f ${DATA_DIR}/$$file.gz.sha1 ]; then\
 				echo force-getting $$file ;\
-				grep $$file ${DATA_DIR}/tmp.force.list | awk '{print $$3}' | xargs curl -s > ${DATA_DIR}/$$file; \
+				url=$$(grep $$file ${DATA_DIR}/tmp.force.list | awk '{print $$3}'); \
+				if [ -z "$$url" ]; then echo "error: missing datagouv URL for $$file"; exit 1; fi; \
+				curl -fsSL "$$url" > ${DATA_DIR}/$$file; \
+				if [ ! -s ${DATA_DIR}/$$file ]; then echo "error: empty datagouv download for $$file"; exit 1; fi; \
 				grep $$file ${DATA_DIR}/tmp.force.list | awk '{print $$2}' > ${DATA_DIR}/$$file.sha1.src; \
 				sha1sum < ${DATA_DIR}/$$file | awk '{print $$1}' > ${DATA_DIR}/$$file.sha1.dst; \
-				((diff ${DATA_DIR}/$$file.sha1.src ${DATA_DIR}/$$file.sha1.dst > /dev/null) || echo error downloading $$file); \
+				((diff ${DATA_DIR}/$$file.sha1.src ${DATA_DIR}/$$file.sha1.dst > /dev/null) || echo warning: checksum mismatch for $$file); \
 				gzip ${DATA_DIR}/$$file; \
 				sha1sum ${DATA_DIR}/$$file.gz > ${DATA_DIR}/$$file.gz.sha1; \
 				((i++));\
