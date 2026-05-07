@@ -538,7 +538,7 @@ jobs:
       ES_MEM_PROD: 8192m
       SCW_FLAVOR_PROD: GP1-XS
       SCW_VOLUME_SIZE_PROD: 60000000000
-      SCW_VOLUME_TYPE_PROD: l_ssd
+      SCW_VOLUME_TYPE_PROD: sbs_volume
     steps:
       - uses: actions/checkout@v4
         with:
