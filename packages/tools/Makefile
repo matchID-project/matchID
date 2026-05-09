@@ -1273,7 +1273,9 @@ remote-actions: remote-deploy
 			else\
 				MAKE_APP_PATH=${REMOTE_TOOLS_MAKE_PATH};\
 			fi;\
-			ssh ${SSHOPTS} $$U@$$H make -C $$MAKE_APP_PATH ${ACTIONS} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} ${REMOTE_ACTION_MAKEOVERRIDES};\
+			REMOTE_CMD=$$(bash ${TOOLS_PATH}/scripts/shell-quote-argv.sh make -C "$$MAKE_APP_PATH" ${ACTIONS}\
+				"STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY}" "STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}" ${REMOTE_ACTION_MAKEOVERRIDES});\
+			ssh ${SSHOPTS} $$U@$$H "$$REMOTE_CMD";\
 		fi
 
 remote-test-api-in-vpc: ${CLOUD}-instance-get-tagged-hosts
@@ -1401,3 +1403,6 @@ ${GIT_BACKEND}:
 # tests for automation
 remote-config-test:
 	@/usr/bin/time -f %e make remote-actions ACTIONS="generate-test-file storage-push" remote-clean ${MAKEOVERRIDES}
+
+test-remote-actions-quoting:
+	@bash ${TOOLS_PATH}/tests/test_remote_actions_quoting.sh
