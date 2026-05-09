@@ -659,7 +659,7 @@ deploy-remote-preflight: config-minimal
 	done; \
 	echo "deploy-remote preflight ok for ${APP_DNS_TARGET}"
 
-deploy-remote: config-minimal deploy-remote-instance deploy-monitor-start deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor-wait
+deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
 
 deploy-docker-pull-base: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${BACKEND_NODE_IMAGE}
