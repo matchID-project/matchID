@@ -631,7 +631,7 @@ deploy-remote-preflight: config-minimal
 			echo "GIT_BRANCH=${GIT_BRANCH} is not the expected preprod runtime label dev"; \
 			exit 1; \
 		fi; \
-		if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
+		if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ] && [ "${ALLOW_NON_MAIN_DEV_DEPLOY}" != "true" ]; then \
 			echo "REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH} is not the expected preprod git ref ${GIT_BRANCH_MAIN}"; \
 			exit 1; \
 		fi; \
