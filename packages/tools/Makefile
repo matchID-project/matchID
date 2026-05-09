@@ -121,7 +121,7 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ConnectTimeout=${SSH_CONNECT_TIMEOUT} -o ConnectionAttempts=1 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 # Nginx publication must connect directly to the bastion/nginx host, even when
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
@@ -447,12 +447,12 @@ ${CLOUD}-instance-wait-ssh: ${CLOUD_FIRST_USER_FILE} ${CLOUD_HOST_FILE}
 		(ssh-keygen -R $$HOST > /dev/null 2>&1) || true;\
 		timeout=${SSH_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			((ssh ${SSHOPTS} -o ConnectTimeout=${SSH_CONNECT_TIMEOUT} -o ConnectionAttempts=1 $$SSHUSER@$$HOST sleep 1) );\
+			((ssh ${SSHOPTS} $$SSHUSER@$$HOST sleep 1) );\
 			ret=$$? ; \
 			if [ "$$ret" -ne "0" ] ; then\
 				echo -en "\rwaiting for ssh service on ${CLOUD} instance - $$timeout" ; \
 				if [ ! -z "${VERBOSE}" ];then\
-					echo 'cmd: ssh ${SSHOPTS} -o ConnectTimeout=${SSH_CONNECT_TIMEOUT} -o ConnectionAttempts=1 '"$$SSHUSER@$$HOST"; \
+					echo 'cmd: ssh ${SSHOPTS} '"$$SSHUSER@$$HOST"; \
 				fi;\
 			fi ;\
 			((timeout--)); sleep 1 ; \
