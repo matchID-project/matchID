@@ -172,13 +172,14 @@ backend-start: backend-redis
 	@export EXEC_ENV=production; ${DC_BACKEND} up -d 2>&1 | grep -v orphan
 	@timeout=${BACKEND_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			(docker exec -i ${USE_TTY} ${APP_BACKEND} curl -s --fail -X GET http://localhost:${BACKEND_PORT}/deces/api/v1/version > /dev/null) ;\
+			(timeout 5s docker exec -i ${USE_TTY} ${APP_BACKEND} curl -s --connect-timeout 2 --max-time 4 --fail -X GET http://localhost:${BACKEND_PORT}/deces/api/v1/version > /dev/null) ;\
 			ret=$$? ;\
 			if [ "$$ret" -ne "0" ] ; then\
 				echo -e "try still $$timeout seconds to start backend before timeout" ;\
 			fi ;\
 			((timeout--)); sleep 1 ;\
 		done ;\
+	if [ "$$ret" -ne "0" ]; then docker logs --tail 200 ${APP_BACKEND} || true; fi ;\
 	echo -e "backend started in $$((BACKEND_TIMEOUT - timeout)) seconds"; exit $$ret
 
 backend-stop:
