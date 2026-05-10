@@ -85,6 +85,7 @@ SSHKEY_PRIVATE = ${HOME}/.ssh/id_rsa_${APP_GROUP}
 SSHKEY = ${SSHKEY_PRIVATE}.pub
 SSHKEYNAME = ${TOOLS}
 SSH_TIMEOUT = 90
+SSH_CONNECT_TIMEOUT = 5
 
 export CURL_OPTS = --retry 5 --retry-delay 2 -A "GitHub Actions"
 
@@ -120,11 +121,12 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ConnectTimeout=${SSH_CONNECT_TIMEOUT} -o ConnectionAttempts=1 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 # Nginx publication must connect directly to the bastion/nginx host, even when
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
 REMOTE_ACTION_MAKEOVERRIDES := $(filter-out CLOUD_SSHOPTS=% SSHKEY_PRIVATE=% SSHKEY=% SSHKEYNAME=% SSHID=% ${HOME}/.ssh/config ${HOME}/.ssh/% %/.ssh/%,$(MAKEOVERRIDES))
+MONITOR_INSTALL_TIMEOUT ?= 900
 
 tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//' | sed 's#[^A-Za-z0-9_.-]#-#g'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
@@ -450,7 +452,7 @@ ${CLOUD}-instance-wait-ssh: ${CLOUD_FIRST_USER_FILE} ${CLOUD_HOST_FILE}
 			if [ "$$ret" -ne "0" ] ; then\
 				echo -en "\rwaiting for ssh service on ${CLOUD} instance - $$timeout" ; \
 				if [ ! -z "${VERBOSE}" ];then\
-					echo 'cmd: ssh ${SSHOPTS} -o ConnectTimeout=1 '"$$SSHUSER@$$HOST"; \
+					echo 'cmd: ssh ${SSHOPTS} '"$$SSHUSER@$$HOST"; \
 				fi;\
 			fi ;\
 			((timeout--)); sleep 1 ; \
@@ -1358,20 +1360,47 @@ remote-install-root-aws-credentials:
 	@if [ ! -z "${STORAGE_ACCESS_KEY}" -a ! -z "${STORAGE_SECRET_KEY}" ];then\
 		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
 		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
-		ssh ${SSHOPTS} $$U@$$H "sudo mkdir /root/.aws";\
+		ssh ${SSHOPTS} $$U@$$H "sudo mkdir -p /root/.aws";\
 		cat ${TOOLS_PATH}/.aws/config | ssh ${SSHOPTS} $$U@$$H "sudo tee /root/.aws/config > /dev/null";\
 		cat ${TOOLS_PATH}/.aws/credentials | sed "s/<AWS_ACCESS_KEY_ID>/${STORAGE_ACCESS_KEY}/;s/<AWS_SECRET_ACCESS_KEY>/${STORAGE_SECRET_KEY}/;" | ssh ${SSHOPTS} $$U@$$H "sudo tee /root/.aws/credentials > /dev/null";\
 	fi
 
-remote-install-monitor: remote-install-root-aws-credentials
+remote-install-monitor: remote-install-monitor-start remote-install-monitor-wait
+
+remote-install-monitor-start: remote-install-root-aws-credentials
 	@if [ ! -z "${NEW_RELIC_API_KEY}" -a ! -z "${NEW_RELIC_ACCOUNT_ID}" ];then\
 		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
 		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		cat ${TOOLS_PATH}/fluent-bit/plugins.conf | ssh ${SSHOPTS} $$U@$$H "sudo tee /tmp/plugins.conf > /dev/null";\
 		cat ${TOOLS_PATH}/fluent-bit/fluent-bit.conf | sed "s/<NEW_RELIC_INGEST_KEY>/${NEW_RELIC_INGEST_KEY}/;s|<HTTPS_PROXY>|${remote_http_proxy}|;s|<MONITOR_BUCKET>|${MONITOR_BUCKET}|;s|<MONITOR_DIR>|${MONITOR_DIR}|" | ssh ${SSHOPTS} $$U@$$H "sudo tee /tmp/fluent-bit.conf > /dev/null";\
-		ssh ${SSHOPTS} $$U@$$H "(sudo systemctl stop unattended-upgrades;sleep 30;curl -Ls https://download.newrelic.com/install/newrelic-cli/scripts/install.sh | bash && sudo HTTPS_PROXY=${remote_http_proxy} NEW_RELIC_API_KEY=${NEW_RELIC_API_KEY} NEW_RELIC_ACCOUNT_ID=${NEW_RELIC_ACCOUNT_ID} NEW_RELIC_REGION=EU /usr/local/bin/newrelic install -y && echo New Relic Installed) > .install-newrelic.log 2>&1 &";\
-		ssh ${SSHOPTS} $$U@$$H "(sudo systemctl stop unattended-upgrades;sleep 30;curl -s https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh; sudo mv /tmp/fluent-bit.conf /etc/fluent-bit/ && echo 'HOME=/root' | sudo tee /etc/default/fluent-bit && sudo systemctl daemon-reload && sudo systemctl restart fluent-bit && echo Fluent-bit installed) > .install-fluentbit.log 2>&1 &";\
-		ssh ${SSHOPTS} $$U@$$H "(sleep 3600;sudo systemctl start unattended-upgrades) > .install-reactivate-upgrades.log 2>&1 &";\
+		cat ${TOOLS_PATH}/scripts/deploy-monitor.sh | ssh ${SSHOPTS} $$U@$$H "cat > /tmp/matchid-remote-install-monitor.sh && chmod +x /tmp/matchid-remote-install-monitor.sh";\
+		ssh ${SSHOPTS} $$U@$$H "rm -f .install-monitor.status .install-monitor.running .install-monitor.log";\
+		ssh ${SSHOPTS} $$U@$$H "(touch .install-monitor.running; HTTPS_PROXY='${remote_http_proxy}' NEW_RELIC_API_KEY='${NEW_RELIC_API_KEY}' NEW_RELIC_ACCOUNT_ID='${NEW_RELIC_ACCOUNT_ID}' NEW_RELIC_REGION='EU' /tmp/matchid-remote-install-monitor.sh; ret=\$$?; rm -f .install-monitor.running; echo \$$ret > .install-monitor.status; exit \$$ret) > .install-monitor.log 2>&1 &";\
+		echo "monitor install started";\
+	fi
+
+remote-install-monitor-wait:
+	@if [ ! -z "${NEW_RELIC_API_KEY}" -a ! -z "${NEW_RELIC_ACCOUNT_ID}" ];then\
+		H=$$(tr -d '\r\n[:space:]' < ${CLOUD_HOST_FILE});\
+		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
+		timeout=${MONITOR_INSTALL_TIMEOUT}; status=running;\
+		while [ "$$timeout" -gt 0 ]; do\
+			status=$$(ssh ${SSHOPTS} $$U@$$H "if [ -f .install-monitor.status ]; then cat .install-monitor.status; elif [ -f .install-monitor.running ]; then echo running; else echo missing; fi" | tr -d '\r\n[:space:]');\
+			if [ "$$status" != "running" ]; then break; fi;\
+			sleep 5;\
+			timeout=$$((timeout - 5));\
+		done;\
+		if [ "$$status" = "running" ] || [ "$$status" = "missing" ] || [ -z "$$status" ]; then\
+			echo "monitor install did not complete (status=$$status)";\
+			ssh ${SSHOPTS} $$U@$$H "tail -120 .install-monitor.log" || true;\
+			exit 1;\
+		fi;\
+		if [ "$$status" != "0" ]; then\
+			echo "monitor install failed with status $$status";\
+			ssh ${SSHOPTS} $$U@$$H "tail -120 .install-monitor.log" || true;\
+			exit $$status;\
+		fi;\
+		ssh ${SSHOPTS} $$U@$$H "tail -40 .install-monitor.log" || true;\
 	fi
 
 cdn-cache-purge:
