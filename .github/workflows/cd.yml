@@ -634,7 +634,6 @@ jobs:
           ) ||
           (
             github.event_name == 'workflow_dispatch' &&
-            github.ref == 'refs/heads/main' &&
             inputs.deploy_target == 'dev'
           )
         )
@@ -742,7 +741,8 @@ jobs:
         run: |
           make deploy-remote-preflight \
             GIT_BRANCH=$GIT_BRANCH \
-            REMOTE_DEPLOY_BRANCH=main \
+            REMOTE_DEPLOY_BRANCH="${GITHUB_REF_NAME}" \
+            ALLOW_BRANCH_CD_VALIDATION=true \
             DEPLOY_TARGET=dev \
             APP_DNS=$APP_DNS \
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
@@ -751,7 +751,7 @@ jobs:
             CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
           make deploy-remote \
             GIT_BRANCH=$GIT_BRANCH \
-            REMOTE_DEPLOY_BRANCH=main \
+            REMOTE_DEPLOY_BRANCH="${GITHUB_REF_NAME}" \
             DEPLOY_TARGET=dev \
             APP_DNS=$APP_DNS \
             FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
