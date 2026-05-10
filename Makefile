@@ -525,6 +525,7 @@ deploy-remote-services:
 		TOOLS_STORAGE_SECRET_KEY=${TOOLS_STORAGE_SECRET_KEY}\
 		REPOSITORY_BUCKET=${REPOSITORY_BUCKET}\
 		LOG_BUCKET=${LOG_BUCKET} LOG_DB_BUCKET=${LOG_DB_BUCKET} STATS_BUCKET=${STATS_BUCKET} PROOFS_BUCKET=${PROOFS_BUCKET}\
+		MONITOR_BUCKET=${MONITOR_BUCKET}\
 		BACKEND_TOKEN_KEY=${BACKEND_TOKEN_KEY} BACKEND_TOKEN_PASSWORD=${BACKEND_TOKEN_PASSWORD}\
 		SMTP_TLS_SELFSIGNED=${SMTP_TLS_SELFSIGNED} SMTP_HOST=${SMTP_HOST} SMTP_PORT=${SMTP_PORT} SMTP_USER=${SMTP_USER} SMTP_PWD=${SMTP_PWD}\
 		DOCKER_PASSWORD=${DOCKER_PASSWORD}\
@@ -602,10 +603,10 @@ DEPLOY_REMOTE_REQUIRED_VARS = \
 	CDN_ZONE_ID \
 	NEW_RELIC_INGEST_KEY \
 	NEW_RELIC_API_KEY \
-	NEW_RELIC_ACCOUNT_ID
-
-DEPLOY_REMOTE_OPTIONAL_VARS = \
+	NEW_RELIC_ACCOUNT_ID \
 	MONITOR_BUCKET
+
+DEPLOY_REMOTE_OPTIONAL_VARS =
 
 export $(DEPLOY_REMOTE_REQUIRED_VARS) $(DEPLOY_REMOTE_OPTIONAL_VARS)
 
@@ -659,7 +660,7 @@ deploy-remote-preflight: config-minimal
 	done; \
 	echo "deploy-remote preflight ok for ${APP_DNS_TARGET}"
 
-deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
+deploy-remote: config-minimal deploy-remote-instance deploy-monitor-start deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor-wait
 
 deploy-docker-pull-base: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=${BACKEND_NODE_IMAGE}

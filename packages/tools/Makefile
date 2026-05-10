@@ -1385,8 +1385,9 @@ remote-install-monitor-wait:
 		U=$$(tr -d '\r\n[:space:]' < ${CLOUD_USER_FILE});\
 		timeout=${MONITOR_INSTALL_TIMEOUT}; status=running;\
 		while [ "$$timeout" -gt 0 ]; do\
-			status=$$(ssh ${SSHOPTS} $$U@$$H "if [ -f .install-monitor.status ]; then cat .install-monitor.status; elif [ -f .install-monitor.running ]; then echo running; else echo missing; fi" | tr -d '\r\n[:space:]');\
-			if [ "$$status" != "running" ]; then break; fi;\
+			status=$$(ssh ${SSHOPTS} $$U@$$H "if [ -f .install-monitor.status ]; then cat .install-monitor.status; elif [ -f .install-monitor.running ]; then echo running; else echo missing; fi" 2>/dev/null | tr -d '\r\n[:space:]');\
+			if [ -z "$$status" ]; then status=running; fi;\
+			if [ "$$status" != "running" ] && [ "$$status" != "missing" ]; then break; fi;\
 			sleep 5;\
 			timeout=$$((timeout - 5));\
 		done;\
