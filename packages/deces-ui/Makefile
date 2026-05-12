@@ -29,7 +29,7 @@ export APP_VERSION ?= ${package_tag}-${version_hash}
 
 # Test configuration variables
 export TEST_HOST=nginx
-export PLAYWRIGHT_VERSION ?= 1.59.1
+export PLAYWRIGHT_VERSION ?= 1.60.0
 export MITM_URL=/mitm/mitm.html
 export THEME_DNUM=0
 

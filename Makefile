@@ -112,7 +112,7 @@ export FILES_TO_PROCESS_TEST=deces-2020-m01.txt.gz
 export FILES_TO_PROCESS_DEV=deces-2020-m[0-1][0-9].txt.gz
 export ARTIFACT_RECIPE_RUN_MARKER ?= /tmp/matchid-artifact.recipe-run
 export ARTIFACT_S3_PULL_MARKER ?= /tmp/matchid-artifact.s3-pull
-export PLAYWRIGHT_VERSION ?= 1.59.1
+export PLAYWRIGHT_VERSION ?= 1.60.0
 export REPOSITORY_BUCKET?=fichier-des-personnes-decedees-elasticsearch
 export REPOSITORY_BUCKET_DEV=fichier-des-personnes-decedees-elasticsearch-dev
 
