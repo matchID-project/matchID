@@ -1,0 +1,187 @@
+name: Dataprep Full Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+
+concurrency:
+  group: dataprep-full-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dataprep-full-validation:
+    name: dataprep-full-validation
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'run-dataprep-full-validation') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    env:
+      APP_DNS: deces.matchid.io
+      PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+      DATAPREP_SCW_FLAVOR_PROD: PRO2-L
+      DATAPREP_SCW_VOLUME_SIZE_PROD: 50000000000
+      DATAPREP_SCW_VOLUME_TYPE_PROD: sbs_volume
+      DATAPREP_CHUNK_SIZE_PROD: 75000
+      DATAPREP_ES_THREADS_PROD: 30
+      DATAPREP_RECIPE_THREADS_PROD: 32
+      DATAPREP_RECIPE_QUEUE_PROD: 34
+      DATAPREP_ES_MEM_PROD: 62000m
+      VALIDATION_GIT_BRANCH: dataprep-full-pr-${{ github.event.pull_request.number }}
+      VALIDATION_REMOTE_REF: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Resolve matchid-backend prod image
+        id: images
+        run: |
+          set -euo pipefail
+          echo "dataprep_backend_image_version=$(make artifact-version-dataprep-backend GIT_BRANCH=master | tail -1)" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate matchid-backend prod image availability
+        run: make -C packages/dataprep-backend backend-docker-check GIT_BRANCH=master APP_VERSION="${APP_VERSION}"
+        env:
+          APP_VERSION: ${{ steps.images.outputs.dataprep_backend_image_version }}
+
+      - name: Install deploy SSH key
+        run: |
+          test -n "${SSH_PRIVATE_KEY}"
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
+          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
+          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
+          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          export SSH_AUTH_SOCK=/tmp/ssh_agent.sock
+          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
+          ssh-add "${HOME}/.ssh/id_rsa_matchID"
+          sanitize_host() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#http://}"
+            value="${value#https://}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value##*@}"; fi
+            value="${value%%/*}"
+            if [[ "${value}" =~ ^\[[^]]+\]:[0-9]+$ ]]; then
+              value="${value#\[}"
+              value="${value%%\]:*}"
+            elif [[ "${value}" =~ ^[^:]+:[0-9]+$ ]]; then
+              value="${value%%:*}"
+            fi
+            printf '%s' "${value}"
+          }
+          sanitize_user() {
+            local value
+            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            value="${value#ssh://}"
+            if [[ "${value}" == *@* ]]; then value="${value%%@*}"; fi
+            printf '%s' "${value}"
+          }
+          BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          BASTION_USER_RESOLVED=ubuntu
+          NGINX_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
+          NGINX_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
+          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
+          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
+          if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
+          if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
+          if ! getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
+            BASTION_HOST_RESOLVED=163.172.185.238
+          fi
+          NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"
+          NGINX_USER_RESOLVED="${BASTION_USER_RESOLVED}"
+          test -n "${BASTION_HOST_RESOLVED}"
+          test -n "${BASTION_USER_RESOLVED}"
+          test -n "${NGINX_HOST_RESOLVED}"
+          test -n "${NGINX_USER_RESOLVED}"
+          printf '%s\n' \
+            "Host bastion" \
+            "  HostName ${BASTION_HOST_RESOLVED}" \
+            "  User ${BASTION_USER_RESOLVED}" \
+            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
+            "  IdentitiesOnly yes" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            "Host * !bastion" \
+            "  ProxyJump bastion" \
+            "  StrictHostKeyChecking no" \
+            "  UserKnownHostsFile /dev/null" \
+            > "${HOME}/.ssh/config"
+          {
+            echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
+            echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
+            echo "NGINX_HOST_RESOLVED=${NGINX_HOST_RESOLVED}"
+            echo "NGINX_USER_RESOLVED=${NGINX_USER_RESOLVED}"
+          } >> "${GITHUB_ENV}"
+          chmod 600 "${HOME}/.ssh/config"
+        env:
+          NGINX_HOST: ${{ secrets.NGINX_HOST }}
+          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
+          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
+          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run forced dataprep full remote-all
+        run: |
+          make -C packages/deces-dataprep clean
+          make -C packages/deces-dataprep remote-all \
+            GIT_BRANCH="${VALIDATION_GIT_BRANCH}" \
+            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
+            SCW_FLAVOR="${DATAPREP_SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${DATAPREP_SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${DATAPREP_SCW_VOLUME_TYPE_PROD}" \
+            CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
+            SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
+            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${VALIDATION_REMOTE_REF}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${VALIDATION_REMOTE_REF}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
+            DATAPREP_BACKEND_MAKEOVERRIDES="APP_VERSION=${DATAPREP_BACKEND_IMAGE_VERSION}" \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}" \
+            NO_CHECK=1
+        env:
+          DATAPREP_BACKEND_IMAGE_VERSION: ${{ steps.images.outputs.dataprep_backend_image_version }}
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Cleanup validation instance
+        if: ${{ always() }}
+        run: |
+          make -C packages/deces-dataprep remote-clean \
+            GIT_BRANCH="${VALIDATION_GIT_BRANCH}" \
+            SCW_FLAVOR="${DATAPREP_SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${DATAPREP_SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${DATAPREP_SCW_VOLUME_TYPE_PROD}" \
+            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
+            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}" \
+            || true
+        env:
+          remote_http_proxy: ${{ secrets.remote_http_proxy }}
+          remote_https_proxy: ${{ secrets.remote_https_proxy }}
+          remote_no_proxy: localhost
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
