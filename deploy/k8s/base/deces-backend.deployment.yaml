@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deces-backend
+  labels:
+    app.kubernetes.io/name: deces-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: matchid
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: deces-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: deces-backend
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: matchid
+    spec:
+      containers:
+        - name: deces-backend
+          image: matchid/deces-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: BACKEND_PORT
+              value: "8080"
+            - name: APP
+              value: deces-backend
+            - name: ES_URL
+              value: http://elasticsearch:9200
+            - name: ES_INDEX
+              value: deces
+            - name: BACKEND_PROXY_PATH
+              value: /deces/api/v1
+            - name: BACKEND_LOG_LEVEL
+              value: info
+          envFrom:
+            - secretRef:
+                name: deces-backend-secrets
+                optional: true
+          readinessProbe:
+            httpGet:
+              path: /deces/api/v1/healthcheck
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /deces/api/v1/healthcheck
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

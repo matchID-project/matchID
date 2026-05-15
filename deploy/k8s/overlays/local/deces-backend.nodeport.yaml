@@ -1,0 +1,14 @@
+# Local overlay : expose deces-backend through a NodePort to make
+# direct API hits easy during development (Swagger, curl, postman).
+apiVersion: v1
+kind: Service
+metadata:
+  name: deces-backend
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      nodePort: 30080
+      protocol: TCP

@@ -1,0 +1,9 @@
+# Alias overlay — convenient `kubectl apply -k deploy/k8s/local/` entry point
+# that re-exports `overlays/local/`. Keeping the real patches in
+# `overlays/local/` matches the standard kustomize convention while letting
+# top-level scripts use a short path.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../overlays/local

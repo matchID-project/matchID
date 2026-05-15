@@ -1,0 +1,14 @@
+# Local overlay : expose deces-ui through a NodePort so `k3d` users can
+# reach it on http://localhost:30083 without an Ingress controller.
+apiVersion: v1
+kind: Service
+metadata:
+  name: deces-ui
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http
+      nodePort: 30083
+      protocol: TCP

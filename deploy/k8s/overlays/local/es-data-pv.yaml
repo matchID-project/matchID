@@ -1,0 +1,21 @@
+# Local overlay : pre-create a hostPath PV so the ES StatefulSet's
+# volumeClaimTemplate binds without needing a dynamic provisioner.
+# `local-path` (k3s default StorageClass) would also work — kept this
+# explicit PV variant for plain `kubectl` users without local-path.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: elasticsearch-data-local
+  labels:
+    app.kubernetes.io/name: elasticsearch
+    app.kubernetes.io/part-of: matchid
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: matchid-local
+  hostPath:
+    path: /tmp/matchid-elasticsearch-data
+    type: DirectoryOrCreate

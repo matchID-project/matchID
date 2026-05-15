@@ -1,0 +1,16 @@
+# PoC overlay : same burst-mode treatment as deces-backend.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deces-ui
+spec:
+  replicas: 0
+  template:
+    spec:
+      nodeSelector:
+        pool: burst
+      tolerations:
+        - key: pool
+          operator: Equal
+          value: burst
+          effect: NoSchedule

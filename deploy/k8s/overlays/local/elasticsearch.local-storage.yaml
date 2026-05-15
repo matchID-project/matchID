@@ -1,0 +1,20 @@
+# Local overlay : bind the STS volumeClaimTemplate to the hostPath PV above
+# and drop the privileged sysctl init container — k3d / k3s already ships
+# with vm.max_map_count high enough for a single-node dev ES.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  template:
+    spec:
+      initContainers: []
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: matchid-local
+        resources:
+          requests:
+            storage: 5Gi
