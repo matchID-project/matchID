@@ -1,0 +1,18 @@
+# PoC overlay : keep deces-backend at 0 replicas at rest (burst-mode
+# tenant — see `requests/matchid.md` on rhanka/poc-k8s). A GitHub
+# Actions test session bumps this to 1 and back to 0 on tear-down.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deces-backend
+spec:
+  replicas: 0
+  template:
+    spec:
+      nodeSelector:
+        pool: burst
+      tolerations:
+        - key: pool
+          operator: Equal
+          value: burst
+          effect: NoSchedule

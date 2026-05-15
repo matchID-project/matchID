@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deces-ui
+  labels:
+    app.kubernetes.io/name: deces-ui
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: matchid
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: deces-ui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: deces-ui
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: matchid
+    spec:
+      containers:
+        - name: deces-ui
+          image: matchid/deces-ui:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8083
+              protocol: TCP
+          env:
+            - name: APP_FRONTEND
+              value: deces-ui
+            - name: PORT
+              value: "8083"
+            - name: BACKEND_HOST
+              value: deces-backend
+            - name: BACKEND_PORT
+              value: "8080"
+            - name: BACKEND_PROXY_PATH
+              value: /deces/api/v1
+            - name: ES_HOST
+              value: elasticsearch
+            - name: ES_PORT
+              value: "9200"
+            - name: ES_INDEX
+              value: deces
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -1,0 +1,24 @@
+# PoC overlay : real hostname behind cert-manager-issued TLS.
+# The `letsencrypt-prod` ClusterIssuer is provisioned by the poc-k8s repo.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: deces
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`matchid-poc.matchid.io`) && PathPrefix(`/deces/api/v1`)
+      kind: Rule
+      services:
+        - name: deces-backend
+          port: 8080
+    - match: Host(`matchid-poc.matchid.io`)
+      kind: Rule
+      services:
+        - name: deces-ui
+          port: 8083
+  tls:
+    secretName: matchid-poc-tls

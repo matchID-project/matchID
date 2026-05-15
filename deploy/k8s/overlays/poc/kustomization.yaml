@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: matchid
+
+resources:
+  - ../../base
+
+# The poc-k8s repo owns the Namespace + ResourceQuota + LimitRange +
+# default-deny NetworkPolicy (see `tenants/matchid/00-namespace.yaml` on
+# `rhanka/poc-k8s` branch `request/matchid-onboarding`). We skip the
+# base/namespace.yaml here to avoid stomping on it.
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: matchid
+    target:
+      kind: Namespace
+      name: matchid
+  - path: elasticsearch.poc.yaml
+    target:
+      kind: StatefulSet
+      name: elasticsearch
+  - path: deces-backend.poc.yaml
+    target:
+      kind: Deployment
+      name: deces-backend
+  - path: deces-ui.poc.yaml
+    target:
+      kind: Deployment
+      name: deces-ui
+  - path: ingress.poc.yaml
+    target:
+      kind: IngressRoute
+      name: deces

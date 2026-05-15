@@ -1,0 +1,29 @@
+# PoC overlay : pin ES to the `burst` pool (DEV1-L, 0..3 autoscaled).
+# Burst pool taint `pool=burst:NoSchedule` is provisioned by
+# `poc-k8s/Makefile::pool-burst`.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  # Burst-mode: at rest the namespace consumes 0 CPU / 0 RAM. A test
+  # session scales ES → 1 before the backend Deployment ramps up.
+  replicas: 0
+  template:
+    spec:
+      nodeSelector:
+        pool: burst
+      tolerations:
+        - key: pool
+          operator: Equal
+          value: burst
+          effect: NoSchedule
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: scw-bssd
+        resources:
+          requests:
+            storage: 5Gi
