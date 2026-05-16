@@ -4,6 +4,18 @@ Experimental k8s manifests for matchID. **Not** yet wired into CI/CD; meant
 to be driven by hand on a local k3d cluster or against the `poc` Kapsule
 cluster owned by `rhanka/poc-k8s`.
 
+## Environment tiers (target topology)
+
+| Tier        | Cluster                                     | Overlay                  | Lifecycle                                     |
+| ----------- | ------------------------------------------- | ------------------------ | --------------------------------------------- |
+| **CI**      | k3s in GH Actions (or k3d if a local runner is free) | `overlays/local`         | Ephemeral per job — bring up, smoke, tear down |
+| **Dev**     | Scaleway Kapsule `poc` (shared, fr-par-2)   | `overlays/poc`           | Long-running tenant, namespace `matchid`      |
+| **Prod**    | Dedicated cluster (TBD — not Kapsule `poc`) | `overlays/prod` (future) | Stable, separate IaC stack                    |
+
+Local k3d runs are convenient when the laptop has headroom; CI falls back to
+k3s when local is saturated. `overlays/local` is shared between both — it just
+needs a working k3s/k3d.
+
 ## Layout
 
 ```
@@ -31,6 +43,15 @@ deploy/k8s/
 ## Local flow (recommended: k3d)
 
 `k3d` runs k3s inside Docker — fastest path on a dev box, no host changes.
+
+**Prerequisites :**
+
+- **Docker** + **kubectl** + **k3d** installed and on `PATH`.
+- ≥ **15% free space on `/`** (or wherever `/var/lib/docker` lives). Below
+  that, k3s's kubelet sets the `DiskPressure` taint on the node and no Pod
+  can be scheduled — `kubectl describe node …` will show the taint, and
+  every workload sits in `Pending`. Free disk (`docker system prune -af`,
+  prune dataprep snapshots) then `make k3d-down && make k3d-up`.
 
 ```bash
 # one-shot install
