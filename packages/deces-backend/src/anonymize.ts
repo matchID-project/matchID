@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { Person } from './models/entities';
 
 const loadAnonymizedIds = (): Set<string> => {
@@ -11,6 +11,35 @@ const loadAnonymizedIds = (): Set<string> => {
 };
 
 export const anonymizedIds = loadAnonymizedIds();
+
+const persist = (): void => {
+  if (!process.env.ANONYMIZED_IDS) return;
+  writeFileSync(process.env.ANONYMIZED_IDS, JSON.stringify([...anonymizedIds]), 'utf8');
+};
+
+export const listAnonymizedIds = (): string[] => [...anonymizedIds];
+
+export const addAnonymizedId = (id: string): boolean => {
+  if (anonymizedIds.has(id)) return false;
+  anonymizedIds.add(id);
+  persist();
+  return true;
+};
+
+export const removeAnonymizedId = (id: string): boolean => {
+  if (!anonymizedIds.has(id)) return false;
+  anonymizedIds.delete(id);
+  persist();
+  return true;
+};
+
+export const replaceAnonymizedId = (oldId: string, newId: string): boolean => {
+  if (!anonymizedIds.has(oldId)) return false;
+  anonymizedIds.delete(oldId);
+  anonymizedIds.add(newId);
+  persist();
+  return true;
+};
 
 export const anonymizeAuthor = (author: string): string => {
   if (!author) return '';
