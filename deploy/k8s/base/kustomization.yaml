@@ -14,6 +14,7 @@ resources:
   - redis.deployment.yaml
   - deces-backend.deployment.yaml
   - deces-backend.service.yaml
+  - deces-ui.configmap.yaml
   - deces-ui.deployment.yaml
   - deces-ui.service.yaml
   - ingress.yaml
