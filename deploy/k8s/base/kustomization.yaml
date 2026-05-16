@@ -11,6 +11,7 @@ labels:
 resources:
   - namespace.yaml
   - elasticsearch.statefulset.yaml
+  - redis.deployment.yaml
   - deces-backend.deployment.yaml
   - deces-backend.service.yaml
   - deces-ui.deployment.yaml

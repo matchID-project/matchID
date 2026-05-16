@@ -35,6 +35,10 @@ spec:
               value: "8080"
             - name: APP
               value: deces-backend
+            - name: APP_DNS
+              value: deces.local
+            - name: APP_URL
+              value: http://deces.local
             - name: ES_URL
               value: http://elasticsearch:9200
             - name: ES_INDEX
@@ -43,6 +47,39 @@ spec:
               value: /deces/api/v1
             - name: BACKEND_LOG_LEVEL
               value: info
+            - name: BACKEND_LOG_TIMER
+              value: "60"
+            # BullMQ Worker constructor REJECTS concurrency=undefined with
+            # "concurrency must be a finite number greater than 0". Defaults
+            # mirror the docker-compose values from packages/deces-backend.
+            - name: BACKEND_JOB_CONCURRENCY
+              value: "2"
+            - name: BACKEND_CHUNK_CONCURRENCY
+              value: "2"
+            - name: BACKEND_TMPFILE_PERSISTENCE
+              value: "3000"
+            - name: BACKEND_TMP_DURATION
+              value: "3600"
+            - name: BACKEND_TMP_MAX
+              value: "5"
+            - name: BACKEND_TMP_WINDOW
+              value: "60"
+            # File paths read at import time (mail.ts, communes.ts, etc.).
+            # Pointing at /dev/null lets the requires return empty data and
+            # log a soft warning rather than crash.
+            - name: DISPOSABLE_MAIL
+              value: /dev/null
+            - name: COMMUNES_JSON
+              value: /dev/null
+            - name: DB_JSON
+              value: /dev/null
+            - name: WIKIDATA_LINKS
+              value: /dev/null
+            # BullMQ Redis broker
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
           envFrom:
             - secretRef:
                 name: deces-backend-secrets
