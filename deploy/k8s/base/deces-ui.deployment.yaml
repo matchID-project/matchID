@@ -32,6 +32,11 @@ spec:
               containerPort: 8083
               protocol: TCP
           env:
+            # The image's nginx/run.sh (built 2026-04-26) checks `APP`, not
+            # `APP_FRONTEND`. Keep both so this manifest also works against a
+            # rebuilt image once main lands the rename.
+            - name: APP
+              value: deces-ui
             - name: APP_FRONTEND
               value: deces-ui
             - name: PORT
