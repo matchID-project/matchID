@@ -3,6 +3,7 @@ import { RequestInput } from './requestInput';
 import { scoreResults } from '../score';
 import { wikidata } from '../wikidata';
 import { updatedFields } from '../updatedIds';
+import { anonymizePerson, anonymizedIds } from '../anonymize';
 
 interface RequestType {
   [key: string]: any; // Index signature
@@ -226,6 +227,7 @@ export const buildResult = (result: ResultRawES, requestInput: RequestInput): Re
   })
   let filteredResults = result.hits.hits.map(buildResultSingle)
   scoreResults(filteredRequest, filteredResults, {dateFormatA: filteredRequest.dateFormat})
+  filteredResults = filteredResults.map(p => anonymizedIds.has(p.id) ? anonymizePerson(p) : p)
   if (requestInput.sort && Object.values(requestInput.sort.value).map(x => Object.keys(x))[0].includes('score')) {
     if (Object.values(requestInput.sort.value).find(x => x.score).score === 'asc') {
       filteredResults = filteredResults.sort((a: Person, b: Person) => a.score - b.score)
