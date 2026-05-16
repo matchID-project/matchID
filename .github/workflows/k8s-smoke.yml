@@ -83,20 +83,34 @@ jobs:
           kubectl apply -k deploy/k8s/overlays/local/
           kubectl -n matchid get all
 
-      - name: Wait for deployments
+      - name: Background diagnostics (events + pods every 30s)
         run: |
-          set +e
-          kubectl -n matchid wait --for=condition=Available --timeout=8m \
+          # Background poller — emits events and pod summary every 30s so we
+          # see what's wrong even if the next step ends up cancelled.
+          (
+            while true; do
+              echo "===== $(date -u +%H:%M:%S) pods ====="
+              kubectl -n matchid get pods -o wide 2>&1 || true
+              echo "===== events (tail 20) ====="
+              kubectl -n matchid get events --sort-by=.lastTimestamp 2>&1 | tail -20 || true
+              sleep 30
+            done
+          ) &
+          echo "POLLER_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for elasticsearch first (deces-backend depends on it)
+        run: |
+          kubectl -n matchid rollout status statefulset/elasticsearch --timeout=6m
+
+      - name: Wait for deces-backend / deces-ui
+        run: |
+          kubectl -n matchid wait --for=condition=Available --timeout=4m \
             deploy/deces-backend deploy/deces-ui
-          BACK_READY=$?
-          kubectl -n matchid rollout status statefulset/elasticsearch --timeout=8m
-          ES_READY=$?
-          if [ $BACK_READY -ne 0 ] || [ $ES_READY -ne 0 ]; then
-            echo "::warning::workloads did not all reach ready — printing diagnostics"
-            kubectl -n matchid get events --sort-by=.lastTimestamp | tail -40
-            kubectl -n matchid describe pod -l app.kubernetes.io/part-of=matchid | tail -80
-            exit 1
-          fi
+
+      - name: Stop background poller
+        if: always()
+        run: |
+          [ -n "${POLLER_PID:-}" ] && kill "$POLLER_PID" 2>/dev/null || true
 
       - name: Smoke health endpoints
         run: |
@@ -110,7 +124,7 @@ jobs:
           curl -fsS -m 5 http://localhost:8083/ | head -c 200
 
       - name: Diagnostics on failure
-        if: failure()
+        if: failure() || cancelled()
         run: |
           kubectl -n matchid get pods -o wide
           kubectl -n matchid describe pods | tail -120
@@ -190,7 +204,7 @@ jobs:
           curl -fsSk -m 8 -H "Host: matchid-poc.matchid.io" "http://$TRAEFIK_LB/deces/api/v1/healthcheck"
 
       - name: Diagnostics on failure
-        if: failure()
+        if: failure() || cancelled()
         run: |
           kubectl -n matchid get pods -o wide
           kubectl -n matchid describe pods | tail -120
