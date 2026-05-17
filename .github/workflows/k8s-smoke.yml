@@ -1,0 +1,215 @@
+# K8s smoke workflow — local k3d on push/PR + manual dispatch to Kapsule POC.
+#
+# Required GH secrets (already present unless noted):
+#   - SCW_ACCESS_KEY        (existing)
+#   - SCW_SECRET_TOKEN      (existing)
+#   - SCW_ORGANIZATION_ID   (NEW — Scaleway org UUID)
+#   - SCW_POC_PROJECT_ID    (NEW — PoCs project UUID)
+#   - SCW_POC_CLUSTER_ID    (NEW — Kapsule cluster `poc` UUID)
+#
+# Set them via:
+#   printf '%s' "<org-uuid>" | gh secret set SCW_ORGANIZATION_ID -R matchID-project/matchID
+#   printf '%s' "<poc-project-uuid>" | gh secret set SCW_POC_PROJECT_ID -R matchID-project/matchID
+#   printf '%s' "<cluster-uuid>" | gh secret set SCW_POC_CLUSTER_ID -R matchID-project/matchID
+# (values live in ~/src/matchID/matchID/artifacts — never echo them on stdout).
+#
+# The smoke-local job needs nothing extra and runs free on the ubuntu-latest runner.
+name: K8s smoke
+
+on:
+  push:
+    branches:
+      - experiment/k8s
+    paths:
+      - 'deploy/k8s/**'
+      - '.github/workflows/k8s-smoke.yml'
+  pull_request:
+    paths:
+      - 'deploy/k8s/**'
+      - '.github/workflows/k8s-smoke.yml'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Cluster target
+        required: true
+        default: local
+        type: choice
+        options:
+          - local
+          - poc
+
+concurrency:
+  group: k8s-smoke-${{ github.ref }}-${{ github.event.inputs.target || 'local' }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-local:
+    name: smoke-local (k3s in runner)
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.target == 'local'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install k3d
+        run: |
+          set -euo pipefail
+          curl -sfL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh \
+            | TAG=v5.7.4 bash
+          k3d version
+
+      - name: Create k3d cluster
+        run: |
+          k3d cluster create matchid-ci \
+            --port "8083:30083@loadbalancer" \
+            --port "8080:30080@loadbalancer" \
+            --wait
+          kubectl wait --for=condition=Ready node --all --timeout=120s
+
+      - name: Wait for Traefik CRDs
+        run: |
+          for _ in $(seq 1 60); do
+            kubectl get crd ingressroutes.traefik.io >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "Traefik CRDs did not land within 120s" >&2
+          kubectl get pods -A
+          exit 1
+
+      - name: Apply local overlay
+        run: |
+          kubectl apply -k deploy/k8s/overlays/local/
+          kubectl -n matchid get all
+
+      - name: Background diagnostics (events + pods every 30s)
+        run: |
+          # Background poller — emits events and pod summary every 30s so we
+          # see what's wrong even if the next step ends up cancelled.
+          (
+            while true; do
+              echo "===== $(date -u +%H:%M:%S) pods ====="
+              kubectl -n matchid get pods -o wide 2>&1 || true
+              echo "===== events (tail 20) ====="
+              kubectl -n matchid get events --sort-by=.lastTimestamp 2>&1 | tail -20 || true
+              sleep 30
+            done
+          ) &
+          echo "POLLER_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for redis (BullMQ broker for deces-backend)
+        run: |
+          kubectl -n matchid wait --for=condition=Available --timeout=2m deploy/redis
+
+      - name: Wait for elasticsearch (deces-backend depends on it)
+        run: |
+          kubectl -n matchid rollout status statefulset/elasticsearch --timeout=6m
+
+      - name: Wait for deces-backend / deces-ui
+        run: |
+          kubectl -n matchid wait --for=condition=Available --timeout=4m \
+            deploy/deces-backend deploy/deces-ui
+
+      - name: Stop background poller
+        if: always()
+        run: |
+          [ -n "${POLLER_PID:-}" ] && kill "$POLLER_PID" 2>/dev/null || true
+
+      - name: Smoke health endpoints
+        run: |
+          set -e
+          # via NodePort exposed by k3d loadbalancer
+          for _ in $(seq 1 30); do
+            curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck && break
+            sleep 4
+          done
+          curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck
+          curl -fsS -m 5 http://localhost:8083/ | head -c 200
+
+      - name: Diagnostics on failure
+        if: failure() || cancelled()
+        run: |
+          kubectl -n matchid get pods -o wide
+          kubectl -n matchid describe pods | tail -120
+          kubectl -n matchid logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
+
+      - name: Tear down
+        if: always()
+        run: |
+          k3d cluster delete matchid-ci || true
+
+  smoke-poc:
+    name: smoke-poc (Scaleway Kapsule)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'poc'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_TOKEN }}
+      SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+      SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_POC_PROJECT_ID }}
+      SCW_DEFAULT_REGION: fr-par
+      SCW_POC_CLUSTER_ID: ${{ secrets.SCW_POC_CLUSTER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install scw + kubectl
+        run: |
+          set -euo pipefail
+          curl -sL "https://github.com/scaleway/scaleway-cli/releases/download/v2.34.0/scaleway-cli_2.34.0_linux_amd64" \
+            -o /usr/local/bin/scw && chmod +x /usr/local/bin/scw
+          scw version
+          kubectl version --client=true
+
+      - name: Fetch kubeconfig
+        run: |
+          test -n "$SCW_POC_CLUSTER_ID"
+          mkdir -p "$HOME/.kube"
+          scw k8s kubeconfig get "$SCW_POC_CLUSTER_ID" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl get ns matchid
+
+      - name: Apply poc overlay
+        run: |
+          kubectl apply -k deploy/k8s/overlays/poc/
+          kubectl -n matchid get all
+
+      - name: Wait for deployments
+        run: |
+          set +e
+          kubectl -n matchid wait --for=condition=Available --timeout=10m \
+            deploy/deces-backend deploy/deces-ui
+          B=$?
+          kubectl -n matchid rollout status statefulset/elasticsearch --timeout=10m
+          E=$?
+          if [ $B -ne 0 ] || [ $E -ne 0 ]; then
+            kubectl -n matchid get events --sort-by=.lastTimestamp | tail -40
+            kubectl -n matchid describe pod -l app.kubernetes.io/part-of=matchid | tail -80
+            exit 1
+          fi
+
+      - name: Smoke via IngressRoute
+        run: |
+          # The poc overlay publishes an IngressRoute. We don't TLS-validate here.
+          # Find the ingress public endpoint via the LoadBalancer service Traefik exposes.
+          TRAEFIK_LB=$(kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          if [ -z "$TRAEFIK_LB" ]; then
+            echo "::warning::No Traefik LB IP yet — falling back to port-forward smoke"
+            kubectl -n matchid port-forward svc/deces-backend 8080:8080 &
+            PF=$!
+            sleep 4
+            curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck
+            kill $PF
+            exit 0
+          fi
+          curl -fsSk -m 8 -H "Host: matchid-poc.matchid.io" "http://$TRAEFIK_LB/deces/api/v1/healthcheck"
+
+      - name: Diagnostics on failure
+        if: failure() || cancelled()
+        run: |
+          kubectl -n matchid get pods -o wide
+          kubectl -n matchid describe pods | tail -120
+          kubectl -n matchid logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
