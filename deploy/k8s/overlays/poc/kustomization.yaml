@@ -32,6 +32,10 @@ patches:
     target:
       kind: Deployment
       name: deces-ui
+  - path: redis.poc.yaml
+    target:
+      kind: Deployment
+      name: redis
   - path: ingress.poc.yaml
     target:
       kind: IngressRoute

@@ -73,13 +73,12 @@ sudo k3s kubectl apply -k deploy/k8s/overlays/local/
 
 ## PoC cluster flow
 
-Once the matchID tenant lands in `rhanka/poc-k8s` (see
-`requests/matchid.md` on branch `request/matchid-onboarding`) :
+Once the matchID tenant lands in `rhanka/poc-k8s`:
 
 ```bash
-export KUBECONFIG=$(scw k8s kubeconfig get poc | grep KUBECONFIG | cut -d= -f2)
-kubectl apply -k deploy/k8s/overlays/poc/
-kubectl -n matchid wait --for=condition=available --timeout=5m deploy/deces-backend deploy/deces-ui
+make -C ../poc-k8s tenant-kubeconfig TENANT=matchid > /tmp/matchid.kubeconfig
+gh secret set KUBE_CONFIG_DATA -R matchID-project/matchID < /tmp/matchid.kubeconfig
+gh workflow run k8s-smoke.yml -R matchID-project/matchID --ref dev -f target=poc
 ```
 
 The `poc` overlay assumes :
@@ -88,8 +87,11 @@ The `poc` overlay assumes :
   `pool=burst:NoSchedule` (provisioned by `poc-k8s/Makefile::pool-burst`),
 - a `scw-bssd` StorageClass for ES persistence,
 - a `traefik` IngressRoute CRD on the cluster (default on Kapsule),
-- the `matchid` Namespace + ResourceQuota + LimitRange already applied
-  by the poc-k8s repo from `tenants/matchid/00-namespace.yaml`.
+- the `matchid` Namespace + ResourceQuota + LimitRange already applied by
+  `poc-k8s` from `tenants/matchid/00-namespace.yaml`,
+- a tenant-scoped kubeconfig stored in the matchID repo secret
+  `KUBE_CONFIG_DATA`, minted by `poc-k8s` with
+  `make tenant-kubeconfig TENANT=matchid`.
 
 ## What's not yet wired
 
