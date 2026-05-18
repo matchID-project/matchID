@@ -1,17 +1,8 @@
 # K8s smoke workflow — local k3d on push/PR + manual dispatch to Kapsule POC.
 #
-# Required GH secrets (already present unless noted):
-#   - SCW_ACCESS_KEY        (existing)
-#   - SCW_SECRET_TOKEN      (existing)
-#   - SCW_ORGANIZATION_ID   (NEW — Scaleway org UUID)
-#   - SCW_POC_PROJECT_ID    (NEW — PoCs project UUID)
-#   - SCW_POC_CLUSTER_ID    (NEW — Kapsule cluster `poc` UUID)
-#
-# Set them via:
-#   printf '%s' "<org-uuid>" | gh secret set SCW_ORGANIZATION_ID -R matchID-project/matchID
-#   printf '%s' "<poc-project-uuid>" | gh secret set SCW_POC_PROJECT_ID -R matchID-project/matchID
-#   printf '%s' "<cluster-uuid>" | gh secret set SCW_POC_CLUSTER_ID -R matchID-project/matchID
-# (values live in ~/src/matchID/matchID/artifacts — never echo them on stdout).
+# Required GH secret for the POC job:
+#   - KUBE_CONFIG_DATA — tenant-scoped kubeconfig minted by ../poc-k8s:
+#       make tenant-kubeconfig TENANT=matchid
 #
 # The smoke-local job needs nothing extra and runs free on the ubuntu-latest runner.
 name: K8s smoke
@@ -147,45 +138,44 @@ jobs:
     permissions:
       contents: read
     env:
-      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_TOKEN }}
-      SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
-      SCW_DEFAULT_PROJECT_ID: ${{ secrets.SCW_POC_PROJECT_ID }}
-      SCW_DEFAULT_REGION: fr-par
-      SCW_POC_CLUSTER_ID: ${{ secrets.SCW_POC_CLUSTER_ID }}
+      KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install scw + kubectl
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.35.0
+
+      - name: Configure tenant kubeconfig
         run: |
           set -euo pipefail
-          curl -sL "https://github.com/scaleway/scaleway-cli/releases/download/v2.34.0/scaleway-cli_2.34.0_linux_amd64" \
-            -o /usr/local/bin/scw && chmod +x /usr/local/bin/scw
-          scw version
-          kubectl version --client=true
-
-      - name: Fetch kubeconfig
-        run: |
-          test -n "$SCW_POC_CLUSTER_ID"
+          test -n "$KUBE_CONFIG_DATA"
           mkdir -p "$HOME/.kube"
-          scw k8s kubeconfig get "$SCW_POC_CLUSTER_ID" > "$HOME/.kube/config"
+          printf '%s' "$KUBE_CONFIG_DATA" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
-          kubectl get ns matchid
+          kubectl config current-context
+          kubectl get namespace matchid
 
       - name: Apply poc overlay
         run: |
           kubectl apply -k deploy/k8s/overlays/poc/
           kubectl -n matchid get all
 
-      - name: Wait for deployments
+      - name: Start poc session
         run: |
           set +e
+          kubectl -n matchid scale deploy/redis --replicas=1
+          kubectl -n matchid wait --for=condition=Available --timeout=3m deploy/redis
+          R=$?
+          kubectl -n matchid scale statefulset/elasticsearch --replicas=1
+          kubectl -n matchid rollout status statefulset/elasticsearch --timeout=10m
+          E=$?
+          kubectl -n matchid scale deploy/deces-backend deploy/deces-ui --replicas=1
           kubectl -n matchid wait --for=condition=Available --timeout=10m \
             deploy/deces-backend deploy/deces-ui
           B=$?
-          kubectl -n matchid rollout status statefulset/elasticsearch --timeout=10m
-          E=$?
-          if [ $B -ne 0 ] || [ $E -ne 0 ]; then
+          if [ $R -ne 0 ] || [ $B -ne 0 ] || [ $E -ne 0 ]; then
             kubectl -n matchid get events --sort-by=.lastTimestamp | tail -40
             kubectl -n matchid describe pod -l app.kubernetes.io/part-of=matchid | tail -80
             exit 1
@@ -213,3 +203,9 @@ jobs:
           kubectl -n matchid get pods -o wide
           kubectl -n matchid describe pods | tail -120
           kubectl -n matchid logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
+
+      - name: Stop poc session
+        if: always()
+        run: |
+          kubectl -n matchid scale deploy/deces-backend deploy/deces-ui deploy/redis --replicas=0 || true
+          kubectl -n matchid scale statefulset/elasticsearch --replicas=0 || true

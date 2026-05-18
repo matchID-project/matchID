@@ -1,0 +1,18 @@
+# PoC overlay: keep Redis at 0 replicas at rest. The smoke workflow scales it
+# to 1 only for the duration of the matchID test session, matching the
+# burst-mode contract owned by ../poc-k8s.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 0
+  template:
+    spec:
+      nodeSelector:
+        pool: burst
+      tolerations:
+        - key: pool
+          operator: Equal
+          value: burst
+          effect: NoSchedule
