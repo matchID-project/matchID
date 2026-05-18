@@ -8,9 +8,4 @@ spec:
   template:
     spec:
       nodeSelector:
-        pool: burst
-      tolerations:
-        - key: pool
-          operator: Equal
-          value: burst
-          effect: NoSchedule
+        k8s.scaleway.com/pool-name: burst

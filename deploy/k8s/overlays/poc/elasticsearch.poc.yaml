@@ -1,6 +1,5 @@
-# PoC overlay : pin ES to the `burst` pool (DEV1-L, 0..3 autoscaled).
-# Burst pool taint `pool=burst:NoSchedule` is provisioned by
-# `poc-k8s/Makefile::pool-burst`.
+# PoC overlay : pin ES to the Scaleway-managed `burst` pool
+# (DEV1-L, 0..3 autoscaled).
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -12,12 +11,7 @@ spec:
   template:
     spec:
       nodeSelector:
-        pool: burst
-      tolerations:
-        - key: pool
-          operator: Equal
-          value: burst
-          effect: NoSchedule
+        k8s.scaleway.com/pool-name: burst
   volumeClaimTemplates:
     - metadata:
         name: data
