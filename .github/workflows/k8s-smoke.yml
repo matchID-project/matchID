@@ -162,6 +162,15 @@ jobs:
           kubectl apply -k deploy/k8s/overlays/poc/
           kubectl -n matchid get all
 
+      - name: Apply optional IngressRoute
+        run: |
+          set -euo pipefail
+          if kubectl api-resources --api-group=traefik.io | awk '$1 == "ingressroutes" { found = 1 } END { exit !found }'; then
+            kubectl -n matchid apply -f deploy/k8s/overlays/poc/ingress.poc.yaml
+          else
+            echo "::warning::Traefik IngressRoute CRD is not installed; smoke will use port-forward fallback"
+          fi
+
       - name: Start poc session
         run: |
           set +e
@@ -181,13 +190,16 @@ jobs:
             exit 1
           fi
 
-      - name: Smoke via IngressRoute
+      - name: Smoke via ingress or port-forward
         run: |
-          # The poc overlay publishes an IngressRoute. We don't TLS-validate here.
-          # Find the ingress public endpoint via the LoadBalancer service Traefik exposes.
-          TRAEFIK_LB=$(kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          # Prefer the platform ingress if present; otherwise keep the POC smoke
+          # tenant-scoped by port-forwarding the backend service.
+          TRAEFIK_LB=$(kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
           if [ -z "$TRAEFIK_LB" ]; then
-            echo "::warning::No Traefik LB IP yet — falling back to port-forward smoke"
+            TRAEFIK_LB=$(kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          fi
+          if [ -z "$TRAEFIK_LB" ]; then
+            echo "::warning::No Traefik LB IP; falling back to port-forward smoke"
             kubectl -n matchid port-forward svc/deces-backend 8080:8080 &
             PF=$!
             sleep 4
