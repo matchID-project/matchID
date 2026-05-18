@@ -86,7 +86,8 @@ The `poc` overlay assumes :
 - a `burst` node-pool labelled `pool=burst` with toleration
   `pool=burst:NoSchedule` (provisioned by `poc-k8s/Makefile::pool-burst`),
 - a `scw-bssd` StorageClass for ES persistence,
-- a `traefik` IngressRoute CRD on the cluster (default on Kapsule),
+- optionally, a `traefik` IngressRoute CRD on the cluster. If it is not
+  installed, the manual POC smoke uses a backend `kubectl port-forward`,
 - the `matchid` Namespace + ResourceQuota + LimitRange already applied by
   `poc-k8s` from `tenants/matchid/00-namespace.yaml`,
 - a tenant-scoped kubeconfig stored in the matchID repo secret
@@ -105,9 +106,9 @@ The `poc` overlay assumes :
 - **Surch swap** — the long-term plan is to drop the ES StatefulSet
   and point `deces-backend` at the surch tenant's `surch-api` Service.
   Blocked on the DSL inventory in `EXPERIMENT_SURCH.md`.
-- **CI/CD** — no `.github/workflows/k8s-*.yml` yet. The poc-k8s
-  intake assumes a future `experiment/k8s` workflow doing
-  `kubectl apply -k …/overlays/poc/`.
+- **Ingress** — the POC smoke can run without Traefik through
+  `kubectl port-forward`. Public ingress remains pending until `poc-k8s`
+  provisions Traefik and cert-manager.
 - **Secrets** — backend secrets (`BACKEND_TOKEN_KEY`, SMTP creds,
   etc.) declared as `envFrom: secretRef` but the Secret itself is
   out-of-tree; provision via `kubectl create secret generic

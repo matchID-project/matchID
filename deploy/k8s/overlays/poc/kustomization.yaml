@@ -20,6 +20,17 @@ patches:
     target:
       kind: Namespace
       name: matchid
+  - patch: |-
+      $patch: delete
+      apiVersion: traefik.io/v1alpha1
+      kind: IngressRoute
+      metadata:
+        name: deces
+    target:
+      group: traefik.io
+      version: v1alpha1
+      kind: IngressRoute
+      name: deces
   - path: elasticsearch.poc.yaml
     target:
       kind: StatefulSet
@@ -36,7 +47,3 @@ patches:
     target:
       kind: Deployment
       name: redis
-  - path: ingress.poc.yaml
-    target:
-      kind: IngressRoute
-      name: deces
