@@ -83,8 +83,8 @@ gh workflow run k8s-smoke.yml -R matchID-project/matchID --ref dev -f target=poc
 
 The `poc` overlay assumes :
 
-- a `burst` node-pool labelled `pool=burst` with toleration
-  `pool=burst:NoSchedule` (provisioned by `poc-k8s/Makefile::pool-burst`),
+- a Scaleway `burst` node-pool; the POC overlay targets it with the
+  managed label `k8s.scaleway.com/pool-name=burst`,
 - a `scw-bssd` StorageClass for ES persistence,
 - optionally, a `traefik` IngressRoute CRD on the cluster. If it is not
   installed, the manual POC smoke uses a backend `kubectl port-forward`,
