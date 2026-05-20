@@ -328,48 +328,148 @@
     - [x] Gate: je te presente la preprod `dev-deces.matchid.io`, son etat, les preuves de deploiement et les resultats de test
     - [x] Gate: tu valides que la preprod monorepo est acceptable et qu'on peut ouvrir le lot 9
 
-- [ ] Lot 9 - Substitution complete du processus actuel
-  - [ ] Exec
-    - [x] Executer le protocole `make` temporaire de non-regression data original-vs-monorepo pour `deces-dataprep`
-    - [x] Ancrer la reference de non-regression data sur les derniers jobs upstream `small`, `year`, `full`, `push-dev` et `push-master`
-    - [x] Relever le snapshot upstream `master` de reference (tag + count prod associe)
-    - [x] Tracer la preuve acceptee dans `spec/SPEC_EVOL_007_PREUVE_PARITE_DATAPREP.md` et retirer l'outillage temporaire du tronc courant
-    - [x] Conserver le comportement upstream cible: `dataprep-full` produit le snapshot, le deploiement UI prod reste declenche separement et explicitement
-    - [x] Ecrire le runbook de bascule
-    - [x] Ecrire le runbook de rollback
-    - [x] Documenter l'etat GitHub live du monorepo et l'ecart cible `feat/* -> dev -> master`
-    - [x] Creer la branche racine `master` depuis `dev`
-    - [x] Configurer la gouvernance GitHub `dev` / `master` alignée sur la cible et sur la reference `deces-ui`
-    - [ ] Executer le CD `dataprep-full` depuis `master` ou le contexte prod valide, jamais depuis une branche PR
-    - [ ] Basculer la source de build et release vers le monorepo
-    - [ ] Valider que les anciens repos ne sont plus sources de build ou de deploy
-    - [ ] Statuer et reconstruire si necessaire le job lourd `deces-backend` upstream `bulk` / artillery (`backend-perf-clinic`, `test-perf-v1`) avant la substitution finale
-    - [ ] Passer les anciens repos en lecture seule ou archive
-    - [ ] Mettre a jour la documentation de gouvernance et d'exploitation
-  - [ ] Tests
-    - [x] Valider sur le commit de preuve `41c099bb` le protocole temporaire de contrat Elasticsearch
-    - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deces-2020-m01.txt.gz`: count `60557`, sample deterministe `10000`, mapping et types
-    - [x] Valider sur le commit de preuve `41c099bb` la parite data original-vs-monorepo sur `deaths.txt.gz`: count `1355728`, sample deterministe `10000`, mapping et types
-    - [ ] Prouver la gouvernance GitHub `feat/* -> dev -> master` sur le repo racine
-    - [ ] Valider le runbook de bascule
-    - [ ] Valider le runbook de rollback
-    - [ ] Valider que le processus monorepo couvre bien `deces-dataprep` et `deces-ui`
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 9
-  - [ ] UAT
-    - [ ] Gate: je te presente les preuves de substitution complete du processus actuel
-    - [ ] Gate: tu valides la bascule finale vers le monorepo comme source unique de build et de deploiement
+## Workpackages actifs
 
-- [ ] Lot 10 - Cleanup final et archivage
-  - [ ] Exec
-    - [ ] Nettoyer ou ignorer proprement les fichiers d'etat et artefacts locaux generes par les validations (`data-tag`, `recipe-run`, `s3-pull`, artefacts de build temporaires)
-    - [ ] Archiver les specs closes dans `spec/archive/` une fois la migration complete
-    - [ ] Supprimer ou neutraliser les cibles legacy devenues sans objet apres mutualisation
-    - [ ] Nettoyer les commentaires morts et les chemins historiques restes dans les Makefiles
-    - [ ] Finaliser la documentation d'exploitation et de contribution du monorepo
-  - [ ] Tests
-    - [ ] Verifier que le cleanup ne casse aucun workflow `make` retenu
-    - [ ] Verifier que les documents archives restent tracables depuis le plan ou la doc de gouvernance
-    - [ ] Lister explicitement les tests executes et leur resultat avant entree en UAT du lot 10
-  - [ ] UAT
-    - [ ] Gate: je te presente le diff final de cleanup et l'etat documentaire final
-    - [ ] Gate: tu valides la cloture propre de la migration
+Convention de suivi:
+
+- Les statuts courants se suivent par lettre de WP: `WP-A`, `WP-B`, `WP-C`.
+- Les updates de conversation doivent se lire en `fait / a faire / attendus` en s'appuyant sur ces sections.
+- Les anciens lots 9 et 10 sont consideres finalises et ne portent plus le backlog actif.
+
+### WP-A - K8s readiness complete de matchID
+
+Objectif: faire de Kubernetes un chemin complet de run et de deploiement pour matchID, du POC valide jusqu'au dev long-lived puis au prod mutualise, en supprimant les dependances cassantes au state local et au `deploy-remote` historique.
+
+#### Socle k8s et POC
+
+- [x] Le POC `../poc-k8s` est valide techniquement pour matchID.
+- [x] Le contrat tenant-scoped `KUBE_CONFIG_DATA` via `make tenant-kubeconfig` est valide.
+- [x] Un scaffold k8s local/CI existe deja sur `origin/dev` (`deploy/k8s/` + `.github/workflows/k8s-smoke.yml`).
+- [ ] Rebaser les branches de travail actives sur `origin/dev` avant de reprendre le track k8s pour disposer du socle `deploy/k8s`.
+- [ ] Garder un etat source de verite unique entre le scaffold k8s du repo matchID et le contrat plateforme dans `../poc-k8s`.
+
+#### State applicatif partage
+
+- [x] Le prototype `OTP Redis` existe sur `fix/p0-otp-redis-store`.
+- [x] Rebaser `fix/p0-otp-redis-store` sur `origin/dev`.
+- [x] Rejouer `npm test -- src/mail.spec.ts --testNamePattern "fake smtp server|disposable address|validateOTP|OTP key hides"`.
+- [x] Rejouer `npx tsc -p tsconfig.json --noEmit`.
+- [ ] Publier puis merger la PR `OTP Redis`.
+- [ ] Sortir le rate limiting / ban IP du process memory vers un store partage.
+- [ ] Sortir les stop flags, input metadata et autres etats de jobs bulk du process memory vers un store partage.
+- [ ] Revoir les caches charges au demarrage (`updatedFields`, cache status/version) et rendre explicite leur comportement en multi-pod.
+
+#### Fichiers partages et stockage
+
+- [x] L'audit de persistance backend est fait: `JOBS` et `PROOFS` restent locaux aujourd'hui.
+- [ ] Decider la cible de persistance des fichiers bulk (`JOBS`) : storage objet, volume partage, ou hybride.
+- [ ] Decider la cible de persistance des preuves et PDFs (`PROOFS`) : storage objet, volume partage, ou hybride.
+- [ ] Implementer un chemin resilient au restart pod pour les uploads bulk en entree.
+- [ ] Implementer un chemin resilient au restart pod pour les resultats bulk en sortie.
+- [ ] Implementer un chemin resilient au restart pod pour les corrections JSON et les PDFs.
+- [ ] Definir retention, chiffrement, cleanup et reprise apres restart pour ces artefacts.
+- [ ] Si un etat de sync storage est necessaire, le tracer dans Redis ou un store d'etat, jamais dans les blobs eux-memes.
+
+#### Workers, scaling et mode d'execution
+
+- [ ] Distinguer les workloads API, UI, Redis, moteur de recherche et workers bulk dans la topologie k8s.
+- [ ] Definir la topologie BullMQ sur k8s: worker embarque dans l'API, Deployment dedie, ou Job dedie.
+- [ ] Ajouter un shutdown gracieux et un mode drain pour les jobs longs pendant rollout / eviction.
+- [ ] Definir la strategie de scaling de l'API.
+- [ ] Definir la strategie de scaling des workers bulk.
+- [ ] Definir la strategie de scaling du moteur de recherche cible (ES aujourd'hui, Surch possiblement ensuite).
+- [ ] Statuer sur l'usage de volumes partages vs storage objet pour les workers bulk.
+- [ ] Statuer sur le besoin de sticky sessions ou achever un flux completement stateless.
+
+#### Readiness, rollout et rollback
+
+- [x] Le scaffold k8s present sur `origin/dev` couvre deja un smoke local et un smoke POC.
+- [ ] Ajouter les `startupProbe` manquants et calibrer les tolerances de demarrage lent.
+- [ ] Definir la procedure de rollout par environnement (`local`, `dev`, `poc`, `prod`).
+- [ ] Definir la procedure de rollback d'image applicative sur k8s.
+- [ ] Definir la procedure de rollback de snapshot / donnees sur k8s.
+- [ ] Ajouter des gates de smoke post-deploy avant ouverture du trafic.
+- [ ] Verifier explicitement un changement de version avec rollback sur backend et UI en condition k8s.
+
+#### Observabilite, logs et supervision
+
+- [ ] Porter `deploy-monitor` / New Relic vers une strategie k8s.
+- [ ] Exporter les logs applicatifs et d'acces vers storage objet / S3.
+- [ ] Definir la retention des logs et le chemin de restauration.
+- [ ] Definir dashboards et alertes pour pods, jobs, queues, ingress et moteur de recherche.
+- [ ] Aligner le transport des logs k8s avec les buckets historiques (`LOG_BUCKET`, `LOG_DB_BUCKET`, `MONITOR_BUCKET`) ou leur remplacement.
+
+#### Edge, ingress, TLS et CDN
+
+- [x] Le smoke POC peut fonctionner sans ingress public via `port-forward`.
+- [ ] Standardiser le controleur d'ingress de la plateforme partagee.
+- [ ] Standardiser TLS / cert-manager sur la plateforme partagee.
+- [ ] Definir le modele DNS des environnements `dev`, `poc`, `preprod`, `prod`.
+- [ ] Redefinir le mecanisme CDN / cache purge pour le monde k8s.
+- [ ] Decider le mecanisme cible de diffusion edge pour l'UI apres bascule k8s.
+
+#### CI/CD k8s
+
+- [x] Le pipeline actuel build/publish/deploy existe encore via `deploy-remote`.
+- [x] Un workflow `k8s-smoke.yml` existe deja sur `origin/dev`.
+- [ ] Decider a quel moment k8s devient un vrai chemin de deploiement et pas seulement un smoke.
+- [ ] Definir le workflow de deploiement k8s du dev partage.
+- [ ] Definir le workflow de deploiement k8s du prod.
+- [ ] Fixer le modele d'identite k8s officiel pour les projets (`KUBE_CONFIG_DATA` namespace-scoped industrialise, ou credentials courts remplaces proprement).
+- [ ] Gerer la livraison des secrets / ConfigMaps sans derive entre environnements.
+- [ ] Ajouter les gates de rollout / rollback au workflow CI/CD k8s.
+- [ ] Automatiser l'onboarding, l'offboarding, la validation de contrat et la drift detection entre repo plateforme et clusters.
+- [ ] Garder `deploy-remote` comme filet temporaire tant que le chemin k8s n'est pas complet.
+
+#### Dataprep sur k8s
+
+- [ ] Definir `deces-dataprep` comme `Job` / `CronJob` k8s et non seulement comme execution distante VM.
+- [ ] Definir les classes de compute pour `small`, `year` et `full`.
+- [ ] Definir l'equivalent k8s du compute lourd actuel (`PRO2-M`, `PRO2-L`) avec pools ou classes dediees.
+- [ ] Definir la production de snapshot dataprep sur k8s.
+- [ ] Definir la publication et la restauration du snapshot dataprep sur k8s.
+- [ ] Valider le cout et la perf avant toute coupure definitive du chemin VM actuel pour le full.
+
+#### Environnements et plateforme mutualisee
+
+- [ ] Provisionner un environnement dev long-lived sur la plateforme k8s partagee.
+- [ ] Passer du modele `1 tenant = 1 projet` au modele `1 tenant = 1 projet x environnement`.
+- [ ] Definir si la preprod bascule aussi sur k8s ou reste transitoirement sur le chemin actuel.
+- [ ] Provisionner un cluster prod dedie dans un projet prod mutualise.
+- [ ] Definir les pools de noeuds cibles: baseline, burst, compute lourd, et leurs contraintes de scheduling.
+- [ ] Definir les classes de stockage cibles par usage (`ES`, blobs, preuves, dataprep).
+- [ ] Renommer / rescoper `../poc-k8s` en repo plateforme partagee une fois le modele stabilise.
+- [ ] Formaliser le contrat multi-projets de cette plateforme partagee.
+
+### WP-B - Surch parity proof et benches k8s
+
+Objectif: prouver la compatibilite de Surch avec le besoin matchID, puis utiliser k8s pour les benches lourds et les validations de deploiement.
+
+#### Etat prouve
+
+- [x] Le tenant `surch` existe deja dans `../poc-k8s` comme tenant batch / burst-only.
+- [x] Le track actif cote `surch` est `wp/d-matchid`.
+- [x] Le replay `B1` tourne a `30/30` sur `Surch HEAD`.
+- [x] Le test `B2` charge une vraie tranche INSEE 10k et valide un match representatif.
+
+#### A faire
+
+- [ ] Rejouer le replay contre un oracle `OpenSearch / ES-7.x`.
+- [ ] Figer l'oracle de comparaison sur statuts, `hits.total`, top-hit ids et forme critique des reponses.
+- [ ] Prouver le mapping `deces` complet et pas seulement un sous-ensemble de fixture.
+- [ ] Prouver `dataprep -> surch` sur dataset reel.
+- [ ] Prouver les requetes backend et aggregations matchID sans bascule applicative.
+- [ ] Industrialiser les benches k8s `00-init-corpora`, `ndcg-gate`, `insee-bench` comme gates de preuve.
+- [ ] Decider si Surch remplace Elasticsearch pour matchID ou reste d'abord un moteur de bench / R&D.
+
+### WP-C - Tracks adjacents a preprovisionner
+
+Objectif: preprovisionner les sujets adjacents qui vont probablement sortir du track principal sans les melanger trop tot avec `WP-A`.
+
+#### Inventaire et cadrage
+
+- [ ] Inventorier les sujets data / produit a ouvrir explicitement (INSEE, autres sources, RGPD, variantes dataprep, autres besoins batch).
+- [ ] Identifier pour chacun le besoin de compute, stockage, observabilite et reseau.
+- [ ] Distinguer ce qui reste un sous-sujet de `WP-A` de ce qui doit devenir un WP autonome.
+- [ ] Ouvrir les prochains WPs lettres quand leur perimetre devient concret.
+- [ ] Garder la dependance de ces tracks vers la plateforme k8s explicite.
