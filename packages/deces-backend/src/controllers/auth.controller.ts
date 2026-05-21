@@ -49,9 +49,9 @@ export class AuthController extends Controller {
    */
   @Tags('Auth')
   @Post('/auth')
-  public auth(
+  public async auth(
     @Body() jsonToken: JsonToken
-  ): AccessToken {
+  ): Promise<AccessToken> {
     if (jsonToken.user === process.env.BACKEND_TOKEN_USER) {
       // admin username may not be overrided through user db or any other mean
       if (jsonToken.password === process.env.BACKEND_TOKEN_PASSWORD) {
@@ -75,7 +75,7 @@ export class AuthController extends Controller {
           expiration_date: decoded.exp.toString(),
           renewal_limit_date: (Number(decoded.jti) + 2592000 * 12).toString()
       }
-    } else if (validateOTP(jsonToken.user,jsonToken.password)) {
+    } else if (await validateOTP(jsonToken.user,jsonToken.password)) {
       const accessToken = jwt.sign({...jsonToken, scopes: ['user']}, process.env.BACKEND_TOKEN_KEY, { expiresIn: "30d", jwtid: Math.floor(Date.now() / 1000).toString() })
       const decoded: any = jwt.verify(accessToken, process.env.BACKEND_TOKEN_KEY)
       return {
