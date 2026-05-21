@@ -173,7 +173,7 @@ export const sendOTP = async (email: string): Promise<sendOTPResponse> => {
       } catch (err) {
         // Mail already left — but we cannot validate without persistence.
         // Surface the failure rather than pretending success.
-        log({ error: 'Redis unreachable in sendOTP (write)', details: (err as any)?.message });
+        log({ error: 'Redis unreachable in sendOTP (write)', details: (err)?.message });
         return {
           msg: "Service temporairement indisponible",
           valid: false
@@ -204,7 +204,7 @@ export const validateOTP = async (email: string, otp: string): Promise<boolean> 
             return true;
         }
     } catch (err) {
-        log({ error: 'Redis unreachable in validateOTP', details: (err as any)?.message });
+        log({ error: 'Redis unreachable in validateOTP', details: (err)?.message });
         return false;
     }
     return false;

@@ -32,7 +32,7 @@ vi.mock('nodemailer', async () => {
     default: {
       ...actual.default,
       createTransport: () => ({
-        sendMail: vi.fn(async () => ({ accepted: ['ok'], response: 'Accepted (mocked)' })),
+        sendMail: vi.fn(() => Promise.resolve({ accepted: ['ok'], response: 'Accepted (mocked)' })),
       }),
     },
   };
