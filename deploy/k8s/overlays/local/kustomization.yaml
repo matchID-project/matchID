@@ -5,9 +5,14 @@ namespace: matchid
 
 resources:
   - ../../base
+  - backend-runtime-pv.yaml
   - es-data-pv.yaml
 
 patches:
+  - path: deces-backend-runtime.local-storage.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: deces-backend-runtime
   - path: deces-ui.nodeport.yaml
     target:
       kind: Service

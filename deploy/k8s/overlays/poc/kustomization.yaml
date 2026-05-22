@@ -35,6 +35,10 @@ patches:
     target:
       kind: StatefulSet
       name: elasticsearch
+  - path: deces-backend-runtime.poc.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: deces-backend-runtime
   - path: deces-backend.poc.yaml
     target:
       kind: Deployment

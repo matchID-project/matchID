@@ -1,0 +1,21 @@
+# Local overlay: hostPath PV for backend runtime files. hostPath is acceptable
+# for k3d/k3s smoke because all pods run on one local node; PoC/dev use RWX
+# File Storage instead.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deces-backend-runtime-local
+  labels:
+    app.kubernetes.io/name: deces-backend
+    app.kubernetes.io/component: backend-runtime
+    app.kubernetes.io/part-of: matchid
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: matchid-local-rwx
+  hostPath:
+    path: /tmp/matchid-deces-backend-runtime
+    type: DirectoryOrCreate

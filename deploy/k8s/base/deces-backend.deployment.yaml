@@ -20,6 +20,19 @@ spec:
         app.kubernetes.io/component: backend
         app.kubernetes.io/part-of: matchid
     spec:
+      initContainers:
+        - name: prepare-runtime-storage
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - >-
+              mkdir -p /var/lib/matchid/jobs /var/lib/matchid/proofs
+              && test -w /var/lib/matchid/jobs
+              && test -w /var/lib/matchid/proofs
+          volumeMounts:
+            - name: backend-runtime
+              mountPath: /var/lib/matchid
       containers:
         - name: deces-backend
           image: matchid/deces-backend:latest
@@ -64,6 +77,10 @@ spec:
               value: "5"
             - name: BACKEND_TMP_WINDOW
               value: "60"
+            - name: JOBS
+              value: /var/lib/matchid/jobs
+            - name: PROOFS
+              value: /var/lib/matchid/proofs
             # File paths read at import time (mail.ts, communes.ts, etc.).
             # Pointing at /dev/null lets the requires return empty data and
             # log a soft warning rather than crash.
@@ -84,10 +101,20 @@ spec:
             - secretRef:
                 name: deces-backend-secrets
                 optional: true
+          volumeMounts:
+            - name: backend-runtime
+              mountPath: /var/lib/matchid
           readinessProbe:
-            httpGet:
-              path: /deces/api/v1/healthcheck
-              port: http
+            exec:
+              command:
+                - sh
+                - -c
+                - >-
+                  test -w "$JOBS"
+                  && test -w "$PROOFS"
+                  && curl -fsS
+                  http://127.0.0.1:8080/deces/api/v1/healthcheck
+                  >/dev/null
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 6
@@ -105,3 +132,7 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      volumes:
+        - name: backend-runtime
+          persistentVolumeClaim:
+            claimName: deces-backend-runtime

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deces-backend-runtime
+  labels:
+    app.kubernetes.io/name: deces-backend
+    app.kubernetes.io/component: backend-runtime
+    app.kubernetes.io/part-of: matchid
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi

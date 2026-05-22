@@ -23,7 +23,7 @@ deploy/k8s/
 ├── base/                  # vendor-agnostic manifests (Deployments, Services, ES STS)
 ├── overlays/
 │   ├── local/             # k3d / k3s-local: NodePort, hostPath PV, no nodeSelector
-│   └── poc/               # Scaleway Kapsule `poc`: nodeSelector pool=burst, scw-bssd PVC, IngressRoute
+│   └── poc/               # Scaleway Kapsule `poc`: pool=burst, scw-bssd ES PVC, RWX runtime PVC, IngressRoute
 └── local/                 # alias overlay used by the `apply-local` Make target
 ```
 
@@ -31,7 +31,7 @@ deploy/k8s/
 
 | Workload          | Image                                                  | Port  | Notes                                    |
 | ----------------- | ------------------------------------------------------ | ----- | ---------------------------------------- |
-| deces-backend     | `matchid/deces-backend:latest`                         | 8080  | Node.js API, talks to ES via `ES_URL`    |
+| deces-backend     | `matchid/deces-backend:latest`                         | 8080  | Node.js API, talks to ES via `ES_URL`, mounts runtime files at `/var/lib/matchid` |
 | deces-ui          | `matchid/deces-ui:latest`                              | 8083  | Nginx reverse-proxy + static UI          |
 | elasticsearch     | `docker.elastic.co/elasticsearch/elasticsearch:7.17.28`| 9200  | single-node, dev profile, JVM -Xmx512m   |
 
@@ -86,6 +86,10 @@ The `poc` overlay assumes :
 - a Scaleway `burst` node-pool; the POC overlay targets it with the
   managed label `k8s.scaleway.com/pool-name=burst`,
 - a `scw-bssd` StorageClass for ES persistence,
+- a `matchid-rwx` StorageClass for `deces-backend-runtime`, backed by
+  Scaleway File Storage RWX. As of 2026-05-22 the PoC cluster only exposes
+  block StorageClasses (`scw-bssd` / `sbs-*`), so the platform repo must add
+  this StorageClass before scaling `deces-backend` above 0,
 - optionally, a `traefik` IngressRoute CRD on the cluster. If it is not
   installed, the manual POC smoke uses a backend `kubectl port-forward`,
 - the `matchid` Namespace + ResourceQuota + LimitRange already applied by

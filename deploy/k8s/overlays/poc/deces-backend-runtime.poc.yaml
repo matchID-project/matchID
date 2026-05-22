@@ -1,0 +1,14 @@
+# PoC overlay: `matchid-rwx` must be provided by the platform and backed by
+# Scaleway File Storage RWX. The current PoC cluster only exposes block
+# StorageClasses, so this PVC stays Pending until that contract is added.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deces-backend-runtime
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: matchid-rwx
+  resources:
+    requests:
+      storage: 5Gi

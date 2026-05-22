@@ -1,0 +1,12 @@
+# Local overlay: bind the backend runtime PVC to the hostPath RWX PV above.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deces-backend-runtime
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: matchid-local-rwx
+  resources:
+    requests:
+      storage: 5Gi

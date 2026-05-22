@@ -10,6 +10,7 @@ labels:
 
 resources:
   - namespace.yaml
+  - deces-backend-runtime.pvc.yaml
   - elasticsearch.statefulset.yaml
   - redis.deployment.yaml
   - deces-backend.deployment.yaml
