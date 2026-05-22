@@ -27,9 +27,10 @@ const buildOptions = (): RedisOptions => ({
   host: process.env.REDIS_HOST || 'redis',
   port: Number(process.env.REDIS_PORT) || 6379,
   // Keep retry strategy bounded so a Redis blip cannot wedge the event loop
-  // forever; callers must handle thrown errors / null results gracefully.
+  // forever, but allow ioredis to queue the first OTP command while the lazy
+  // singleton establishes its initial connection.
   maxRetriesPerRequest: 3,
-  enableOfflineQueue: false,
+  enableOfflineQueue: true,
   retryStrategy: (times: number) => Math.min(times * 200, 2000),
   lazyConnect: false,
 });
