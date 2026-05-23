@@ -3,6 +3,7 @@ import { ReviewStatus, sendOTPResponse } from './models/entities';
 import loggerStream from './logger';
 import crypto from 'crypto';
 import { readFileSync } from 'fs';
+import { getRedisClient } from './redisClient';
 
 interface MailConfig {
   host: string;
@@ -57,40 +58,54 @@ interface OTPEntry {
   recentSendCount: number;
 }
 
-const OTP: Record<string, OTPEntry> = {};
 const OTP_RATE_LIMIT_MS = 60000; // 1 minute base rate limit
 const OTP_EXPIRE_MS = 6 * 60 * 60 * 1000; // 6 hours
 const OTP_EXPIRE_TOLERANCE_MS = 60 * 1000; // 60 seconds
+const OTP_TTL_SECONDS = Math.floor(OTP_EXPIRE_MS / 1000); // Redis SET EX value
 
-const scheduleOtpExpiry = (email: string, expectedLastSendTime: number) => {
-    setTimeout(() => {
-      const entry = OTP[email];
-      if (!entry?.lastSendTime) {
-        return;
-      }
-      const delta = Math.abs(entry.lastSendTime - expectedLastSendTime);
-      const age = Date.now() - entry.lastSendTime;
-      if (
-        delta <= OTP_EXPIRE_TOLERANCE_MS &&
-        age >= OTP_EXPIRE_MS - OTP_EXPIRE_TOLERANCE_MS
-      ) {
-        delete OTP[email];
-      }
-    }, OTP_EXPIRE_MS);
-}
+// OTP_EXPIRE_TOLERANCE_MS is kept as an exported-shape constant so the previous
+// behaviour is documented; with Redis TTL handling expiry, it is no longer
+// applied to a JS setTimeout. Reads after key expiry return null automatically.
+void OTP_EXPIRE_TOLERANCE_MS;
 
-const generateOTP = (email: string) => {
+const otpKey = (email: string): string => {
+  // sha256(email) so a Redis dump never leaks the raw address. Same hash space
+  // as the subject-line short hash already in use, full 64 hex chars to keep
+  // collisions vanishingly unlikely.
+  const digest = crypto.createHash('sha256').update(email).digest('hex');
+  return `otp:${digest}`;
+};
+
+const readOtpEntry = async (email: string): Promise<OTPEntry | null> => {
+  const redis = getRedisClient();
+  const raw = await redis.get(otpKey(email));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as OTPEntry;
+  } catch (e) {
+    // Corrupted entry — treat as absent so the caller regenerates.
+    log({ warn: 'Corrupted OTP entry in Redis', details: (e && (e as Error).message) });
+    return null;
+  }
+};
+
+const writeOtpEntry = async (email: string, entry: OTPEntry): Promise<void> => {
+  const redis = getRedisClient();
+  await redis.set(otpKey(email), JSON.stringify(entry), 'EX', OTP_TTL_SECONDS);
+};
+
+const deleteOtpEntry = async (email: string): Promise<void> => {
+  const redis = getRedisClient();
+  await redis.del(otpKey(email));
+};
+
+const generateOtpCode = (): string => {
     const digits = '0123456789';
     let tmp = '';
     for (let i = 0; i < 6; i++ ) {
         tmp += digits[Math.floor(Math.random() * 10)];
     }
-    const prev = OTP[email];
-    OTP[email] = {
-      code: tmp,
-      lastSendTime: prev?.lastSendTime,
-      recentSendCount: prev?.recentSendCount ?? 0
-    };
+    return tmp;
 }
 
 export const sendOTP = async (email: string): Promise<sendOTPResponse> => {
@@ -101,9 +116,24 @@ export const sendOTP = async (email: string): Promise<sendOTPResponse> => {
           msg: "Le courriel fourni appartient à un fournisseur d'addresses temporaires",
           valid: false
         };
-      } else if (email in OTP && OTP[email].lastSendTime) {
-        const timeSinceLastSend = Date.now() - OTP[email].lastSendTime;
-        const effectiveCount = Math.max(0, OTP[email].recentSendCount - 1);
+      }
+
+      let existing: OTPEntry | null;
+      try {
+        existing = await readOtpEntry(email);
+      } catch (err) {
+        // Graceful degradation: Redis unreachable. Refuse the request rather
+        // than crash the pod or silently bypass the rate-limit.
+        log({ error: 'Redis unreachable in sendOTP (read)', details: (err && (err as Error).message) });
+        return {
+          msg: "Service temporairement indisponible",
+          valid: false
+        };
+      }
+
+      if (existing && existing.lastSendTime) {
+        const timeSinceLastSend = Date.now() - existing.lastSendTime;
+        const effectiveCount = Math.max(0, existing.recentSendCount - 1);
         const rateLimit = OTP_RATE_LIMIT_MS * Math.pow(2, effectiveCount);
 
         if (timeSinceLastSend < rateLimit) {
@@ -123,17 +153,32 @@ export const sendOTP = async (email: string): Promise<sendOTPResponse> => {
           };
         }
       }
-      generateOTP(email);
-      const hash = crypto.createHash('sha256').update(email).digest('hex').substring(0, 16)
+
+      const code = generateOtpCode();
+      const hash = crypto.createHash('sha256').update(email).digest('hex').substring(0, 16);
       await transporter.sendMail({
           subject: `Validez votre identité - ${process.env.APP_DNS} - ${hash}`,
-          text: `Votre code, valide 6 heures: ${OTP[email].code}`,
+          text: `Votre code, valide 6 heures: ${code}`,
           from: process.env.API_EMAIL,
           to: `${email}`,
       } as any);
-      OTP[email].lastSendTime = Date.now();
-      scheduleOtpExpiry(email, OTP[email].lastSendTime);
-      OTP[email].recentSendCount++;
+
+      const entry: OTPEntry = {
+        code,
+        lastSendTime: Date.now(),
+        recentSendCount: (existing?.recentSendCount ?? 0) + 1
+      };
+      try {
+        await writeOtpEntry(email, entry);
+      } catch (err) {
+        // Mail already left — but we cannot validate without persistence.
+        // Surface the failure rather than pretending success.
+        log({ error: 'Redis unreachable in sendOTP (write)', details: (err)?.message });
+        return {
+          msg: "Service temporairement indisponible",
+          valid: false
+        };
+      }
       return {
         msg: "Un code vous a été envoyé à l'adresse indiquée",
         valid: true
@@ -150,10 +195,17 @@ export const sendOTP = async (email: string): Promise<sendOTPResponse> => {
     }
 }
 
-export const validateOTP = (email:string,otp:string): boolean => {
-    if (otp && OTP[email] && (OTP[email].code === otp)) {
-        delete OTP[email];
-        return true;
+export const validateOTP = async (email: string, otp: string): Promise<boolean> => {
+    if (!otp) return false;
+    try {
+        const entry = await readOtpEntry(email);
+        if (entry && entry.code === otp) {
+            await deleteOtpEntry(email);
+            return true;
+        }
+    } catch (err) {
+        log({ error: 'Redis unreachable in validateOTP', details: (err)?.message });
+        return false;
     }
     return false;
 }
