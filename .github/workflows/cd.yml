@@ -350,6 +350,16 @@ jobs:
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
           ssh-keyscan -T 10 -H 163.172.185.238 >> "${HOME}/.ssh/known_hosts"
+          cat >> "${HOME}/.ssh/config" <<EOF
+          Host bastion 163.172.185.238
+            HostName 163.172.185.238
+            User ubuntu
+            IdentityFile ${HOME}/.ssh/id_rsa_matchID
+            IdentitiesOnly yes
+            BatchMode yes
+            UserKnownHostsFile ${HOME}/.ssh/known_hosts
+          EOF
+          chmod 600 "${HOME}/.ssh/config"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep year snapshot
@@ -449,6 +459,16 @@ jobs:
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
           ssh-keyscan -T 10 -H 163.172.185.238 >> "${HOME}/.ssh/known_hosts"
+          cat >> "${HOME}/.ssh/config" <<EOF
+          Host bastion 163.172.185.238
+            HostName 163.172.185.238
+            User ubuntu
+            IdentityFile ${HOME}/.ssh/id_rsa_matchID
+            IdentitiesOnly yes
+            BatchMode yes
+            UserKnownHostsFile ${HOME}/.ssh/known_hosts
+          EOF
+          chmod 600 "${HOME}/.ssh/config"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep full snapshot
@@ -568,6 +588,16 @@ jobs:
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
           ssh-keyscan -T 10 -H 163.172.185.238 >> "${HOME}/.ssh/known_hosts"
+          cat >> "${HOME}/.ssh/config" <<EOF
+          Host bastion 163.172.185.238
+            HostName 163.172.185.238
+            User ubuntu
+            IdentityFile ${HOME}/.ssh/id_rsa_matchID
+            IdentitiesOnly yes
+            BatchMode yes
+            UserKnownHostsFile ${HOME}/.ssh/known_hosts
+          EOF
+          chmod 600 "${HOME}/.ssh/config"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy deces.matchid.io
