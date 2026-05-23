@@ -349,6 +349,7 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          ssh-keyscan -T 10 -H 163.172.185.238 >> "${HOME}/.ssh/known_hosts"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep year snapshot
@@ -447,6 +448,7 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          ssh-keyscan -T 10 -H 163.172.185.238 >> "${HOME}/.ssh/known_hosts"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Check dataprep full snapshot
@@ -565,6 +567,7 @@ jobs:
           chmod 600 "${HOME}/.ssh/id_rsa_matchID"
           ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
           chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
+          ssh-keyscan -T 10 -H 163.172.185.238 >> "${HOME}/.ssh/known_hosts"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Deploy deces.matchid.io
