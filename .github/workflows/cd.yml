@@ -335,6 +335,8 @@ jobs:
       RECIPE_THREADS: 16
       RECIPE_QUEUE: 18
       ES_MEM: 30000m
+      # SSH through the existing proxy instead of tracking GitHub-hosted runner CIDRs.
+      CLOUD_SSHOPTS: ${{ vars.CLOUD_SSHOPTS || '-J ubuntu@163.172.185.238 -o IdentitiesOnly=yes' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -431,6 +433,8 @@ jobs:
       RECIPE_THREADS: 32
       RECIPE_QUEUE: 34
       ES_MEM: 62000m
+      # SSH through the existing proxy instead of tracking GitHub-hosted runner CIDRs.
+      CLOUD_SSHOPTS: ${{ vars.CLOUD_SSHOPTS || '-J ubuntu@163.172.185.238 -o IdentitiesOnly=yes' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -547,6 +551,8 @@ jobs:
       APP_DNS: deces.matchid.io
       GIT_BRANCH: ${{ github.event.client_payload.ref || github.ref_name }}
       DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || 'none' }}
+      # SSH through the existing proxy instead of tracking GitHub-hosted runner CIDRs.
+      CLOUD_SSHOPTS: ${{ vars.CLOUD_SSHOPTS || '-J ubuntu@163.172.185.238 -o IdentitiesOnly=yes' }}
     steps:
       - uses: actions/checkout@v4
         with:
