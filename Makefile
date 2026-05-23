@@ -76,6 +76,8 @@ export KUBECONFIG=${HOME}/.kube/config
 
 export PROOFS=${DATA_DIR}/proofs
 export MONITOR_DIR = ${APP_FRONTEND}/log/instances/${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH}
+export DEPLOY_DELETE_OLD ?= true
+export DEPLOY_PROD_MAX_SERVERS_WHEN_PRESERVING ?= 2
 
 # backup dir
 export BACKUP_DIR = ${APP_PATH}/backup
@@ -495,6 +497,24 @@ deploy-delete-old: ${DATAPREP_VERSION_FILE} ${DATA_VERSION_FILE}
 		APP=${APP_FRONTEND} APP_VERSION=${APP_VERSION} DC_IMAGE_NAME=deces-ui\
 		GIT_BRANCH=${GIT_BRANCH} ${MAKEOVERRIDES}
 
+deploy-remote-prod-instance-limit:
+	@if [ "${GIT_BRANCH}" = "${GIT_BRANCH_MASTER}" ] && [ "${DEPLOY_DELETE_OLD}" = "false" ]; then \
+		if [ -z "${SCW_SECRET_TOKEN}" ]; then \
+			echo "SCW_SECRET_TOKEN is required to enforce prod instance limit"; \
+			exit 1; \
+		fi; \
+		cloud_hostname=$$(echo "${APP_GROUP}-${APP_FRONTEND}-${GIT_BRANCH}" | tr '[:upper:]' '[:lower:]' | tr '_/' '-'); \
+		server_count=$$(curl -s --fail "${SCW_API}/servers" \
+			-H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+			-H "Content-Type: application/json" \
+			| jq -r --arg name "$$cloud_hostname" --arg branch "${GIT_BRANCH}" '[.servers[] | select(.name == $$name and ((.tags // []) | index($$branch)) and (.state != "stopped"))] | length'); \
+		if [ "$${server_count}" -ge "${DEPLOY_PROD_MAX_SERVERS_WHEN_PRESERVING}" ]; then \
+			echo "refusing prod deploy: $${server_count} $${cloud_hostname} servers already exist and DEPLOY_DELETE_OLD=false"; \
+			exit 1; \
+		fi; \
+		echo "prod deploy instance limit ok: $${server_count}/${DEPLOY_PROD_MAX_SERVERS_WHEN_PRESERVING} $${cloud_hostname} servers"; \
+	fi
+
 deploy-monitor:
 	@${MAKE} -C ${TOOLS_PATH} remote-install-monitor\
 		MONITOR_BUCKET=${MONITOR_BUCKET} MONITOR_DIR=${MONITOR_DIR}\
@@ -566,7 +586,13 @@ deploy-remote-preflight: config-minimal
 	done; \
 	echo "deploy-remote preflight ok for ${GIT_BRANCH}-${APP_DNS}"
 
-deploy-remote: config-minimal deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache deploy-delete-old deploy-monitor
+DEPLOY_REMOTE_TARGETS = config-minimal deploy-remote-prod-instance-limit deploy-remote-instance deploy-remote-services deploy-remote-publish deploy-cdn-purge-cache
+ifeq ($(DEPLOY_DELETE_OLD),true)
+DEPLOY_REMOTE_TARGETS += deploy-delete-old
+endif
+DEPLOY_REMOTE_TARGETS += deploy-monitor
+
+deploy-remote: ${DEPLOY_REMOTE_TARGETS}
 
 deploy-docker-pull-base: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-docker-pull DOCKER_IMAGE=node:12.14.0-slim

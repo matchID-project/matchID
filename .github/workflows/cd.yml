@@ -627,6 +627,7 @@ jobs:
             fi
             make deploy-remote \
               GIT_BACKEND_BRANCH=master GIT_BRANCH=$GIT_BRANCH \
+              DEPLOY_DELETE_OLD=false \
               BACKEND_JOB_CONCURRENCY=$BACKEND_JOB_CONCURRENCY_MASTER \
               BACKEND_CHUNK_CONCURRENCY=$BACKEND_CHUNK_CONCURRENCY_MASTER \
               ES_MEM=$ES_MEM_MASTER \
