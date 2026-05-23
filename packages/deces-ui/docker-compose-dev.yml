@@ -2,26 +2,25 @@
 
 services:
   nginx-development:
-    image: ${DOCKER_USERNAME}/${DC_PREFIX}-nginx-development:${APP_VERSION}
+    image: ${DOCKER_USERNAME}/deces-ui-nginx-development:${APP_VERSION}
     build:
       context: ${NGINX_PATH}
       target: development
       dockerfile: Dockerfile
       args:
-        app_name: ${APP}
+        app_name: ${APP_FRONTEND}
         app_ver: ${APP_VERSION}
-    container_name: ${DC_PREFIX}-nginx-development
+    container_name: deces-ui-nginx-development
     depends_on:
       - frontend-development
     environment:
-      - APP
+      - APP_FRONTEND
       - PORT
       - FRONTEND_DEV_HOST
       - FRONTEND_DEV_PORT
       - BACKEND_PROXY_PATH
       - BACKEND_PORT
       - BACKEND_HOST
-      - ES_PROXY_PATH
       - ES_HOST
       - ES_INDEX
       - ES_PORT
@@ -70,24 +69,24 @@ services:
         npm_registry: ${NPM_REGISTRY}
         sass_registry: ${SASS_REGISTRY}
         MIRROR_DEBIAN: ${MIRROR_DEBIAN}
-        app_path: /${APP}
-        app_name: ${APP}
+        app_path: /${APP_FRONTEND}
+        app_name: ${APP_FRONTEND}
         app_ver: ${APP_VERSION}
         NPM_FIX: ${NPM_FIX}
         NPM_LATEST: ${NPM_LATEST}
         NPM_GIT: ${NPM_GIT}
         NPM_VERBOSE: ${NPM_VERBOSE}
+        NPM_AUDIT_IGNORE: ${NPM_AUDIT_IGNORE}
         FRONTEND_DEV_PORT: ${FRONTEND_DEV_PORT}
-    image: ${DOCKER_USERNAME}/${DC_PREFIX}-frontend-development:${APP_VERSION}
-    container_name: ${DC_PREFIX}-frontend-development
+    image: ${DOCKER_USERNAME}/deces-ui-frontend-development:${APP_VERSION}
+    container_name: deces-ui-frontend-development
     environment:
-      APP: ${APP}
+      APP: ${APP_FRONTEND}
       PORT: ${FRONTEND_DEV_PORT}
       HOST: 0.0.0.0
       AB_THRESHOLD: ${AB_THRESHOLD}
       API_EMAIL: ${API_EMAIL}
       API_MAX_BODY: ${API_MAX_BODY}
-      ES_PROXY_PATH: ${ES_PROXY_PATH}
       ES_MAX_RESULTS: ${ES_MAX_RESULTS}
       BACKEND_TOKEN_USER: ${BACKEND_TOKEN_USER}
       BACKEND_PROXY_PATH: ${BACKEND_PROXY_PATH}
@@ -97,12 +96,12 @@ services:
       MITM_URL: ${MITM_URL}
       THEME_DNUM: ${THEME_DNUM}
     volumes:
-      - ${FRONTEND_PATH}/public:/${APP}/public
-      - ${STATS}:/${APP}/public/stats
-      - ${FRONTEND_PATH}/.eslintrc.js:/${APP}/.eslintrc.js
-      - ${FRONTEND_PATH}/rollup.config.js:/${APP}/rollup.config.js
-      - ${FRONTEND_PATH}/src:/${APP}/src/
-      - /${APP}/node_modules
+      - ${FRONTEND_PATH}/public:/${APP_FRONTEND}/public
+      - ${STATS}:/${APP_FRONTEND}/public/stats
+      - ${FRONTEND_PATH}/.eslintrc.js:/${APP_FRONTEND}/.eslintrc.js
+      - ${FRONTEND_PATH}/rollup.config.js:/${APP_FRONTEND}/rollup.config.js
+      - ${FRONTEND_PATH}/src:/${APP_FRONTEND}/src/
+      - /${APP_FRONTEND}/node_modules
 
 networks:
   default:

@@ -519,7 +519,7 @@ export const linkValidations = writable(null);
 export const linkCompleted = writable(false);
 
 export const version = writable({
-    ui: '__APP__ version __APP_VERSION__'
+    ui: '__APP_FRONTEND__ version __APP_VERSION__'
 })
 
 export const activeElement = writable(undefined);

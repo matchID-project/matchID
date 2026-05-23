@@ -26,8 +26,18 @@ export APP = ${CLOUD_CLI}
 export APP_PATH = ${TOOLS_PATH}
 
 GIT_ROOT=https://github.com/matchid-project
-GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && git branch | grep '*' | awk '{print $$2}')
+GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell [ -f "/usr/bin/git" ] && git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 GIT_BRANCH_MASTER=master
+GIT_BRANCH_TAG := $(shell echo ${GIT_BRANCH} | tr '[:upper:]' '[:lower:]' | tr '_/' '-')
+REMOTE_TOOLS_REPOSITORY ?= ${TOOLS}
+REMOTE_TOOLS_BRANCH ?=
+REMOTE_TOOLS_PATH ?= ${APP_GROUP}/${REMOTE_TOOLS_REPOSITORY}
+REMOTE_TOOLS_MAKE_PATH ?= ${REMOTE_TOOLS_PATH}
+REMOTE_APP_REPOSITORY ?= ${APP}
+REMOTE_APP_BRANCH ?= ${GIT_BRANCH}
+REMOTE_APP_PATH ?= ${APP_GROUP}/${REMOTE_APP_REPOSITORY}
+REMOTE_APP_MAKE_PATH ?= ${REMOTE_APP_PATH}
+REMOTE_CONFIG_TARGET ?= config
 
 export DOCKER_USERNAME=$(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_DIR=${APP_PATH}
@@ -109,9 +119,9 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o "StrictHostKeyChecking no" -i ${SSHKEY} ${CLOUD_SSHOPTS}
+SSHOPTS=-o "StrictHostKeyChecking no" -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 
-tag                 := $(shell [ -f "/usr/bin/git" ] && git describe --tags | sed 's/-.*//')
+tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//'))
 VERSION 		:= $(shell cat tagfiles.${CLOUD_CLI}.version | xargs -I '{}' find {} -type f -not -name '*.tar.gz'  | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
 export APP_VERSION =  ${tag}-${VERSION}
 
@@ -171,21 +181,38 @@ ${CONFIG_FILE}: ${CONFIG_INIT_FILE} ${CONFIG_NEXT_FILE}
 config: ${CONFIG_FILE}
 
 config-proxy:
-	@if [ ! -z "${http_proxy}" ];then\
-		if [ -z "$(grep http_proxy /etc/environment)"]; then\
-			(echo "http_proxy=${http_proxy}" | sudo tee -a /etc/environment);\
-		fi;\
-	fi;
-	@if [ ! -z "${https_proxy}" ];then\
-		if [ -z "$(grep https_proxy /etc/environment)"]; then\
-			(echo "https_proxy=${https_proxy}" | sudo tee -a /etc/environment);\
-		fi;\
-	fi;
-	@if [ ! -z "${no_proxy}" ];then\
-		if [ -z "$(grep no_proxy /etc/environment)"]; then\
-			(echo "no_proxy=${no_proxy}" | sudo tee -a /etc/environment);\
-		fi;\
-	fi;
+	@need_proxy_config=0; \
+	if [ ! -f "/usr/bin/curl" ] || [ ! -f "/usr/bin/jq" ] || \
+	   { [ ! -f "/usr/bin/docker" ] && [ ! -f "/usr/local/bin/docker" ]; }; then \
+		need_proxy_config=1; \
+	fi; \
+	if [ "$$need_proxy_config" -ne 1 ]; then \
+		exit 0; \
+	fi; \
+	update_env() { \
+		key="$$1"; \
+		value="$$2"; \
+		[ -n "$$value" ] || return 0; \
+		if grep -Fqx "$$key=$$value" /etc/environment 2>/dev/null; then \
+			return 0; \
+		fi; \
+		tmp_file=$$(mktemp); \
+		grep -Ev "^$$key=" /etc/environment 2>/dev/null > "$$tmp_file" || true; \
+		printf '%s=%s\n' "$$key" "$$value" >> "$$tmp_file"; \
+		if [ -w /etc/environment ]; then \
+			cat "$$tmp_file" > /etc/environment; \
+		elif command -v sudo >/dev/null 2>&1; then \
+			sudo tee /etc/environment > /dev/null < "$$tmp_file"; \
+		else \
+			echo "missing permissions to update /etc/environment for $$key" >&2; \
+			rm -f "$$tmp_file"; \
+			exit 1; \
+		fi; \
+		rm -f "$$tmp_file"; \
+	}; \
+	update_env http_proxy "${http_proxy}"; \
+	update_env https_proxy "${https_proxy}"; \
+	update_env no_proxy "${no_proxy}";
 
 # system tools, widely used in matchID projects
 
@@ -203,13 +230,29 @@ tools-install:
 docker-install: ${CONFIG_DOCKER_FILE} docker-config-proxy
 
 docker-config-proxy:
-	@if [ ! -z "${http_proxy}" ];then\
+	@if [ ! -z "${http_proxy}" ] && [ ! -f "/usr/bin/docker" ] && [ ! -f "/usr/local/bin/docker" ];then\
 		if [ ! -f "/etc/systemd/system/docker.service.d/http-proxy.conf" ]; then\
-			sudo mkdir -p /etc/systemd/system/docker.service.d/;\
-			(echo '[Service]' | sudo tee -a /etc/systemd/system/docker.service.d/http-proxy.conf);\
-			(echo 'Environment="HTTPS_PROXY=${http_proxy}" "HTTP_PROXY=${https_proxy}"' | sudo tee -a /etc/systemd/system/docker.service.d/http-proxy.conf);\
-			sudo systemctl daemon-reload;\
-			sudo systemctl restart docker;\
+			target_dir=/etc/systemd/system/docker.service.d; \
+			target_file=$$target_dir/http-proxy.conf; \
+			http_proxy_value="${http_proxy}"; \
+			https_proxy_value="${https_proxy}"; \
+			if [ -z "$$https_proxy_value" ]; then https_proxy_value="$$http_proxy_value"; fi; \
+			if [ -w "$$(dirname "$$target_dir")" ]; then \
+				mkdir -p "$$target_dir"; \
+				printf '%s\n' '[Service]' > "$$target_file"; \
+				printf 'Environment="HTTP_PROXY=%s" "HTTPS_PROXY=%s"\n' "$$http_proxy_value" "$$https_proxy_value" >> "$$target_file"; \
+				systemctl daemon-reload; \
+				systemctl restart docker; \
+			elif command -v sudo >/dev/null 2>&1; then \
+				sudo mkdir -p "$$target_dir"; \
+				printf '%s\n' '[Service]' | sudo tee "$$target_file" > /dev/null; \
+				printf 'Environment="HTTP_PROXY=%s" "HTTPS_PROXY=%s"\n' "$$http_proxy_value" "$$https_proxy_value" | sudo tee -a "$$target_file" > /dev/null; \
+				sudo systemctl daemon-reload; \
+				sudo systemctl restart docker; \
+			else \
+				echo "missing permissions to configure Docker proxy" >&2; \
+				exit 1; \
+			fi; \
 		fi;\
 	fi
 
@@ -270,12 +313,12 @@ docker-tag:
 		fi;\
 	else\
 		if [ ! -z "${DOCKER_REGISTRY}" ];then\
-			echo docker tags for ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} and ${GIT_BRANCH};\
+			echo docker tags for ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} and ${GIT_BRANCH_TAG};\
 			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION};\
-			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		else\
-			echo docker tag for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:latest;\
-			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			echo docker tag for ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
+			docker tag ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${APP_VERSION} ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		fi;\
 	fi
 
@@ -307,13 +350,17 @@ docker-push: docker-login docker-tag
 		fi;\
 	else\
 		if [ ! -z "${DOCKER_REGISTRY}" ];then\
-			docker push ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			docker push ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		else\
-			docker push ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH};\
+			docker push ${DOCKER_USERNAME}/${DC_IMAGE_NAME}:${GIT_BRANCH_TAG};\
 		fi;\
 	fi
 
 docker-login:
+	@if [ -z "${DOCKER_PASSWORD}" ];then\
+		echo "DOCKER_PASSWORD is not configured";\
+		exit 1;\
+	fi
 	@if [ ! -z "${DOCKER_REGISTRY}" ];then\
 		echo docker login for ${DOCKER_USERNAME} at ${DOCKER_REGISTRY};\
 		echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin "${DOCKER_REGISTRY}";\
@@ -346,7 +393,7 @@ cloud-dir-delete:
 
 ${CLOUD_FIRST_USER_FILE}: ${CLOUD_DIR}
 	@if [ "${CLOUD}" == "SCW" ];then\
-		echo "root" > ${CLOUD_FIRST_USER_FILE};\
+		echo ${SCW_SSHUSER} > ${CLOUD_FIRST_USER_FILE};\
 	elif [ "${CLOUD}" == "OS" ];then\
 		echo ${OS_SSHUSER} > ${CLOUD_FIRST_USER_FILE};\
 	elif [ "${CLOUD}" == "EC2" ];then\
@@ -1045,9 +1092,13 @@ ${CONFIG_REMOTE_FILE}: cloud-instance-up remote-config-proxy ${CONFIG_DIR}
 			fi;\
 			ssh ${SSHOPTS} $$U@$$H mkdir -p ${APP_GROUP};\
 			ssh ${SSHOPTS} $$U@$$H sudo apt-get install -yq make;\
-			ssh ${SSHOPTS} $$U@$$H git clone -q ${GIT_ROOT}/${TOOLS} ${APP_GROUP}/${TOOLS};\
-			ssh ${SSHOPTS} $$U@$$H make -C ${APP_GROUP}/${TOOLS} config-init http_proxy=${remote_http_proxy} https_proxy=${remote_https_proxy};\
-			ssh ${SSHOPTS} $$U@$$H make -C ${APP_GROUP}/${TOOLS} config-next STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};\
+			REMOTE_TOOLS_BRANCH_OPT="";\
+			if [ -n "${REMOTE_TOOLS_BRANCH}" ];then\
+				REMOTE_TOOLS_BRANCH_OPT="--branch ${REMOTE_TOOLS_BRANCH}";\
+			fi;\
+			ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_TOOLS_BRANCH_OPT ${GIT_ROOT}/${REMOTE_TOOLS_REPOSITORY} ${REMOTE_TOOLS_PATH};\
+			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-init http_proxy=${remote_http_proxy} https_proxy=${remote_https_proxy};\
+			ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_TOOLS_MAKE_PATH} config-next STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY};\
 			touch ${CONFIG_REMOTE_FILE};\
 			touch ${CONFIG_TOOLS_FILE};\
 		fi
@@ -1088,8 +1139,14 @@ ${CONFIG_APP_FILE}: ${CONFIG_REMOTE_FILE}
 			H=$$(cat ${CLOUD_HOST_FILE});\
 			U=$$(cat ${CLOUD_USER_FILE});\
 			if [ "${APP}" != "${CLOUD_CLI}" ];then\
-				ssh ${SSHOPTS} $$U@$$H git clone -q --branch ${GIT_BRANCH} ${GIT_ROOT}/${APP} ${APP_GROUP}/${APP};\
-				ssh ${SSHOPTS} $$U@$$H make -C ${APP_GROUP}/${APP} config;\
+				REMOTE_APP_BRANCH_OPT="";\
+				if [ -n "${REMOTE_APP_BRANCH}" ];then\
+					REMOTE_APP_BRANCH_OPT="--branch ${REMOTE_APP_BRANCH}";\
+				fi;\
+				if ! ssh ${SSHOPTS} $$U@$$H test -d ${REMOTE_APP_PATH}/.git;then\
+					ssh ${SSHOPTS} $$U@$$H git clone -q $$REMOTE_APP_BRANCH_OPT ${GIT_ROOT}/${REMOTE_APP_REPOSITORY} ${REMOTE_APP_PATH};\
+				fi;\
+				ssh ${SSHOPTS} $$U@$$H make -C ${REMOTE_APP_MAKE_PATH} ${REMOTE_CONFIG_TARGET};\
 			fi;\
 			touch ${CONFIG_APP_FILE};\
 		fi
@@ -1100,9 +1157,9 @@ remote-actions: remote-deploy
 		U=$$(cat ${CLOUD_USER_FILE});\
 		if [ "${ACTIONS}" != "" ];then\
 			if [ "${APP}" != "${CLOUD_CLI}" ];then\
-				MAKE_APP_PATH=${APP_GROUP}/${APP};\
+				MAKE_APP_PATH=${REMOTE_APP_MAKE_PATH};\
 			else\
-				MAKE_APP_PATH=${APP_GROUP}/${TOOLS};\
+				MAKE_APP_PATH=${REMOTE_TOOLS_MAKE_PATH};\
 			fi;\
 			ssh ${SSHOPTS} $$U@$$H make -C $$MAKE_APP_PATH ${ACTIONS} STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY} STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY} ${MAKEOVERRIDES};\
 		fi
@@ -1140,9 +1197,9 @@ local-test-api:
 		(\
 			((\
 				if [ -z "${API_TEST_DATA}" ];then\
-					curl --noproxy '*' -s --fail localhost:${PORT}/${API_TEST_PATH};\
+					curl --noproxy '*' -s --fail "http://localhost:${PORT}/${API_TEST_PATH}";\
 				else\
-					echo '${API_TEST_DATA}' | curl --noproxy '*' -s -XPOST --fail ${CURL_OPTS} localhost:${PORT}/${API_TEST_PATH} -H 'Content-Type: application/json' -d @-;\
+					echo '${API_TEST_DATA}' | curl --noproxy '*' -s -XPOST --fail ${CURL_OPTS} "http://localhost:${PORT}/${API_TEST_PATH}" -H 'Content-Type: application/json' -d @-;\
 				fi;\
 			) || (echo "api test on localhost:${PORT}/${API_TEST_PATH} : ko" && exit 1))\
 			|\
@@ -1165,9 +1222,9 @@ remote-test-api:
 			(\
 				((\
 					if [ -z "${API_TEST_DATA}" ];then\
-						curl -s --fail ${CURL_OPTS} https://${APP_DNS}/${API_TEST_PATH};\
+						curl -s --fail ${CURL_OPTS} "https://${APP_DNS}/${API_TEST_PATH}";\
 					else\
-						echo '${API_TEST_DATA}' | curl -s -XPOST --fail ${CURL_OPTS} https://${APP_DNS}/${API_TEST_PATH} -H 'Content-Type: application/json' -d @-;\
+						echo '${API_TEST_DATA}' | curl -s -XPOST --fail ${CURL_OPTS} "https://${APP_DNS}/${API_TEST_PATH}" -H 'Content-Type: application/json' -d @-;\
 					fi;\
 				) || (echo "api test on https://${APP_DNS}/${API_TEST_PATH} : ko" && exit 1))\
 				|\

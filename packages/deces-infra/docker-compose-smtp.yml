@@ -1,0 +1,12 @@
+networks:
+  default:
+    external:
+      name: ${DC_NETWORK}
+
+services:
+  smtp:
+    image: maildev/maildev
+    container_name: deces-smtp-fake
+    ports:
+      - ${MAILDEV_UI_PORT:-1080}:1080
+    restart: always

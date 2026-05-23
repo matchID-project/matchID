@@ -1,0 +1,17 @@
+networks:
+  default:
+    external:
+      name: ${DC_NETWORK}
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: ${APP_BACKEND}-redis
+    volumes:
+      - ${REDIS_DATA}:/data
+    healthcheck:
+      test: ["CMD-SHELL", "(redis-cli --raw incr ping) && (redis-cli ping | grep -q PONG)"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+    restart: always

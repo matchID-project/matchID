@@ -1,0 +1,38 @@
+# Defaults for the nginx.template placeholders that run.sh sed-substitutes
+# at container boot. Values copied verbatim from packages/deces-ui/Makefile.
+# Override per-overlay if needed (e.g. tighter limits in prod).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deces-ui-nginx
+  labels:
+    app.kubernetes.io/name: deces-ui
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: matchid
+data:
+  API_USER_SCOPE: "http_x_forwarded_for"
+  API_SEARCH_LIMIT_RATE: "1r/s"
+  API_SEARCH_USER_BURST: "30 nodelay"
+  API_SEARCH_GLOBAL_LIMIT_RATE: "20r/s"
+  API_SEARCH_GLOBAL_BURST: "400 nodelay"
+  API_BULK_SUBMIT_LIMIT_RATE: "4r/m"
+  API_BULK_SUBMIT_BURST: "4 nodelay"
+  API_MISC_LIMIT_RATE: "2r/s"
+  API_MISC_USER_BURST: "7 nodelay"
+  API_MISC_GLOBAL_LIMIT_RATE: "5r/s"
+  API_MISC_GLOBAL_BURST: "40 nodelay"
+  API_AGG_LIMIT_RATE: "30r/m"
+  API_AGG_USER_BURST: "15 nodelay"
+  API_AGG_GLOBAL_LIMIT_RATE: "1r/s"
+  API_AGG_GLOBAL_BURST: "30 nodelay"
+  API_DOWNLOAD_LIMIT_RATE: "1r/m"
+  API_READ_TIMEOUT: "3600"
+  API_SEND_TIMEOUT: "1200"
+  API_MAX_BODY: "100m"
+  GOOGLE_ANALYTICS_ID: ""
+  GOOGLE_ADSENSE_ID: ""
+  DATAGOUV_PROXY_PATH: "/datagouv"
+  DATAGOUV_RESOURCES_PROXY: "https://www.data.gouv.fr"
+  DATAGOUV_RESOURCES_REWRITE_PATH: "/fr/datasets/r/"
+  # The CSP is long enough that we keep it on one line — k8s tolerates this.
+  NGINX_CSP: "default-src 'self';script-src 'self' 'unsafe-inline' 'unsafe-eval' static.cloudflareinsights.com ajax.cloudflare.com www.googletagmanager.com fundingchoicesmessages.google.com www.google.com www.google.ca analytics.google.com www.google-analytics.com pagead2.googlesyndication.com partner.googleadservices.com tpc.googlesyndication.com www.googletagservices.com adservice.google.com adservice.google.fr;style-src https: 'self' 'unsafe-inline';font-src 'self' data:;img-src 'self' matchid.io a.basemaps.cartocdn.com b.basemaps.cartocdn.com c.basemaps.cartocdn.com upload.wikimedia.org pagead2.googlesyndication.com www.google-analytics.com stats.g.doubleclick.net www.google.fr;connect-src 'self' www.data.gouv.fr cloudflareinsights.com www.google-analytics.com analytics.google.com csi.gstatic.com region1.analytics.google.com stats.g.doubleclick.net pagead2.googlesyndication.com; frame-src 'self' matchid.io www.google.com google.com googleads.g.doubleclick.net tpc.googlesyndication.com"

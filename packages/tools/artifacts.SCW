@@ -5,8 +5,8 @@ export SCW_ZONE=${SCW_REGION}-1
 export SCW_API=https://api.scaleway.com/instance/v1/zones/${SCW_ZONE}
 export SCW_IPAM_API=https://api.scaleway.com/ipam/v1alpha1/regions/${SCW_REGION}
 SCW_FLAVOR=DEV1-S
-SCW_VOLUME_SIZE=10000000000
-SCW_VOLUME_TYPE=l_ssd
+SCW_VOLUME_SIZE?=10000000000
+SCW_VOLUME_TYPE?=l_ssd
 
 #ubuntu 18.04
 

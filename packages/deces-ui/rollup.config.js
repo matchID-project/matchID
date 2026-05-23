@@ -4,7 +4,7 @@ import json from "@rollup/plugin-json";
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import livereload from 'rollup-plugin-livereload';
-import { terser } from 'rollup-plugin-terser';
+import terser from '@rollup/plugin-terser';
 import iconifySvg from 'rollup-plugin-iconify-svg';
 import { generateSW } from 'rollup-plugin-workbox';
 
@@ -36,7 +36,6 @@ const options = {
 			__AB_THRESHOLD__: process.env.AB_THRESHOLD,
 			__API_EMAIL__: process.env.API_EMAIL,
 			__API_MAX_BODY__: process.env.API_MAX_BODY,
-			__ES_PROXY_PATH__: process.env.ES_PROXY_PATH,
 			__ES_MAX_RESULTS__: process.env.ES_MAX_RESULTS,
 			__BACKEND_TOKEN_USER__: process.env.BACKEND_TOKEN_USER,
 			__BACKEND_PROXY_PATH__: process.env.BACKEND_PROXY_PATH,
@@ -44,7 +43,7 @@ const options = {
 			__DATAGOUV_CATALOG_URL__: process.env.DATAGOUV_CATALOG_URL,
 			__DATAGOUV_RESOURCES_URL__: process.env.DATAGOUV_RESOURCES_URL,
 			__MITM_URL__: process.env.MITM_URL,
-			__APP__: process.env.APP,
+			__APP_FRONTEND__: process.env.APP_FRONTEND,
 			__APP_VERSION__: process.env.APP_VERSION,
 			__THEME_DNUM__: process.env.THEME_DNUM
 		}),

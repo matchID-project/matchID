@@ -10,13 +10,14 @@ ARG APP
 WORKDIR /${APP}
 COPY requirements.txt .
 
-RUN apt-get update -y;\
-    apt-get upgrade -y;\
-    apt-get install curl build-essential -y;\
-    pip install --upgrade pip;\
-    pip install `echo $http_proxy | sed 's/\(\S\S*\)/--proxy \1/'` -r requirements.txt;\
-    apt-get autoremove build-essential -y;\
-    apt-get purge perl manpages libfakeroot:amd64 gpg-agent dpkg-dev dirmngr -y;\
+RUN set -eux;\
+    apt-get update -y &&\
+    apt-get upgrade -y &&\
+    apt-get install curl build-essential -y &&\
+    python -m pip install --upgrade "pip<24" "setuptools<45" &&\
+    pip install `echo $http_proxy | sed 's/\(\S\S*\)/--proxy \1/'` -r requirements.txt &&\
+    apt-get autoremove build-essential -y &&\
+    apt-get purge perl manpages libfakeroot:amd64 gpg-agent dpkg-dev dirmngr -y &&\
     apt-get autoclean -y
 
 RUN mkdir -p code\
@@ -75,6 +76,3 @@ VOLUME /${APP}/tests
 EXPOSE ${BACKEND_PORT}
 
 CMD ["./code/api.py"]
-
-
-

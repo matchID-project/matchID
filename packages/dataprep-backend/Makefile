@@ -47,12 +47,12 @@ export DC_DIR=${BACKEND}/docker-components
 export DC_FILE=${DC_DIR}/docker-compose
 export DC_PREFIX := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_IMAGE_NAME=${DC_PREFIX}-${APP}
-export DC_NETWORK=${DC_PREFIX}
+export DC_NETWORK ?= ${DC_PREFIX}
 export DC_NETWORK_OPT=
 export DC_BUILD_ARGS = --pull --no-cache
 export GIT_ROOT=https://github.com/matchid-project
 export GIT_ORIGIN=origin
-export GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && git branch | grep '*' | awk '{print $$2}')
+export GIT_BRANCH := $(shell [ -f "/usr/bin/git" ] && (git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
 export GIT_BRANCH_MASTER=master
 export GIT_TOOLS=tools
 export GIT_FRONTEND=frontend
@@ -60,6 +60,8 @@ export GIT_FRONTEND_BRANCH:=$(shell [ "${GIT_BRANCH}" = "${GIT_BRANCH_MASTER}" ]
 
 export FRONTEND=${BACKEND}/../${GIT_FRONTEND}
 export FRONTEND_DC_IMAGE_NAME=${DC_PREFIX}-${GIT_FRONTEND}
+export BACKEND_RUN_TARGET ?= backend
+export BACKEND_RUN_CONTAINER ?=
 
 export API_SECRET_KEY:=$(shell openssl rand -base64 24)
 export ADMIN_PASSWORD:=$(shell openssl rand -base64 24)
@@ -81,6 +83,7 @@ export MATCHID_CONFIG_BUCKET=$(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower
 
 # elasticsearch defaut configuration
 export ES_INDEX=${APP_GROUP}
+export ES_HOST ?= elasticsearch
 export ES_NODES = 1		# elasticsearch number of nodes
 export ES_SWARM_NODE_NUMBER = 2		# elasticsearch number of nodes
 export ES_MEM := 1024m		# elasticsearch : memory of each node
@@ -102,7 +105,7 @@ export SERVICES=${DB_SERVICES} backend frontend
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-tag                 := $(shell [ -f "/usr/bin/git" ] && git describe --tags | sed 's/-.*//')
+tag                 := $(shell [ -f "/usr/bin/git" ] && ((git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null) | sed 's/-.*//'))
 version 			:= $(shell export LC_COLLATE=C;export LC_ALL=C;cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v 'conf/security/(github|facebook|twitter).yml$$|.tar.gz$$|.pyc$$|.gitignore$$' | sort | xargs cat | sha1sum - | sed 's/\(......\).*/\1/')
 export APP_VERSION =  ${tag}-${version}
 
@@ -186,11 +189,8 @@ elasticsearch-docker-check:
 
 elasticsearch-stop:
 	@echo docker-compose down matchID elasticsearch
-ifeq "$(ES_NODES)" "1"
-	@${DC} -f ${DC_FILE}-elasticsearch-phonetic.yml down
-else
-	@${DC} -f ${DC_FILE}-elasticsearch-huge.yml down
-endif
+	@(${DC} -f ${DC_FILE}-elasticsearch.yml down > /dev/null 2>&1 || true)
+	@(${DC} -f ${DC_FILE}-elasticsearch-huge.yml down > /dev/null 2>&1 || true)
 
 elasticsearch2-stop:
 	@${DC} -f ${DC_FILE}-elasticsearch-huge-remote.yml down
@@ -208,13 +208,11 @@ elasticsearch-repository-plugin: elasticsearch-start
 	fi;
 
 elasticsearch-repository-config: elasticsearch-repository-plugin
-	@if [ ! -f "elasticsearch-repository-config" ]; then\
-		echo creating elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET} && \
-		docker exec -i ${USE_TTY} ${DC_PREFIX}-elasticsearch \
-			curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
-			-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
-			| grep -q '"acknowledged":true' && touch elasticsearch-repository-config;\
-	fi
+	@echo ensuring elasticsearch repository ${APP_GROUP} in s3 bucket ${REPOSITORY_BUCKET} && \
+	docker exec -i ${USE_TTY} ${DC_PREFIX}-elasticsearch \
+		curl -s -XPUT "localhost:9200/_snapshot/${APP_GROUP}" -H 'Content-Type: application/json' \
+		-d '{"type": "s3","settings": {"bucket": "${REPOSITORY_BUCKET}","client": "default","region": "${SCW_REGION}","endpoint": "${SCW_ENDPOINT}","path_style_access": true,"protocol": "https"}}' \
+		| grep -q '"acknowledged":true' && touch elasticsearch-repository-config
 
 elasticsearch-freeze:
 	@\
@@ -326,20 +324,18 @@ backup-dir:
 	@if [ ! -d "$(BACKUP_DIR)" ] ; then mkdir -p $(BACKUP_DIR) ; fi
 
 vm_max:
-ifeq ("$(vm_max_count)", "")
-	@echo updating vm.max_map_count $(vm_max_count) to 262144
-	sudo sysctl -w vm.max_map_count=262144
-endif
+	@sysctl vm.max_map_count | awk '($$NF >= 262144){print "ok"}' | grep -q 'ok' \
+		|| (echo updating vm.max_map_count $(vm_max_count) to 262144 && sudo sysctl -w vm.max_map_count=262144)
 
 elasticsearch-dev: elasticsearch
 
 elasticsearch-cluster: network vm_max
 	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
 	@cat ${DC_FILE}-elasticsearch.yml > ${DC_FILE}-elasticsearch-huge.yml
-	@(if [ ! -d ${ES_DATA}/node1 ]; then sudo mkdir -p ${ES_DATA}/node1 ; sudo chmod g+rw ${ES_DATA}/node1/.; sudo chown 1000:1000 ${ES_DATA}/node1/.; fi)
+	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod g+rw ${ES_DATA}/node1/.; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. || true; fi)
 	@(i=$(ES_NODES); while [ $${i} -gt 1 ]; \
 		do \
-			if [ ! -d ${ES_DATA}/node$$i ]; then (echo ${ES_DATA}/node$$i && sudo mkdir -p ${ES_DATA}/node$$i && sudo chmod g+rw ${ES_DATA}/node$$i/. && sudo chown 1000:1000 ${ES_DATA}/node$$i/.); fi; \
+			if [ ! -d ${ES_DATA}/node$$i ]; then (echo ${ES_DATA}/node$$i && mkdir -p ${ES_DATA}/node$$i && chmod g+rw ${ES_DATA}/node$$i/. && chown $(shell id -u):$(shell id -g) ${ES_DATA}/node$$i/. || true); fi; \
 		cat ${DC_FILE}-elasticsearch-node.yml | sed "s/%N/$$i/g;s/%MM/${ES_MEM}/g;s/%M/${ES_MEM}/g" >> ${DC_FILE}-elasticsearch-huge.yml; \
 		i=`expr $$i - 1`; \
 	done;\
@@ -349,7 +345,7 @@ elasticsearch-cluster: network vm_max
 
 elasticsearch-start: network vm_max
 	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
-	@(if [ ! -d ${ES_DATA}/node1 ]; then sudo mkdir -p ${ES_DATA}/node1 ; sudo chmod g+rw ${ES_DATA}/node1/.; sudo chown 1000:1000 ${ES_DATA}/node1/.; fi)
+	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod g+rw ${ES_DATA}/node1/.; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. || true; fi)
 	${DC} -f ${DC_FILE}-elasticsearch.yml up -d
 
 elasticsearch: elasticsearch-start
@@ -409,13 +405,13 @@ backend-stop:
 
 backend-prep:
 ifeq ("$(wildcard ${UPLOAD})","")
-	@sudo mkdir -p ${UPLOAD}
+	@mkdir -p ${UPLOAD}
 endif
 ifeq ("$(wildcard ${PROJECTS})","")
-	@sudo mkdir -p ${PROJECTS}
+	@mkdir -p ${PROJECTS}
 endif
 ifeq ("$(wildcard ${MODELS})","")
-	@sudo mkdir -p ${PROJECTS}
+	@mkdir -p ${MODELS}
 endif
 
 backend-dev: network backend-prep
@@ -427,13 +423,17 @@ backend-dev: network backend-prep
 	export DC_POSTFIX="-dev";\
 	if [ "${commit}" != "${lastcommit}" ];then\
 		echo building matchID backend after new commit;\
-		${DC} build;\
+		${DC} build ${DC_BUILD_ARGS};\
 		echo "${commit}" > ${BACKEND}/.lastcommit;\
 	fi;\
-	${DC} -f docker-compose.yml -f docker-compose-dev.yml $$DC_LOCAL up -d
+	${DC} -f docker-compose.yml -f docker-compose-dev.yml $$DC_LOCAL up -d;\
+	timeout=${TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} ${DC_PREFIX}-backend-dev curl -s --noproxy "*" --fail -XGET localhost:${BACKEND_PORT}/matchID/api/v0/ > /dev/null) ; ret=$$? ; echo;if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for backend dev to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
 
 backend-dev-stop:
 	${DC} -f docker-compose.yml down
+
+backend-dev-refresh: backend-dev-stop
+	@rm -f ${BACKEND}/.lastcommit
 
 backend-check-build:
 	@if [ -f docker-compose-local.yml ];then\
@@ -442,7 +442,7 @@ backend-check-build:
 	export BACKEND_ENV=production;\
 	if [ "${commit}" != "${lastcommit}" ];then\
 		echo building ${APP_GROUP} ${APP} for dev after new commit;\
-		${DC} build $$DC_LOCAL;\
+		${DC} -f docker-compose.yml $$DC_LOCAL build;\
 		echo "${commit}" > ${BACKEND}/.lastcommit;\
 	fi;\
 	${DC} -f docker-compose.yml $$DC_LOCAL config -q
@@ -641,6 +641,9 @@ depackage:
 logs: backend
 	@docker logs ${DC_PREFIX}-${APP}
 
+backend-dev-logs:
+	@docker logs ${DC_PREFIX}-${APP}-dev
+
 example-download:
 	@echo downloading example code
 	@mkdir -p ${EXAMPLES}
@@ -650,8 +653,18 @@ example-download:
 	@ln -s ${EXAMPLES}/projects ${BACKEND}/projects
 	@ln -s ${EXAMPLES}/data ${BACKEND}/upload
 
-recipe-run: backend
-	docker exec -i ${USE_TTY} ${DC_PREFIX}-backend curl -s -XPUT http://localhost:${PORT}/matchID/api/v0/recipes/${RECIPE}/run && echo ${RECIPE} run
+recipe-run: ${BACKEND_RUN_TARGET}
+	@BACKEND_CONTAINER="${BACKEND_RUN_CONTAINER}";\
+	if [ -z "$$BACKEND_CONTAINER" ]; then\
+		if [ "${BACKEND_RUN_TARGET}" = "backend-dev" ]; then\
+			BACKEND_CONTAINER="${DC_PREFIX}-backend-dev";\
+		else\
+			BACKEND_CONTAINER="${DC_PREFIX}-backend";\
+		fi;\
+	fi;\
+	docker exec -i ${USE_TTY} $$BACKEND_CONTAINER sh -lc "cd /${APP_GROUP} && mkdir -p /${APP_GROUP}/log && PYTHONPATH=/${APP_GROUP}/code nohup python -c 'import config; config.init(); config.read_conf(); from log import Log; from recipes import Recipe; config.log = Log(\"main\"); r = Recipe(\"${RECIPE}\"); r.init(); r.run()' >/${APP_GROUP}/log/${RECIPE}.log 2>&1 &" \
+	&& echo "{\"recipe\":\"${RECIPE}\",\"status\":\"new job\"}" \
+	&& echo ${RECIPE} run
 
 deploy-local: config up local-test-api
 

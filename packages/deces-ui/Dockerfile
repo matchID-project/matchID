@@ -1,7 +1,7 @@
 #######################
 # Step 1: Base target #
 #######################
-FROM node:18.18.1-alpine3.17 as base
+FROM node:22.22.2-alpine3.23 as base
 ARG http_proxy
 ARG https_proxy
 ARG no_proxy
@@ -13,10 +13,11 @@ ARG NPM_GIT
 ARG NPM_FIX
 ARG NPM_LATEST
 ARG NPM_VERBOSE
+ARG NPM_AUDIT_IGNORE
 ARG app_path
 ARG app_name
 ARG app_ver
-ENV APP ${APP}
+ENV APP_FRONTEND ${APP_FRONTEND}
 ENV APP_VERSION ${app_ver}
 
 WORKDIR /$app_path
@@ -46,7 +47,9 @@ RUN [ -z "${NPM_LATEST}" ] || npm i npm@latest -g
 
 COPY package.json ./
 
-RUN npm --no-git-tag-version version ${APP_VERSION}
+RUN package_version="${APP_VERSION}" ; \
+    printf '%s\n' "${package_version}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$$' || package_version="0.0.0-${package_version}" ; \
+    npm --no-git-tag-version version "${package_version}"
 RUN if [ -z "${NPM_VERBOSE}" ]; then\
       npm install;  \
     else \
@@ -54,12 +57,13 @@ RUN if [ -z "${NPM_VERBOSE}" ]; then\
     fi
 
 # set warn level to high, to avoid unreachable warning
-RUN npm config set audit-level high 
-
-RUN if [ -z "${NPM_FIX}" ]; then \
-      npm audit --registry=https://registry.npmjs.org; \
-    else \
-      npm audit fix --registry=https://registry.npmjs.org; \
+RUN if [ -z "${NPM_AUDIT_IGNORE}" ]; then \
+      npm config set audit-level high && \
+      if [ -z "${NPM_FIX}" ]; then \
+        npm audit --registry=https://registry.npmjs.org; \
+      else \
+        npm audit fix --registry=https://registry.npmjs.org; \
+      fi; \
     fi
 
 ################################
@@ -97,7 +101,6 @@ ARG MIRROR_DEBIAN
 ARG AB_THRESHOLD
 ARG API_EMAIL
 ARG API_MAX_BODY
-ARG ES_PROXY_PATH
 ARG ES_MAX_RESULTS
 ARG BACKEND_TOKEN_USER
 ARG BACKEND_PROXY_PATH
@@ -110,12 +113,11 @@ ARG THEME_DNUM
 ARG app_path
 ARG app_name
 ARG app_ver
-ENV APP ${app_name}
+ENV APP_FRONTEND ${app_name}
 ENV APP_VERSION ${app_ver}
 ENV AB_THRESHOLD ${AB_THRESHOLD}
 ENV API_EMAIL ${API_EMAIL}
 ENV API_MAX_BODY ${API_MAX_BODY}
-ENV ES_PROXY_PATH ${ES_PROXY_PATH}
 ENV ES_MAX_RESULTS ${ES_MAX_RESULTS}
 ENV BACKEND_PROXY_PATH ${BACKEND_PROXY_PATH}
 ENV BACKEND_TOKEN_USER ${BACKEND_TOKEN_USER}
@@ -126,13 +128,11 @@ ENV MITM_URL ${MITM_URL}
 ENV THEME_DNUM ${THEME_DNUM}
 # VOLUME /$app_path/build
 
-RUN echo API ${ES_PROXY_PATH}
 
-COPY ${APP}-${APP_VERSION}-frontend.tar.gz .
+COPY ${APP_FRONTEND}-${APP_VERSION}-frontend.tar.gz .
 
-RUN  set -ex ; tar -zxvf ${APP}-${APP_VERSION}-frontend.tar.gz  && \
+RUN  set -ex ; tar -zxvf ${APP_FRONTEND}-${APP_VERSION}-frontend.tar.gz  && \
      npm run build 2>&1 | tee npm.log; egrep -E '(ERROR|error)' npm.log && exit 1 ; rm -f npm.log \
      rm -rf ${app_name}-${app_ver}-frontend.tar.gz
 
 CMD ["npm", "run", "build"]
-

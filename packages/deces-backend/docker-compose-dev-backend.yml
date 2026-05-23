@@ -9,4 +9,4 @@ services:
       - ${DATA_DIR}:/${APP}/data/
       - /${APP}/node_modules
     ports:
-      - ${PORT}:8080
+      - ${BACKEND_PORT}:8080

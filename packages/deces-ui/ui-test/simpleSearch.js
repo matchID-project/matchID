@@ -11,16 +11,16 @@ const { chromium } = require('playwright');
   const host = process.env.TEST_HOST;
   
   console.log('📝 Étape 2: Navigation vers la page de recherche');
-  await page.goto(`http://${host}:${port}/`);
-  await page.goto(`http://${host}:${port}/search`);
+  await page.goto(`http://${host}:${port}/search?advanced=true`);
+  await page.waitForSelector('#ln');
+  await page.click('[title="Recherche simplifiée"]');
+  await page.waitForSelector('#q');
   console.log('✅ Page de recherche chargée');
 
   console.log('📝 Étape 3: Recherche de "dupont jean"');
-  await page.click('[placeholder="Pompidou Georges 02/04/1974"]');
-  await Promise.all([
-    page.waitForNavigation(),
-    page.fill('[placeholder="Pompidou Georges 02/04/1974"]', 'dupont jean')
-  ]);
+  await page.fill('#q', 'dupont jean');
+  await page.waitForFunction(() => window.location.search.includes('q=dupont+jean'));
+  await page.waitForSelector('text=DUPONT Jean Pierre');
   console.log('✅ Recherche effectuée');
   await page.screenshot({ path: 'simpleSearchStep1.png' })
 
