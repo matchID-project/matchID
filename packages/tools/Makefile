@@ -790,24 +790,39 @@ SCW-instance-image: ${CLOUD_SNAPSHOT_ID_FILE}.done
 
 SCW-instance-get-tagged-ids: ${CLOUD_DIR}
 	if [ ! -f "${CLOUD_TAGGED_IDS_FILE}" ];then\
-		curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
-			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .id'\
-			> ${CLOUD_TAGGED_IDS_FILE};\
+		CURRENT_SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE} 2>/dev/null || true);\
+		if [ -n "$$CURRENT_SCW_SERVER_ID" ]; then\
+			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
+				| jq -cr --arg current "$$CURRENT_SCW_SERVER_ID" '.servers[] | select(.id == $$current) | .id'\
+				> ${CLOUD_TAGGED_IDS_FILE};\
+		else\
+			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
+				| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .id'\
+				> ${CLOUD_TAGGED_IDS_FILE};\
+		fi;\
 	fi
 
 SCW-instance-get-tagged-ids-invalid: ${CLOUD_DIR}
 	@if [ ! -f "${CLOUD_TAGGED_IDS_INVALID_FILE}" ];then\
+		CURRENT_SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE} 2>/dev/null || true);\
 		curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
-			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}") | not)) | .id'\
+			| jq -cr --arg current "$$CURRENT_SCW_SERVER_ID" '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (((.tags[1] | contains("${CLOUD_TAG}")) | not) or (($$current != "") and (.id != $$current)))) | .id'\
 			> ${CLOUD_TAGGED_IDS_INVALID_FILE};\
 	fi
 
 SCW-instance-get-tagged-hosts: SCW-instance-get-tagged-ids
 	@\
 	if [ ! -f "${CLOUD_TAGGED_HOSTS_FILE}" ];then\
+			CURRENT_SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE} 2>/dev/null || true);\
+			if [ -n "$$CURRENT_SCW_SERVER_ID" ]; then\
+				curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
+					| jq -cr --arg current "$$CURRENT_SCW_SERVER_ID" '.servers[] | select(.id == $$current) | .${SCW_IP}'\
+					> ${CLOUD_TAGGED_HOSTS_FILE};\
+			else\
 			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
 				| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .${SCW_IP}'\
 				> ${CLOUD_TAGGED_HOSTS_FILE};\
+			fi;\
 	fi;
 	@\
 	if [ ! -z "${SCW_PRIVATE_NETWORK_ID"}" -a ! -f "${CLOUD_TAGGED_HOSTS_VPC_FILE}"  ]; then\
@@ -1405,3 +1420,6 @@ remote-config-test:
 
 test-remote-ssh-timeouts:
 	@bash ${TOOLS_PATH}/tests/test_remote_ssh_timeouts.sh ${TOOLS_PATH}/Makefile
+
+test-current-instance-publish:
+	@bash ${TOOLS_PATH}/tests/test_current_instance_publish.sh ${TOOLS_PATH}/Makefile
