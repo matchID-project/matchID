@@ -86,6 +86,7 @@ SSHKEY = ${SSHKEY_PRIVATE}.pub
 SSHKEYNAME = ${TOOLS}
 SSH_TIMEOUT = 90
 SSH_CONNECT_TIMEOUT = 5
+REMOTE_ACTION_TIMEOUT ?= 1800
 
 export CURL_OPTS = --retry 5 --retry-delay 2 -A "GitHub Actions"
 
@@ -1274,7 +1275,7 @@ remote-actions: remote-deploy
 			else\
 				MAKE_APP_PATH=${REMOTE_TOOLS_MAKE_PATH};\
 			fi;\
-			REMOTE_CMD=$$(printf '%q ' make -C "$$MAKE_APP_PATH" ${ACTIONS} STORAGE_ACCESS_KEY="${STORAGE_ACCESS_KEY}" STORAGE_SECRET_KEY="${STORAGE_SECRET_KEY}" ${REMOTE_ACTION_MAKEOVERRIDES}); ssh ${SSHOPTS} $$U@$$H "$$REMOTE_CMD";\
+			REMOTE_CMD=$$(printf '%q ' make -C "$$MAKE_APP_PATH" ${ACTIONS} STORAGE_ACCESS_KEY="${STORAGE_ACCESS_KEY}" STORAGE_SECRET_KEY="${STORAGE_SECRET_KEY}" ${REMOTE_ACTION_MAKEOVERRIDES}); timeout --kill-after=30s ${REMOTE_ACTION_TIMEOUT}s ssh ${SSHOPTS} $$U@$$H "$$REMOTE_CMD";\
 		fi
 
 remote-test-api-in-vpc: ${CLOUD}-instance-get-tagged-hosts

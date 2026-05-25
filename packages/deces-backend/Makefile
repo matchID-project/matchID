@@ -175,8 +175,13 @@ backend-start: backend-redis
 	@export EXEC_ENV=production; ${DC_BACKEND} up -d 2>&1 | grep -v orphan
 	@started=$$(date +%s); deadline=$$((started + BACKEND_TIMEOUT)); ret=1 ;\
 		until [ "$$(date +%s)" -ge "$$deadline" -o "$$ret" -eq "0"  ] ; do\
-			(timeout --kill-after=2s 5s docker exec -i ${USE_TTY} ${APP_BACKEND} curl -s --connect-timeout 2 --max-time 4 --fail -X GET http://localhost:${BACKEND_PORT}/deces/api/v1/healthcheck > /dev/null) ;\
-			ret=$$? ;\
+			backend_ip=$$(timeout --kill-after=2s 5s docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${APP_BACKEND} 2>/dev/null || true) ;\
+			if [ -n "$$backend_ip" ] ; then\
+				curl --noproxy '*' -s --connect-timeout 2 --max-time 4 --fail -X GET "http://$$backend_ip:${BACKEND_PORT}/deces/api/v1/healthcheck" > /dev/null ;\
+				ret=$$? ;\
+			else\
+				ret=1 ;\
+			fi ;\
 			if [ "$$ret" -ne "0" ] ; then\
 				remaining=$$((deadline - $$(date +%s))); if [ "$$remaining" -lt 0 ]; then remaining=0; fi ;\
 				echo -e "try still $$remaining seconds to start backend before timeout" ;\
