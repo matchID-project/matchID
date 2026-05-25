@@ -85,6 +85,7 @@ SSHKEY_PRIVATE = ${HOME}/.ssh/id_rsa_${APP_GROUP}
 SSHKEY = ${SSHKEY_PRIVATE}.pub
 SSHKEYNAME = ${TOOLS}
 SSH_TIMEOUT = 90
+SSH_CONNECT_TIMEOUT = 5
 
 export CURL_OPTS = --retry 5 --retry-delay 2 -A "GitHub Actions"
 
@@ -120,7 +121,7 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ConnectTimeout=${SSH_CONNECT_TIMEOUT} -o ConnectionAttempts=1 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 # Nginx publication must connect directly to the bastion/nginx host, even when
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
@@ -450,7 +451,7 @@ ${CLOUD}-instance-wait-ssh: ${CLOUD_FIRST_USER_FILE} ${CLOUD_HOST_FILE}
 			if [ "$$ret" -ne "0" ] ; then\
 				echo -en "\rwaiting for ssh service on ${CLOUD} instance - $$timeout" ; \
 				if [ ! -z "${VERBOSE}" ];then\
-					echo 'cmd: ssh ${SSHOPTS} -o ConnectTimeout=1 '"$$SSHUSER@$$HOST"; \
+					echo 'cmd: ssh ${SSHOPTS} '"$$SSHUSER@$$HOST"; \
 				fi;\
 			fi ;\
 			((timeout--)); sleep 1 ; \
@@ -1400,3 +1401,6 @@ ${GIT_BACKEND}:
 # tests for automation
 remote-config-test:
 	@/usr/bin/time -f %e make remote-actions ACTIONS="generate-test-file storage-push" remote-clean ${MAKEOVERRIDES}
+
+test-remote-ssh-timeouts:
+	@bash ${TOOLS_PATH}/tests/test_remote_ssh_timeouts.sh ${TOOLS_PATH}/Makefile
