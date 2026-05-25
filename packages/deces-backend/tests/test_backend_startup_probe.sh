@@ -16,7 +16,10 @@ fail() {
   exit 1
 }
 
-[[ "${target}" == *"timeout --kill-after=2s 5s docker exec"* ]] || fail "docker exec readiness probe is not hard-kill bounded"
+[[ "${target}" != *"docker exec"* ]] || fail "backend-start still uses docker exec for readiness"
+[[ "${target}" == *"timeout --kill-after=2s 5s docker inspect -f"* ]] || fail "container IP lookup is not bounded"
+[[ "${target}" == *"backend_ip="* ]] || fail "startup loop does not resolve the backend container IP"
+[[ "${target}" == *"curl --noproxy '*'"* ]] || fail "host readiness probe must bypass proxies"
 [[ "${target}" == *"--connect-timeout 2"* ]] || fail "curl probe is missing a connect timeout"
 [[ "${target}" == *"--max-time 4"* ]] || fail "curl probe is missing a total timeout"
 [[ "${target}" == *'started=$$(date +%s)'* ]] || fail "startup loop does not record wall-clock start time"
