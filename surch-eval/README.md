@@ -88,6 +88,25 @@ bout-en-bout `deces-backend → Surch` est confirmé (Surch reçoit bien
       `@elastic/elasticsearch` v8 est satisfait → **deces-backend interroge Surch
       à la place d'Elasticsearch, de bout en bout.**
 
+## Parité + latence via le VRAI backend — Surch vs ES 8.6.1 (local, indicatif)
+Même deces-backend, même requête (`firstName=jean&lastName=martin`), même
+mapping + extrait synthétique (3 docs), alias `elasticsearch:9200` basculé
+d'un moteur à l'autre :
+
+| Via deces-backend | total | maxScoreES (BM25) | latence p50 | moy |
+|-------------------|------:|------------------:|------------:|----:|
+| → **Surch** (header compat) | 1 | 1.4508328 | **2.7 ms** | 2.9 ms |
+| → **Elasticsearch 8.6.1** | 1 | 1.4508327 | 6.8 ms | 7.0 ms |
+
+- **Parité exacte** : même hit, score BM25 identique à 6 décimales — le backend
+  obtient le même résultat des deux moteurs (parité confirmée end-to-end, pas
+  seulement au niveau wire).
+- **Latence** : Surch ~2.5x plus rapide ici, mais **corpus de 3 docs → chiffre
+  INDICATIF du câblage/round-trip, PAS un benchmark**. Le benchmark stable
+  (artillery `test-perf-v1` + temps d'indexation) se fait **en CI sur le corpus
+  réel** (via dataprep) — le scénario artillery rejoue des noms aléatoires qui
+  n'ont de sens que sur le vrai corpus.
+
 ## Recette du swap local (reproductible)
 1. `docker network create deces-eval`
 2. Surch : `docker run -d --name deces-surch --network deces-eval
