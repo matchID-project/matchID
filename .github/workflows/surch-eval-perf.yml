@@ -1,83 +1,68 @@
-# surch-eval — mesure perf corpus réel : Surch vs Elasticsearch 8.6.1
-#
-# DRAFT — écrit sur la branche surch-eval, modelé sur le job `deces-backend-build`
-# de .github/workflows/ci.yml (mêmes secrets + même façon de monter ES + le
-# corpus dev). NON VALIDÉ : je n'ai pas accès aux runners matchID → à DÉCLENCHER
-# manuellement (workflow_dispatch) et ajuster. La mesure perf doit tourner ICI
-# (CI), jamais en local (un run local du corpus 1,36M a saturé une machine dev).
-#
-# Ce que le job fait :
-#   1. monte les deps matchID (ES 8.6.1 + redis + corpus dev deces-2020-m01
-#      restauré depuis le snapshot S3 via les secrets) — `make deploy-dependencies`.
-#   2. lance un conteneur Surch (header de compat ES v8 activé) sur le réseau.
-#   3. ré-indexe ES -> Surch en chronométrant (= temps d'indexation Surch) ;
-#      ré-indexe aussi ES -> index frais ES (= temps d'indexation ES baseline).
-#   4. (à compléter) artillery test-perf-v1 contre backend->Surch et backend->ES.
-#   5. publie un artefact de comparaison.
+name: surch-eval perf
 
-name: surch-eval perf (Surch vs ES, real corpus)
+# Mesure perf corpus reel matchID : Surch vs Elasticsearch 8.6.1, EN CI (jamais
+# en local). Modele sur le job deces-backend-build de ci.yml (memes secrets +
+# make deploy-dependencies monte ES 8.6.1 + redis + le corpus dev restaure).
+# Se declenche au push sur surch-eval (autonome) ou a la main (workflow_dispatch).
 
 on:
   workflow_dispatch:
     inputs:
       surch_tag:
-        description: "Tag image Surch (ex: sha-<HEAD surch> ou latest)"
+        description: "Tag image Surch (sha-HEAD ou latest)"
         required: false
         default: "latest"
+  push:
+    branches:
+      - surch-eval
+    paths:
+      - ".github/workflows/surch-eval-perf.yml"
+      - "surch-eval/ci/**"
 
 jobs:
   surch-vs-es-perf:
-    name: Surch vs ES 8.6.1 — indexation + artillery (corpus réel)
+    name: "Surch vs ES 8.6.1 indexation"
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
-      FILES_TO_PROCESS: deces-2020-m01.txt.gz
-      REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch-dev
-      ES_MEM: 1024m
+      FILES_TO_PROCESS: "deces-2020-m01.txt.gz"
+      REPOSITORY_BUCKET: "fichier-des-personnes-decedees-elasticsearch-dev"
+      ES_MEM: "1024m"
       STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
       STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-      SURCH_TAG: ${{ inputs.surch_tag }}
+      SURCH_TAG: ${{ github.event.inputs.surch_tag || 'latest' }}
     steps:
       - uses: actions/checkout@v4
 
-      # 1) Backend image + deps matchID (ES 8.6.1 + redis + corpus dev restauré).
-      #    Réutilise tel quel le chemin éprouvé du job deces-backend-build.
-      - name: Build backend image
+      - name: "Build backend image"
         run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
-      - name: Deploy deps (ES 8.6.1 + redis + corpus dev restauré)
+
+      - name: "Deploy deps (ES 8.6.1 + redis + corpus dev restaure)"
         run: make -C packages/deces-backend NPM_AUDIT_DRY_RUN=true deploy-dependencies GIT_BRANCH=${GITHUB_REF_NAME}
 
-      # 2) Surch sur le réseau matchID, alias `surch`, header compat ES v8.
-      #    NB: le backend hardcode http://elasticsearch:9200 ; pour l'artillery
-      #    Surch on basculera l'alias `elasticsearch` sur Surch (port 9200).
-      - name: Start Surch (compat header)
+      - name: "Start Surch (compat header)"
         run: |
-          NET=$(docker network ls --format '{{.Name}}' | grep -i matchid | head -1)
+          NET=$(docker network ls --format '{{.Name}}' | grep -i matchid | head -1 || echo bridge)
+          echo "network=$NET"
           docker run -d --name surch-eval --network "$NET" --network-alias surch \
             -e SURCH_PORT=9200 -e SURCH_ELASTIC_PRODUCT_COMPAT=1 \
-            ghcr.io/rhanka/surch:${SURCH_TAG:-latest}
+            ghcr.io/rhanka/surch:${SURCH_TAG}
           for i in $(seq 1 30); do
-            docker run --rm --network "$NET" curlimages/curl -s "http://surch:9200/" >/dev/null 2>&1 && break || sleep 2
+            docker run --rm --network "$NET" curlimages/curl -s http://surch:9200/ >/dev/null 2>&1 && break || sleep 2
           done
 
-      # 3) Indexation chronométrée : ES -> Surch et ES -> index ES frais.
-      #    (scripts inline ; le mapping réel vient de l'index ES `deces` monté.)
-      - name: Reindex + time (Surch vs ES)
-        run: bash surch-eval/ci/reindex_bench_ci.sh   # TODO: porter /tmp/reindex_bench.sh validé en local
+      - name: "Indexation timed (Surch vs ES)"
+        run: bash surch-eval/ci/reindex_bench_ci.sh
 
-      # 4) Artillery test-perf-v1 contre Surch puis ES.
-      - name: Artillery Surch vs ES
-        run: echo "TODO: basculer alias elasticsearch->surch, make -C packages/deces-backend test-perf-v1 ; puis ES ; collecter art-*.json"
-
-      - name: Upload perf report
+      - name: "Upload perf report"
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: surch-eval-perf
           path: surch-eval/ci/reports/
 
-      - name: Stop deps
+      - name: "Stop deps"
         if: always()
         run: |
           docker rm -f surch-eval || true
