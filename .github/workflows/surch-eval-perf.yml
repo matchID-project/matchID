@@ -68,6 +68,41 @@ jobs:
             alpine:3.20 sh -c 'apk add --no-cache bash curl jq bc coreutils >/dev/null && bash /ci/reindex_bench_ci.sh'
           echo "=== indexation.json ==="; cat surch-eval/ci/reports/indexation.json
 
+      - name: "Start deces-backend (alias backend) on the net"
+        run: |
+          set -e
+          IMG=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -i 'deces-backend' | grep -v '<none>' | head -1)
+          echo "backend image=$IMG"
+          docker run -d --name backend --network "$NET" --network-alias backend \
+            -e NODE_ENV=development -e BACKEND_PORT=8080 -e ES_INDEX=deces -e APP=deces -e APP_VERSION=latest \
+            -e COMMUNES_JSON=data/communes.json -e DISPOSABLE_MAIL=data/disposable-mail.txt \
+            -e DB_JSON=data/userDB.json -e PROOFS=data/proofs -e JOBS=data/jobs -e WIKIDATA_LINKS=data/wikidata.json \
+            -e BACKEND_JOB_CONCURRENCY=6 -e BACKEND_CHUNK_CONCURRENCY=3 -e BACKEND_TMP_MAX=150 \
+            -e BACKEND_TMP_DURATION=14400 -e BACKEND_TMP_WINDOW=86400 -e BACKEND_TMPFILE_PERSISTENCE=3600000 \
+            -e BACKEND_LOG_LEVEL=error -e BACKEND_TOKEN_KEY=devkey -e BACKEND_TOKEN_USER=dev -e BACKEND_TOKEN_PASSWORD=dev \
+            "$IMG"
+          for i in $(seq 1 40); do
+            docker run --rm --network "$NET" curlimages/curl -s http://backend:8080/deces/api/v1/version >/dev/null 2>&1 && break || sleep 2
+          done
+
+      - name: "Artillery vs ES 8.6.1"
+        run: |
+          make -C packages/deces-backend test-perf-v1 DC_NETWORK="$NET" || true
+          mkdir -p surch-eval/ci/reports/art-es
+          cp -r packages/deces-backend/tests/performance/reports/* surch-eval/ci/reports/art-es/ 2>/dev/null || true
+
+      - name: "Artillery vs Surch (swap alias elasticsearch->Surch)"
+        run: |
+          docker network disconnect "$NET" deces-elasticsearch || true
+          docker network connect --alias elasticsearch "$NET" surch-eval
+          docker restart backend
+          for i in $(seq 1 40); do
+            docker run --rm --network "$NET" curlimages/curl -s http://backend:8080/deces/api/v1/version >/dev/null 2>&1 && break || sleep 2
+          done
+          make -C packages/deces-backend test-perf-v1 DC_NETWORK="$NET" || true
+          mkdir -p surch-eval/ci/reports/art-surch
+          cp -r packages/deces-backend/tests/performance/reports/* surch-eval/ci/reports/art-surch/ 2>/dev/null || true
+
       - name: "Upload perf report"
         if: always()
         uses: actions/upload-artifact@v4
@@ -78,5 +113,5 @@ jobs:
       - name: "Stop deps"
         if: always()
         run: |
-          docker rm -f surch-eval || true
+          docker rm -f backend surch-eval || true
           make -C packages/deces-backend backend-redis-stop backend-smtp-stop GIT_BRANCH=${GITHUB_REF_NAME} || true
