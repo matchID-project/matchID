@@ -1,12 +1,16 @@
 # Override : remplace Elasticsearch par Surch (moteur Rust compatible OpenSearch).
-# Surch se présente sous l'alias réseau `elasticsearch` → deces-backend et
-# deces-dataprep l'atteignent de façon transparente, à condition de pointer
-# ES_PORT sur 7700 (le port Surch) au lieu de 9200.
+# Le deces-backend HARDCODE `node: 'http://elasticsearch:9200'` (dist/elasticsearch.js,
+# il ignore ES_URL) → Surch doit tourner sur le PORT 9200 sous l'alias réseau
+# `elasticsearch`. Le backend exige aussi un Redis (host hardcodé `redis`).
 #
 # Usage (petite échelle, local) :
-#   export ES_PORT=7700
-#   docker compose -f packages/deces-infra/docker-compose-surch.yml up -d surch
+#   docker compose -f packages/deces-infra/docker-compose-surch.yml up -d surch redis
 #   # puis dataprep (peuple Surch) puis deces-backend (interroge Surch)
+#
+# ATTENTION product check : le client @elastic/elasticsearch v8 du backend exige
+# le header réponse `x-elastic-product: Elasticsearch`, que Surch n'émet pas par
+# défaut (profil OpenSearch) → recherche backend vide. Cf. surch-eval/README.md
+# (décision de scope ouverte) : nécessite un Surch émettant ce header de compat.
 #
 # CI : épingler SURCH_TAG=sha-<HEAD surch> au lieu de :dev pour une mesure stable.
 
@@ -22,12 +26,12 @@ services:
     networks:
       default:
         aliases:
-          - elasticsearch        # deces-backend cible ES_HOST?=elasticsearch
+          - elasticsearch        # backend hardcode http://elasticsearch:9200
           - deces-elasticsearch  # deces-dataprep cible ES_HOST?=deces-elasticsearch
           - surch
     environment:
       - SURCH_HOST=0.0.0.0
-      - SURCH_PORT=7700
+      - SURCH_PORT=9200          # le backend hardcode le port 9200
       - RUST_LOG=${SURCH_LOG:-warn}
       # jemalloc purge agressif (parité avec le profil bench surch lot 1.7)
       - MALLOC_CONF=${SURCH_MALLOC_CONF:-}
@@ -36,5 +40,14 @@ services:
     # ce qui FOURNIT précisément la mesure de temps d'indexation recherchée.
     # Pas de volume de données à monter.
     # ports:
-    #   - 7700:7700   # décommenter pour inspection directe en local
+    #   - 9200:9200   # décommenter pour inspection directe en local
+    restart: always
+
+  redis:
+    image: redis:alpine
+    container_name: deces-redis-surch
+    networks:
+      default:
+        aliases:
+          - redis                # deces-backend hardcode le host `redis`
     restart: always
