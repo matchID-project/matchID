@@ -107,6 +107,31 @@ d'un moteur à l'autre :
   réel** (via dataprep) — le scénario artillery rejoue des noms aléatoires qui
   n'ont de sens que sur le vrai corpus.
 
+## Temps d'indexation — corpus RÉEL 1,36M docs (Surch vs ES 8.6.1)
+Corpus réel matchID restauré depuis le snapshot dev
+(`esdata_eb84b2eb_74bab91a`, bucket `fichier-des-personnes-decedees-elasticsearch-dev`)
+= **1 355 728 docs** (un mois INSEE, `deces-2020-m01`). Même dump bulk
+(`/tmp/deces-real.bulk.ndjson`), même mapping réel, mêmes chunks de 10 000 docs
+en série, `refresh_interval=30s`, même machine.
+
+| Moteur | Docs | Temps bulk | Débit moyen |
+|--------|-----:|-----------:|------------:|
+| **Surch** | 1 355 728 | **426 s** (~7,1 min) | ~3 180 docs/s |
+| **Elasticsearch 8.6.1** | 1 355 728 | 834 s (~13,9 min) | ~1 624 docs/s |
+
+→ **Surch indexe le corpus réel ~1,96x plus vite qu'Elasticsearch 8.6.1.**
+
+Caveats / findings :
+- Mesure **locale mono-machine** (indicative, corpus réel) ; la mesure stable
+  multi-rep reste pour la CI K8s.
+- **Débit Surch décroissant** avec la taille de l'index (~4 783 docs/s sur les
+  200 premiers k → ~1 901 docs/s vers 1,2M) : coût par bulk croissant (rebuild
+  partiel à chaque chunk) — piste d'optimisation. ES reste plus constant.
+- **Finding concurrence Surch** : pendant un bulk soutenu, des lectures
+  concurrentes (`_count`/`_search`) ont **bloqué** Surch (reads + writes en
+  hang). En bulk série sans accès concurrent : 0 hang, 1,36M OK. À investiguer
+  côté surch (contention lecteur/écrivain sous charge d'indexation).
+
 ## Recette du swap local (reproductible)
 1. `docker network create deces-eval`
 2. Surch : `docker run -d --name deces-surch --network deces-eval
