@@ -6,11 +6,20 @@ dataset CI matchID. 2 jobs parallèles, un runner ubuntu-latest (2 vCPU) par
 moteur. Bruts artillery = artefacts CI `surch-eval-perf-{es,surch}`.
 
 ## Indexation (bulk série, 1.36M)
-| Moteur | Docs | Temps | Débit |
-|--------|-----:|------:|------:|
-| ES 8.6.1 | 1 355 728 | **116 s** | ~11 600 docs/s |
+| Moteur | Docs | Temps `_bulk` brut | Débit |
+|--------|-----:|-------------------:|------:|
+| ES 8.6.1 | 1 355 728 | 116 s | ~11 600 docs/s |
 | Surch | 1 355 728 | **2125 s (~35 min)** | ~640 docs/s |
-→ **ES ~18x plus rapide.** Surch s'effondre à l'échelle (rebuild FST par bulk).
+
+**CADRAGE (corrigé)** : le 116 s ES est un `_bulk` brut mesuré ici — PAS la
+« vraie » indexation matchID. Côté matchID l'indexation ES = le **dataprep
+(~20 min)** qui produit un snapshot, puis **restore** (rapide) en prod. La bonne
+référence pour Surch = son temps de **dataprep**, pas un `_bulk`. Mais **35 min
+pour Surch reste aberrant** → optimisation indexation Surch (chantier Track A).
+Le chemin est déjà au-delà des O(N²) évidents (Lot 1 append incrémental + Lot 1.6
+FST déféré, vérifié) ; le résiduel super-linéaire (local 4 783→1 901 docs/s) est
+subtil (pression mémoire/allocateur/cache à l'échelle) → à localiser par
+**profilage flamegraph en CI**, pas de modif à l'aveugle ni de run local lourd.
 
 ## Artillery test-backend-v1 (via le vrai backend, 8340 req, 100% HTTP 200)
 | Moteur | médiane | p95 | p99 | max | débit |
