@@ -1,0 +1,39 @@
+# Override : remplace Elasticsearch par Surch (moteur Rust compatible OpenSearch).
+# Surch se présente sous l'alias réseau `elasticsearch` → deces-backend et
+# deces-dataprep l'atteignent de façon transparente, à condition de pointer
+# ES_PORT sur 7700 (le port Surch) au lieu de 9200.
+#
+# Usage (petite échelle, local) :
+#   export ES_PORT=7700
+#   docker compose -f packages/deces-infra/docker-compose-surch.yml up -d surch
+#   # puis dataprep (peuple Surch) puis deces-backend (interroge Surch)
+#
+# CI : épingler SURCH_TAG=sha-<HEAD surch> au lieu de :dev pour une mesure stable.
+
+networks:
+  default:
+    external:
+      name: ${DC_NETWORK}
+
+services:
+  surch:
+    image: ghcr.io/rhanka/surch:${SURCH_TAG:-dev}
+    container_name: deces-surch
+    networks:
+      default:
+        aliases:
+          - elasticsearch   # drop-in : le backend/dataprep ciblent `elasticsearch`
+          - surch
+    environment:
+      - SURCH_HOST=0.0.0.0
+      - SURCH_PORT=7700
+      - RUST_LOG=${SURCH_LOG:-warn}
+      # jemalloc purge agressif (parité avec le profil bench surch lot 1.7)
+      - MALLOC_CONF=${SURCH_MALLOC_CONF:-}
+    # Surch tient l'index EN MÉMOIRE (pas de data_dir ; la persistance se fait
+    # via snapshot S3). Conséquence : chaque run ré-indexe via deces-dataprep,
+    # ce qui FOURNIT précisément la mesure de temps d'indexation recherchée.
+    # Pas de volume de données à monter.
+    # ports:
+    #   - 7700:7700   # décommenter pour inspection directe en local
+    restart: always

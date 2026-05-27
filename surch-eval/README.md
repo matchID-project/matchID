@@ -33,9 +33,17 @@ artillery** sur les jeux de données matchID.
 - **Mesure stable en CI matchID** (creds dev dans `matchID/artefacts`,
   recettes S3/data.gouv) pour les chiffres publiables.
 
+## Note importante — Surch est en mémoire
+Surch n'a pas de répertoire de données local : l'index est tenu **en mémoire**
+(persistance optionnelle via snapshot S3). À chaque démarrage l'index est vide
+→ il faut **ré-indexer via dataprep** à chaque run, ce qui fournit pile la
+mesure de temps d'indexation voulue. Le swap réseau utilise l'alias
+`elasticsearch` (cf. `packages/deces-infra/docker-compose-surch.yml`) + `ES_PORT=7700`.
+
 ## Étapes
 - [x] Plan + voie de peuplement confirmée (dataprep, pas snapshot).
-- [ ] Override compose : service `surch` + `ES_HOST` → surch (petite échelle).
+- [x] Override compose : service `surch` (alias `elasticsearch`, port 7700),
+      drop-in `packages/deces-infra/docker-compose-surch.yml` (`ES_PORT=7700`).
 - [ ] Dataprep → Surch sur extrait réduit : valider l'indexation + santé index.
 - [ ] `test-perf-v1` contre Surch (extrait) : valider le scénario passe.
 - [ ] Passage CI : dataprep + artillery Surch vs ES, datasets complets,
