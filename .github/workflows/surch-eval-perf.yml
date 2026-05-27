@@ -43,17 +43,30 @@ jobs:
 
       - name: "Start Surch (compat header)"
         run: |
-          NET=$(docker network ls --format '{{.Name}}' | grep -i matchid | head -1 || echo bridge)
+          set -e
+          NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' deces-elasticsearch | head -1)
           echo "network=$NET"
+          test -n "$NET"
+          echo "NET=$NET" >> "$GITHUB_ENV"
           docker run -d --name surch-eval --network "$NET" --network-alias surch \
             -e SURCH_PORT=9200 -e SURCH_ELASTIC_PRODUCT_COMPAT=1 \
             ghcr.io/rhanka/surch:${SURCH_TAG}
+          ok=""
           for i in $(seq 1 30); do
-            docker run --rm --network "$NET" curlimages/curl -s http://surch:9200/ >/dev/null 2>&1 && break || sleep 2
+            if docker run --rm --network "$NET" curlimages/curl -s http://surch:9200/ >/dev/null 2>&1; then ok=1; break; fi
+            sleep 2
           done
+          test -n "$ok" || { echo "Surch unreachable"; docker logs surch-eval | tail -20; exit 1; }
+          docker run --rm --network "$NET" curlimages/curl -s -D - -o /dev/null http://surch:9200/ | grep -i x-elastic-product || true
 
       - name: "Indexation timed (Surch vs ES)"
-        run: bash surch-eval/ci/reindex_bench_ci.sh
+        run: |
+          docker run --rm --network "$NET" \
+            -v "$PWD/surch-eval/ci:/ci" -w /ci \
+            -e ES_URL=http://elasticsearch:9200 -e SURCH_URL=http://surch:9200 \
+            -e ES_INDEX=deces -e OUT_DIR=/ci/reports \
+            alpine:3.20 sh -c 'apk add --no-cache bash curl jq bc coreutils >/dev/null && bash /ci/reindex_bench_ci.sh'
+          echo "=== indexation.json ==="; cat surch-eval/ci/reports/indexation.json
 
       - name: "Upload perf report"
         if: always()
