@@ -12,6 +12,10 @@ on:
         description: "Tag image Surch (sha-HEAD ou latest)"
         required: false
         default: "latest"
+      es_backup_name:
+        description: "Snapshot ES a restaurer (vide=auto CI ~60k ; esdata_eb84b2eb_74bab91a=full 1.36M)"
+        required: false
+        default: ""
   push:
     branches:
       - surch-eval
@@ -32,6 +36,7 @@ jobs:
       STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
       STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       SURCH_TAG: ${{ github.event.inputs.surch_tag || 'latest' }}
+      ES_BACKUP_NAME: ${{ github.event.inputs.es_backup_name || '' }}
     steps:
       - uses: actions/checkout@v4
 
