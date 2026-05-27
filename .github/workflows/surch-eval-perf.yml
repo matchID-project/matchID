@@ -36,7 +36,7 @@ jobs:
     permissions:
       contents: read
     env:
-      FILES_TO_PROCESS: "deces-2020-m01.txt.gz"
+      FILES_TO_PROCESS: "deaths.txt.gz"
       REPOSITORY_BUCKET: "fichier-des-personnes-decedees-elasticsearch-dev"
       ES_MEM: "1024m"
       STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
