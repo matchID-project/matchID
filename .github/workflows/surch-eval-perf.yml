@@ -82,7 +82,7 @@ jobs:
             -e NODE_ENV=development -e BACKEND_PORT=8080 -e ES_INDEX=deces -e APP=deces -e APP_VERSION=latest \
             -e COMMUNES_JSON=data/communes.json -e DISPOSABLE_MAIL=data/disposable-mail.txt \
             -e DB_JSON=data/userDB.json -e PROOFS=data/proofs -e JOBS=data/jobs -e WIKIDATA_LINKS=data/wikidata.json \
-            -e BACKEND_JOB_CONCURRENCY=6 -e BACKEND_CHUNK_CONCURRENCY=3 -e BACKEND_TMP_MAX=150 \
+            -e BACKEND_JOB_CONCURRENCY=6 -e BACKEND_CHUNK_CONCURRENCY=3 -e BACKEND_TMP_MAX=10000000 \
             -e BACKEND_TMP_DURATION=14400 -e BACKEND_TMP_WINDOW=86400 -e BACKEND_TMPFILE_PERSISTENCE=3600000 \
             -e BACKEND_LOG_LEVEL=error -e BACKEND_TOKEN_KEY=devkey -e BACKEND_TOKEN_USER=dev -e BACKEND_TOKEN_PASSWORD=dev \
             "$IMG"
@@ -99,7 +99,8 @@ jobs:
       - name: "Artillery vs Surch (swap alias elasticsearch->Surch)"
         run: |
           docker network disconnect "$NET" deces-elasticsearch || true
-          docker network connect --alias elasticsearch "$NET" surch-eval
+          docker network disconnect "$NET" surch-eval
+          docker network connect --alias elasticsearch --alias surch "$NET" surch-eval
           docker restart backend
           for i in $(seq 1 40); do
             docker run --rm --network "$NET" curlimages/curl -s http://backend:8080/deces/api/v1/version >/dev/null 2>&1 && break || sleep 2
