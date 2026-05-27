@@ -80,7 +80,33 @@ bout-en-bout `deces-backend → Surch` est confirmé (Surch reçoit bien
 - [x] Validation swap tiny-scale locale : mapping accepté + bulk + requêtes
       DSL OK (gap `short`/`byte` corrigé côté surch).
 - [x] Stack backend+Redis+Surch monté ; `_search` backend→Surch confirmé.
-- [ ] **BLOQUÉ** sur décision : header `x-elastic-product` (product check v8).
+- [x] **SWAP END-TO-END PROUVÉ** (2026-05-26) : avec un Surch portant le header
+      de compat opt-in `SURCH_ELASTIC_PRODUCT_COMPAT=1` (image construite depuis
+      surch main `0ccb5be`), `GET /deces/api/v1/search?firstName=jean&lastName=martin`
+      renvoie `total:1` avec le résultat complet (JEAN MARTIN, score 0.94, shape
+      matchID intégrale : name/birth/death/scores). Le product check du client
+      `@elastic/elasticsearch` v8 est satisfait → **deces-backend interroge Surch
+      à la place d'Elasticsearch, de bout en bout.**
+
+## Recette du swap local (reproductible)
+1. `docker network create deces-eval`
+2. Surch : `docker run -d --name deces-surch --network deces-eval
+   --network-alias elasticsearch -e SURCH_PORT=9200
+   -e SURCH_ELASTIC_PRODUCT_COMPAT=1 surch:<tag>` (port **9200** : le backend
+   hardcode `http://elasticsearch:9200`).
+3. Redis : `docker run -d --name deces-redis --network deces-eval
+   --network-alias redis redis:alpine`.
+4. Backend : `docker run -d --name deces-backend --network deces-eval
+   -e COMMUNES_JSON=data/communes.json -e DISPOSABLE_MAIL=data/disposable-mail.txt
+   -e DB_JSON=data/userDB.json -e PROOFS=data/proofs -e JOBS=data/jobs
+   -e WIKIDATA_LINKS=data/wikidata.json -e BACKEND_JOB_CONCURRENCY=6
+   -e BACKEND_CHUNK_CONCURRENCY=3 -e BACKEND_TMP_MAX=150 -e BACKEND_TMP_DURATION=14400
+   -e BACKEND_TMP_WINDOW=86400 -e BACKEND_TMPFILE_PERSISTENCE=3600000
+   -e BACKEND_LOG_LEVEL=error -e BACKEND_TOKEN_KEY=devkey -e BACKEND_TOKEN_USER=dev
+   -e BACKEND_TOKEN_PASSWORD=dev -e ES_INDEX=deces -e APP=deces -e APP_VERSION=latest
+   -p 8084:8080 matchid/deces-backend:latest`.
+5. Peupler (ici extrait synthétique ; en réel = dataprep) puis interroger
+   `localhost:8084/deces/api/v1/search?...`.
 - [ ] Dataprep → Surch sur extrait réduit : valider l'indexation + santé index.
 - [ ] `test-perf-v1` contre Surch (extrait) : valider le scénario passe.
 - [ ] Passage CI : dataprep + artillery Surch vs ES, datasets complets,
