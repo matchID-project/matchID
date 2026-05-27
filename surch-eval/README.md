@@ -40,10 +40,25 @@ Surch n'a pas de répertoire de données local : l'index est tenu **en mémoire*
 mesure de temps d'indexation voulue. Le swap réseau utilise l'alias
 `elasticsearch` (cf. `packages/deces-infra/docker-compose-surch.yml`) + `ES_PORT=7700`.
 
+## Validation locale tiny-scale (2026-05-26)
+Conteneur Surch local (`ghcr.io/rhanka/surch:latest`, wire OpenSearch 2.17.1) :
+- **Mapping matchID `deces_index.yml` accepté** par Surch (création d'index OK)
+  — `pattern_replace` char_filter, `index_prefixes`, `geo_point`, `normalizer`
+  custom, multi-fields `.raw`, date `yyyyMMdd` : tous supportés.
+- **Bulk** d'un extrait (3 docs) : 0 erreur.
+- **Requêtes** type deces-backend OK : `match NOM=martin` → 2 hits (analyzer
+  `norm` lowercase appliqué), `bool must[NOM,PRENOM]` → 1 hit, scores BM25.
+- **Gap parité identifié** : type numérique `short` (AGE_DECES) et `byte` non
+  supportés par Surch (`mapper_parsing_exception`) → contourné en `integer`
+  pour le test ; corrigé côté surch (support `short`/`byte`). À retirer du
+  mapping de contournement une fois la release surch avec le fix utilisée.
+
 ## Étapes
 - [x] Plan + voie de peuplement confirmée (dataprep, pas snapshot).
 - [x] Override compose : service `surch` (alias `elasticsearch`, port 7700),
       drop-in `packages/deces-infra/docker-compose-surch.yml` (`ES_PORT=7700`).
+- [x] Validation swap tiny-scale locale : mapping accepté + bulk + requêtes OK
+      (gap `short`/`byte` relevé et corrigé côté surch).
 - [ ] Dataprep → Surch sur extrait réduit : valider l'indexation + santé index.
 - [ ] `test-perf-v1` contre Surch (extrait) : valider le scénario passe.
 - [ ] Passage CI : dataprep + artillery Surch vs ES, datasets complets,
