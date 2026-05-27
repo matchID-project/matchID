@@ -22,7 +22,8 @@ services:
     networks:
       default:
         aliases:
-          - elasticsearch   # drop-in : le backend/dataprep ciblent `elasticsearch`
+          - elasticsearch        # deces-backend cible ES_HOST?=elasticsearch
+          - deces-elasticsearch  # deces-dataprep cible ES_HOST?=deces-elasticsearch
           - surch
     environment:
       - SURCH_HOST=0.0.0.0

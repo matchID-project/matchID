@@ -50,3 +50,43 @@ mesure de temps d'indexation voulue. Le swap réseau utilise l'alias
       chiffres publiés (indexation + latence).
 - [ ] Caveats : champs/mappings non couverts par Surch (cf. gap-analysis),
       requêtes du backend non supportées → à lister.
+
+## Procédure de run
+
+### 1. Démarrer Surch (à la place d'ES)
+```
+export DC_NETWORK=<réseau matchID>      # cf. matchID Makefile
+export ES_PORT=7700                     # Surch écoute sur 7700
+export SURCH_TAG=sha-<HEAD surch>       # CI ; ':dev' en local
+docker compose -f packages/deces-infra/docker-compose-surch.yml up -d surch
+```
+Les alias réseau `elasticsearch` + `deces-elasticsearch` rendent le swap
+transparent pour le backend (`ES_HOST?=elasticsearch`) **et** le dataprep
+(`ES_HOST?=deces-elasticsearch`). Seul `ES_PORT=7700` est à surcharger.
+
+### 2. Peupler Surch via dataprep (= mesure d'indexation)
+La recette `deces_dataprep` lit `deces_src` (CSV S3/data.gouv) et écrit dans
+`deces_index` (connector elasticsearch → Surch).
+```
+make -C packages/deces-dataprep recipe-run-local ES_PORT=7700
+```
+- Petit extrait local : `test_chunk_size: 100` (recette) / `CHUNK_SIZE` réduit.
+- Datasets complets : en CI (creds dev dans `matchID/artefacts`).
+- **Mesurer le temps d'indexation** : durée de `recipe-run-local` + `_count`
+  final sur Surch (`GET /deces/_count`).
+
+### 3. Artillery contre Surch
+```
+make -C packages/deces-backend test-perf-v1   # scénario test-backend-v1.yml
+```
+Comparer aux mêmes chiffres ES baseline (snapshot dev restauré OU même dataprep).
+
+## Caveats parité à vérifier au peuplement
+Le mapping `deces_index.yml` exerce des réglages ES à confirmer côté Surch :
+- `index.store.preload`, `refresh_interval`, `number_of_replicas` → réglages ES
+  d'I/O/réplication, probablement ignorés/no-op côté Surch (in-memory).
+- `char_filter` `pattern_replace` (`alphanum`) + `normalizer` custom `norm`.
+- `tokenizer` `edge_ngram` (autocomplete) — déjà certifié B2 deces_v2 côté surch.
+- `dynamic: False` (rejet des champs hors mapping).
+→ tout réglage non supporté qui ferait échouer le PUT mapping est un point de
+gap à lister (et à router vers la roadmap surch si bloquant).
