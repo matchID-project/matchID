@@ -43,3 +43,14 @@ n'est PAS atteint → **on ne lance pas le 28M**.
 Note : le bench perf-paper surch montrait Surch PLUS rapide, mais sur le wire
 OpenSearch brut (trec-covid). Le workload matchID (backend deces) est different
 et defavorable a Surch aujourd'hui.
+
+---
+## MAJ 2026-05-28 — optimisation #1 (parallélisation bulk, surch sha-9b7e632)
+Re-run avec l'image Surch parallélisée (run matchID `26582048931`) :
+| deces 1,36M bulk | AVANT | APRÈS (parallélisé) |
+|---|---|---|
+| **Surch** | 2125 s | **104,2 s** |
+| ES 8.6.1 | 116 s | 115,9 s |
+→ **L'écart d'indexation 18x est FERMÉ : Surch 104s vs ES 116s = parité / Surch légèrement devant.**
+Caveat (anti-triche) : run unique, marge ~10% → reps en cours pour médiane 3-rep.
+Artillery (recherche) inchangée (Surch médiane 74,6s vs ES 12,9s, runner-bound) → optimisations suivantes.
