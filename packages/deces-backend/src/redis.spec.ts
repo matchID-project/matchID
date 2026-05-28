@@ -36,4 +36,13 @@ describe('redis.ts — single-source connection module', () => {
     expect(mod.getRedis()).toBe(mod.getRedis());
     mod.__setRedisClientForTests(null);
   });
+
+  it('redisTarget mirrors the resolved connection and is frozen', async () => {
+    process.env.REDIS_HOST = 'redis.svc.cluster.local';
+    process.env.REDIS_PORT = '6380';
+    const mod = await import('./redis');
+    expect(mod.redisTarget).toEqual({ host: 'redis.svc.cluster.local', port: 6380 });
+    expect(mod.bullmqConnection.host).toBe(mod.redisTarget.host);
+    expect(Object.isFrozen(mod.redisTarget)).toBe(true);
+  });
 });
