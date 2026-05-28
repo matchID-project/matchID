@@ -7,6 +7,15 @@ services:
   redis:
     image: redis:alpine
     container_name: ${APP_BACKEND}-redis
+    # maxmemory: hard cap so a runaway Redis fails writes instead of growing until
+    # the host OOM-kills it (the likely cause of the periodic prod Redis stalls).
+    # noeviction is REQUIRED by BullMQ (it must never have job keys evicted); OTP /
+    # cache keys are bounded by their TTL and BullMQ keys by removeOnComplete /
+    # removeOnFail in processStream.ts, so nothing needs eviction.
+    command: >-
+      redis-server
+      --maxmemory ${REDIS_MAXMEMORY:-512mb}
+      --maxmemory-policy noeviction
     volumes:
       - ${REDIS_DATA}:/data
     healthcheck:
@@ -14,4 +23,6 @@ services:
       interval: 1m
       timeout: 10s
       retries: 3
+    # restart:always recovers a crash/OOM-exit on its own (no manual restart). The
+    # rarer "running but hung" case is handled by a k8s livenessProbe once migrated.
     restart: always

@@ -1,1 +1,6 @@
 node_modules
+# Redis runtime data (RDB/AOF) must never enter the image build context: the
+# container writes it as root, so the build-context sender hits "permission
+# denied" on the AOF appendonlydir. It is also pure runtime state, not image
+# content. (.gitignore already ignores it for git; .dockerignore is separate.)
+data/redisdata
