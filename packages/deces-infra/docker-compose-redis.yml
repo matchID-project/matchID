@@ -7,6 +7,16 @@ services:
   redis:
     image: redis:alpine
     container_name: ${APP_BACKEND}-redis
+    # maxmemory: hard cap so Redis can never grow until the host OOM-kills it
+    # (the likely cause of the periodic prod Redis stalls). volatile-lru evicts
+    # only keys carrying a TTL (OTP / cache) under pressure and never the BullMQ
+    # job keys, which are kept bounded instead by removeOnComplete/removeOnFail
+    # in processStream.ts. appendonly keeps in-flight job state across a restart.
+    command: >-
+      redis-server
+      --maxmemory ${REDIS_MAXMEMORY:-512mb}
+      --maxmemory-policy volatile-lru
+      --appendonly yes
     volumes:
       - ${REDIS_DATA}:/data
     healthcheck:
@@ -14,4 +24,23 @@ services:
       interval: 1m
       timeout: 10s
       retries: 3
+    restart: always
+    labels:
+      # Watched by the autoheal sidecar: restart_always covers a clean exit,
+      # autoheal additionally restarts the container if it hangs while still
+      # "running" (healthcheck failing) — the case restart:always cannot catch.
+      autoheal: "true"
+
+  # Watchdog: restarts any container marked autoheal=true once its healthcheck
+  # reports unhealthy for AUTOHEAL_INTERVAL. On k8s this role is taken over by a
+  # native livenessProbe; this sidecar is the docker-compose equivalent.
+  autoheal:
+    image: willfarrell/autoheal:1.2.0
+    container_name: ${APP_BACKEND}-autoheal
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: "30"
+      AUTOHEAL_START_PERIOD: "60"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: always
