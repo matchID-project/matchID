@@ -118,6 +118,9 @@ version:
 
 version-files:
 	@cd ${BACKEND_PATH} && export LC_COLLATE=C; export LC_ALL=C; cat tagfiles.version | xargs -I '{}' find {} -type f | egrep -v '.tar.gz$$|.pyc$$|.gitignore$$' | sort
+
+test-backend-startup-probe:
+	@bash ${BACKEND_PATH}/tests/test_backend_startup_probe.sh ${BACKEND_PATH}/Makefile
 endif
 
 
@@ -170,16 +173,23 @@ deploy-dependencies: config
 backend-start: backend-redis
 	@echo docker-compose up backend for production ${VERSION}
 	@export EXEC_ENV=production; ${DC_BACKEND} up -d 2>&1 | grep -v orphan
-	@timeout=${BACKEND_TIMEOUT} ; ret=1 ;\
-		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			(docker exec -i ${USE_TTY} ${APP_BACKEND} curl -s --fail -X GET http://localhost:${BACKEND_PORT}/deces/api/v1/version > /dev/null) ;\
-			ret=$$? ;\
-			if [ "$$ret" -ne "0" ] ; then\
-				echo -e "try still $$timeout seconds to start backend before timeout" ;\
+	@started=$$(date +%s); deadline=$$((started + BACKEND_TIMEOUT)); ret=1 ;\
+		until [ "$$(date +%s)" -ge "$$deadline" -o "$$ret" -eq "0"  ] ; do\
+			backend_ip=$$(timeout --kill-after=2s 5s docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${APP_BACKEND} 2>/dev/null || true) ;\
+			if [ -n "$$backend_ip" ] ; then\
+				curl --noproxy '*' -s --connect-timeout 2 --max-time 4 --fail -X GET "http://$$backend_ip:${BACKEND_PORT}/deces/api/v1/healthcheck" > /dev/null ;\
+				ret=$$? ;\
+			else\
+				ret=1 ;\
 			fi ;\
-			((timeout--)); sleep 1 ;\
+			if [ "$$ret" -ne "0" ] ; then\
+				remaining=$$((deadline - $$(date +%s))); if [ "$$remaining" -lt 0 ]; then remaining=0; fi ;\
+				echo -e "try still $$remaining seconds to start backend before timeout" ;\
+			fi ;\
+			sleep 1 ;\
 		done ;\
-	echo -e "backend started in $$((BACKEND_TIMEOUT - timeout)) seconds"; exit $$ret
+	if [ "$$ret" -ne "0" ]; then docker logs --tail 200 ${APP_BACKEND} || true; fi ;\
+	echo -e "backend started in $$(( $$(date +%s) - started )) seconds"; exit $$ret
 
 backend-stop:
 	@echo docker-compose down backend for production ${VERSION}

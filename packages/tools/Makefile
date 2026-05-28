@@ -85,6 +85,8 @@ SSHKEY_PRIVATE = ${HOME}/.ssh/id_rsa_${APP_GROUP}
 SSHKEY = ${SSHKEY_PRIVATE}.pub
 SSHKEYNAME = ${TOOLS}
 SSH_TIMEOUT = 90
+SSH_CONNECT_TIMEOUT = 5
+REMOTE_ACTION_TIMEOUT ?= 1800
 
 export CURL_OPTS = --retry 5 --retry-delay 2 -A "GitHub Actions"
 
@@ -120,7 +122,7 @@ endif
 dummy		    := $(shell touch artifacts)
 include ./artifacts
 
-SSHOPTS=-o StrictHostKeyChecking=no -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
+SSHOPTS=-o StrictHostKeyChecking=no -o ConnectTimeout=${SSH_CONNECT_TIMEOUT} -o ConnectionAttempts=1 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o TCPKeepAlive=yes -i ${SSHKEY_PRIVATE} ${CLOUD_SSHOPTS}
 # Nginx publication must connect directly to the bastion/nginx host, even when
 # the runner injects a global ~/.ssh/config ProxyJump for SCW instances.
 NGINX_SSHOPTS=-F /dev/null -o ProxyJump=none -o StrictHostKeyChecking=no -i ${SSHKEY_PRIVATE}
@@ -450,7 +452,7 @@ ${CLOUD}-instance-wait-ssh: ${CLOUD_FIRST_USER_FILE} ${CLOUD_HOST_FILE}
 			if [ "$$ret" -ne "0" ] ; then\
 				echo -en "\rwaiting for ssh service on ${CLOUD} instance - $$timeout" ; \
 				if [ ! -z "${VERBOSE}" ];then\
-					echo 'cmd: ssh ${SSHOPTS} -o ConnectTimeout=1 '"$$SSHUSER@$$HOST"; \
+					echo 'cmd: ssh ${SSHOPTS} '"$$SSHUSER@$$HOST"; \
 				fi;\
 			fi ;\
 			((timeout--)); sleep 1 ; \
@@ -788,24 +790,39 @@ SCW-instance-image: ${CLOUD_SNAPSHOT_ID_FILE}.done
 
 SCW-instance-get-tagged-ids: ${CLOUD_DIR}
 	if [ ! -f "${CLOUD_TAGGED_IDS_FILE}" ];then\
-		curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
-			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .id'\
-			> ${CLOUD_TAGGED_IDS_FILE};\
+		CURRENT_SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE} 2>/dev/null || true);\
+		if [ -n "$$CURRENT_SCW_SERVER_ID" ]; then\
+			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
+				| jq -cr --arg current "$$CURRENT_SCW_SERVER_ID" '.servers[] | select(.id == $$current) | .id'\
+				> ${CLOUD_TAGGED_IDS_FILE};\
+		else\
+			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
+				| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .id'\
+				> ${CLOUD_TAGGED_IDS_FILE};\
+		fi;\
 	fi
 
 SCW-instance-get-tagged-ids-invalid: ${CLOUD_DIR}
 	@if [ ! -f "${CLOUD_TAGGED_IDS_INVALID_FILE}" ];then\
+		CURRENT_SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE} 2>/dev/null || true);\
 		curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
-			| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}") | not)) | .id'\
+			| jq -cr --arg current "$$CURRENT_SCW_SERVER_ID" '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (((.tags[1] | contains("${CLOUD_TAG}")) | not) or (($$current != "") and (.id != $$current)))) | .id'\
 			> ${CLOUD_TAGGED_IDS_INVALID_FILE};\
 	fi
 
 SCW-instance-get-tagged-hosts: SCW-instance-get-tagged-ids
 	@\
 	if [ ! -f "${CLOUD_TAGGED_HOSTS_FILE}" ];then\
+			CURRENT_SCW_SERVER_ID=$$(cat ${CLOUD_SERVER_ID_FILE} 2>/dev/null || true);\
+			if [ -n "$$CURRENT_SCW_SERVER_ID" ]; then\
+				curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
+					| jq -cr --arg current "$$CURRENT_SCW_SERVER_ID" '.servers[] | select(.id == $$current) | .${SCW_IP}'\
+					> ${CLOUD_TAGGED_HOSTS_FILE};\
+			else\
 			curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json"  \
 				| jq -cr '.servers[] | select(.name=="${CLOUD_HOSTNAME}" and (.tags[0] | contains("${GIT_BRANCH}")) and (.tags[1] | contains("${CLOUD_TAG}"))) | .${SCW_IP}'\
 				> ${CLOUD_TAGGED_HOSTS_FILE};\
+			fi;\
 	fi;
 	@\
 	if [ ! -z "${SCW_PRIVATE_NETWORK_ID"}" -a ! -f "${CLOUD_TAGGED_HOSTS_VPC_FILE}"  ]; then\
@@ -1273,7 +1290,7 @@ remote-actions: remote-deploy
 			else\
 				MAKE_APP_PATH=${REMOTE_TOOLS_MAKE_PATH};\
 			fi;\
-			REMOTE_CMD=$$(printf '%q ' make -C "$$MAKE_APP_PATH" ${ACTIONS} STORAGE_ACCESS_KEY="${STORAGE_ACCESS_KEY}" STORAGE_SECRET_KEY="${STORAGE_SECRET_KEY}" ${REMOTE_ACTION_MAKEOVERRIDES}); ssh ${SSHOPTS} $$U@$$H "$$REMOTE_CMD";\
+			REMOTE_CMD=$$(printf '%q ' make -C "$$MAKE_APP_PATH" ${ACTIONS} STORAGE_ACCESS_KEY="${STORAGE_ACCESS_KEY}" STORAGE_SECRET_KEY="${STORAGE_SECRET_KEY}" ${REMOTE_ACTION_MAKEOVERRIDES}); timeout --kill-after=30s ${REMOTE_ACTION_TIMEOUT}s ssh ${SSHOPTS} $$U@$$H "$$REMOTE_CMD";\
 		fi
 
 remote-test-api-in-vpc: ${CLOUD}-instance-get-tagged-hosts
@@ -1400,3 +1417,9 @@ ${GIT_BACKEND}:
 # tests for automation
 remote-config-test:
 	@/usr/bin/time -f %e make remote-actions ACTIONS="generate-test-file storage-push" remote-clean ${MAKEOVERRIDES}
+
+test-remote-ssh-timeouts:
+	@bash ${TOOLS_PATH}/tests/test_remote_ssh_timeouts.sh ${TOOLS_PATH}/Makefile
+
+test-current-instance-publish:
+	@bash ${TOOLS_PATH}/tests/test_current_instance_publish.sh ${TOOLS_PATH}/Makefile
