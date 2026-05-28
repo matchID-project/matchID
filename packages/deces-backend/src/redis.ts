@@ -37,6 +37,16 @@ const target = {
   port: Number(process.env.REDIS_PORT) || 6379,
 };
 
+// Exposed so startup can log the resolved target. The OTP-vs-BullMQ divergence
+// bug (OTP read REDIS_HOST while BullMQ hardcoded 'redis') was invisible at
+// runtime; logging the single resolved target at boot makes a misconfigured
+// REDIS_HOST obvious in the deploy logs instead of surfacing as silent retries.
+export const redisTarget: Readonly<{ host: string; port: number }> = Object.freeze({ ...target });
+
+export const logRedisTarget = (): void => {
+  log({ info: 'Redis target resolved', host: redisTarget.host, port: redisTarget.port });
+};
+
 // Plain-command client (OTP / cache): bounded retries so a request fails fast on
 // outage, while ioredis auto-reconnects in the background so the backend recovers
 // on its own when Redis comes back.
