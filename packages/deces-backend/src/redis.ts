@@ -44,7 +44,10 @@ const target = {
 export const redisTarget: Readonly<{ host: string; port: number }> = Object.freeze({ ...target });
 
 export const logRedisTarget = (): void => {
-  log({ info: 'Redis target resolved', host: redisTarget.host, port: redisTarget.port });
+  // source tells ops whether REDIS_HOST was injected (env) or fell back to the
+  // compose default — a fallback in a k8s pod usually means a missing env var.
+  const source = process.env.REDIS_HOST ? 'env' : 'default';
+  log({ info: 'Redis target resolved', host: redisTarget.host, port: redisTarget.port, source });
 };
 
 // Plain-command client (OTP / cache): bounded retries so a request fails fast on
