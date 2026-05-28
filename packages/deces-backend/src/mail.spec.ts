@@ -39,7 +39,7 @@ vi.mock('nodemailer', async () => {
 });
 
 import { sendOTP, validateOTP } from './mail';
-import { __setRedisClientForTests } from './redisClient';
+import { __setRedisClientForTests } from './redis';
 
 const mockRedis = new RedisMock();
 

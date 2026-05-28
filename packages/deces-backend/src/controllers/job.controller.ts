@@ -1,5 +1,6 @@
 import express from 'express';
 import { Queue, JobType } from 'bullmq';
+import { bullmqConnection } from '../redis';
 import { Controller, Get, Route, Tags, Path, Query, Request, Security } from 'tsoa';
 
 /**
@@ -23,9 +24,7 @@ export class JobsController extends Controller {
   ): Promise<any> {
     if (name !== undefined) {
       const jobQueue = new Queue(name,  {
-        connection: {
-          host: 'redis'
-        }
+        connection: bullmqConnection
       });
       return await jobQueue.getJobCounts();
     } else {
@@ -51,9 +50,7 @@ export class JobsController extends Controller {
     const scopes = (request as any).user && (request as any).user.scopes
     const user = (request as any).user && (request as any).user.user
     const jobQueue = new Queue(queueName,  {
-      connection: {
-        host: 'redis'
-      }
+      connection: bullmqConnection
     });
     const jobsTypeList: JobType[] = ['completed', 'failed', 'active', 'delayed', 'waiting', 'waiting-children', 'paused', 'repeat', 'wait', 'prioritized']
     if (jobsTypeList.includes(jobsType)) {

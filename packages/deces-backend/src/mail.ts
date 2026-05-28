@@ -3,7 +3,7 @@ import { ReviewStatus, sendOTPResponse } from './models/entities';
 import loggerStream from './logger';
 import crypto from 'crypto';
 import { readFileSync } from 'fs';
-import { getRedisClient } from './redisClient';
+import { getRedis } from './redis';
 
 interface MailConfig {
   host: string;
@@ -77,7 +77,7 @@ const otpKey = (email: string): string => {
 };
 
 const readOtpEntry = async (email: string): Promise<OTPEntry | null> => {
-  const redis = getRedisClient();
+  const redis = getRedis();
   const raw = await redis.get(otpKey(email));
   if (!raw) return null;
   try {
@@ -90,12 +90,12 @@ const readOtpEntry = async (email: string): Promise<OTPEntry | null> => {
 };
 
 const writeOtpEntry = async (email: string, entry: OTPEntry): Promise<void> => {
-  const redis = getRedisClient();
+  const redis = getRedis();
   await redis.set(otpKey(email), JSON.stringify(entry), 'EX', OTP_TTL_SECONDS);
 };
 
 const deleteOtpEntry = async (email: string): Promise<void> => {
-  const redis = getRedisClient();
+  const redis = getRedis();
   await redis.del(otpKey(email));
 };
 

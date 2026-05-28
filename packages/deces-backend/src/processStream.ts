@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Readable, Transform, pipeline, finished } from 'stream';
 import fs from 'fs';
 import { Queue, Worker, Job, QueueEvents } from 'bullmq';
+import { bullmqConnection } from './redis';
 import { RequestInput } from './models/requestInput';
 import { buildRequest } from './buildRequest';
 import { runBulkRequest } from './runRequest';
@@ -58,25 +59,25 @@ const stopJob: string[] = [];
 const stopJobReason: StopJobReason[] = [];
 const stopJobError = 'job has been stopped';
 const inputsArray: JobInput[]= []
+// Bound completed/failed job retention so Redis cannot grow unbounded and OOM
+// over time (the likely cause of periodic prod Redis stalls).
+const jobRetention = {
+  removeOnComplete: { age: 24 * 3600, count: 1000 },
+  removeOnFail: { age: 7 * 24 * 3600 },
+};
+
 const jobQueue = new Queue('jobs',  {
-  connection: {
-    host: 'redis'
-  }
+  connection: bullmqConnection,
+  defaultJobOptions: jobRetention
 });
 
 const chunkEvents = new QueueEvents('chunks', {
-  connection: {
-    host: 'redis'
-  }
+  connection: bullmqConnection
 });
 
 const chunkQueue = new Queue('chunks',  {
-  connection: {
-    host: 'redis'
-  },
-  defaultJobOptions: {
-    removeOnFail: true
-  }
+  connection: bullmqConnection,
+  defaultJobOptions: jobRetention
 });
 
 const ToLinesStream = () => {
@@ -269,9 +270,7 @@ export const processChunk = async (chunk: any[], candidateNumber: number, params
 new Worker('chunks', async (chunkJob: Job) => {
   return await processChunk(chunkJob.data.chunk, chunkJob.data.candidateNumber, {dateFormatA: chunkJob.data.dateFormatA, pruneScore: chunkJob.data.pruneScore, candidateNumber: chunkJob.data.candidateNumber});
 }, {
-  connection: {
-    host: 'redis'
-  },
+  connection: bullmqConnection,
   concurrency: Number(process.env.BACKEND_CHUNK_CONCURRENCY)
 })
 
@@ -280,9 +279,7 @@ const workerJobs = new Worker('jobs', async (job: Job) => {
   const jobFile = inputsArray.splice(jobIndex, 1).pop();
   return await processCsv(job, jobFile);
 }, {
-  connection: {
-    host: 'redis'
-  },
+  connection: bullmqConnection,
   concurrency: Number(process.env.BACKEND_JOB_CONCURRENCY)
 })
 
