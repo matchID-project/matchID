@@ -15,20 +15,30 @@ Run `matchID-project/matchID` `surch-eval perf` **26609427689** (Surch image
 index OK (1,36M indexés en 91s). C'est LA vérité latence que l'artillery via le
 backend Node masquait — et elle est sévère.
 
-## Root cause (confirmée dans le code)
-La requête backend porte **`min_score: 0`**. Surch désactivait le raccourci
-top-K/WAND dès qu'un `min_score` est présent (`run_topk_search` bail sur
-`min_score.is_some()`) → **full-scan + scoring de TOUTE la posting-list** des
-termes de noms fréquents (ex. PRENOM="marie") sur 1,36M docs → ~4,5 s.
-Or `min_score:0` est **vacuous** (BM25 ≥ 0 toujours → `score>=0` ne filtre rien).
+## Root cause (confirmée dans le code — diagnostic corrigé)
+La requête backend est un **`bool.must[function_score{ bool.must[
+bool{minimum_should_match:2, should:[match PRENOM, match NOM]} ] }]`**. Le
+raccourci WAND/top-K de Surch (`run_topk_search` → `maxscore_match`) ne
+s'applique **qu'aux requêtes `Match`/`MultiMatch` nues** (garde de type à
+`search.rs:1681`). Une requête `bool`/`function_score` est donc routée vers le
+chemin **full-scan `run_search` qui score CHAQUE doc qui matche** ; les termes
+de noms fréquents (PRENOM/NOM courants) ont d'énormes posting-lists sur 1,36M
+docs → ~4,5 s/requête. ES applique WAND/block-max à travers bool/function_score.
 
-## Fix (surch, parité-safe, général — PAS overfit)
-`run_topk_search` ne bail désormais que si `min_score > 0` ; un `min_score<=0`
-est traité comme absent → WAND/top-K reste engagé, résultat + total identiques.
-Général : tout client envoyant `min_score:0` (le client @elastic/elasticsearch
-par défaut) en profite. → re-mesure deces latency attendue en ms (vs 4,5 s).
+**Le `min_score:0` de la requête est un faux indice** : la garde de type
+disqualifie déjà la requête du top-K, donc `min_score` n'y change rien.
+(Une première hypothèse "min_score:0 désactive le top-K" a été émise puis
+**réfutée + annulée** : même en laissant passer `min_score<=0`, la requête bool
+ne prend jamais le top-K.)
+
+## Vrai levier (gros, à venir)
+Étendre WAND/block-max top-K aux requêtes **`bool` (minimum_should_match)** et
+**`function_score`**, pas seulement `Match`/`MultiMatch`. C'est l'optimisation
+search-latency structurelle (≠ micro-fix) ; c'est elle qui rapprocherait Surch
+des 3,7 ms d'ES sur deces. Parité à préserver (function_score peut produire des
+scores ≤ 0 → la borne de score WAND doit en tenir compte).
 
 ## Note méthodo
-Absolus toujours bornés par le runner GitHub 2-vCPU ; mais l'écart 1200x est
-structurel (full-scan vs WAND), pas du bruit runner. La re-mesure post-fix dira
-de combien Surch se rapproche d'ES (3,7 ms).
+Absolus bornés par le runner GitHub 2-vCPU ; mais l'écart 1200x est **structurel**
+(full-scan-scoring-toutes-docs vs WAND), pas du bruit runner — un workload où
+Surch est aujourd'hui inutilisable face à ES, à corriger pour le "substitut".
