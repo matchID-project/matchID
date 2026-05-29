@@ -89,6 +89,18 @@ jobs:
             alpine:3.20 sh -c 'apk add --no-cache bash curl coreutils >/dev/null && bash /ci/latency_engine.sh'
           cat surch-eval/ci/reports/latency-${ENGINE}.json
 
+      - name: "Latency decompose (${{ matrix.engine }})"
+        run: |
+          if [ "$ENGINE" = "surch" ]; then EURL=http://surch:9200; else EURL=http://elasticsearch:9200; fi
+          docker run --rm --network "$NET" \
+            -v "$PWD/surch-eval/ci:/ci" \
+            -v "$PWD/packages/deces-backend/tests:/names:ro" -w /ci \
+            -e ENGINE=${ENGINE} -e ENGINE_URL="$EURL" -e ES_INDEX=deces \
+            -e NAMES=/names/clients_test.csv -e OUT_DIR=/ci/reports \
+            -e REQUESTS=1500 -e WORKERS=4 \
+            alpine:3.20 sh -c 'apk add --no-cache bash curl coreutils >/dev/null && bash /ci/latency_decompose.sh'
+          cat surch-eval/ci/reports/decompose-${ENGINE}.json
+
       - name: "Point backend at Surch (stop ES, Surch->elasticsearch alias)"
         if: matrix.engine == 'surch'
         run: |
