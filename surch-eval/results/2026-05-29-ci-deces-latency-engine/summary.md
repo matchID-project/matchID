@@ -42,3 +42,23 @@ scores ≤ 0 → la borne de score WAND doit en tenir compte).
 Absolus bornés par le runner GitHub 2-vCPU ; mais l'écart 1200x est **structurel**
 (full-scan-scoring-toutes-docs vs WAND), pas du bruit runner — un workload où
 Surch est aujourd'hui inutilisable face à ES, à corriger pour le "substitut".
+
+---
+## MAJ — après optimisation #1 (intersection msm==n_should + unwrap function_score)
+Run matchID `26616206949` (Surch `sha-ec3e999`). MÊME probe, MÊME corpus 1,36M.
+
+| moteur | p50 | p95 | p99 | max | moy |
+|--------|----:|----:|----:|----:|----:|
+| ES 8.6.1 (run stable précédent) | 3,7 ms | 8,1 | 11,7 | 21,4 | 4,2 |
+| **Surch AVANT #1** | 4513 ms | 5332 | 7313 | 9727 | 4511 |
+| **Surch APRÈS #1** | **87,2 ms** | 166,3 | 196,7 | 287,0 | 98,0 |
+
+→ **#1 = ~52x plus rapide sur deces** (4513→87 ms), 0 erreur, parité préservée
+(oracles verts). L'écart vs ES passe de ~1200x à ~24x. Cause éliminée : Surch
+unionnait+scorait toute la posting-list des shoulds ; il intersecte maintenant
+(msm:2/2 = AND) après avoir traversé le wrapper function_score.
+
+Reste (87ms vs 3,7ms ES) : autre nature (intersection de BTreeSet<String> d'IDs
+publics + scoring + runner 2-vCPU), pistes backlog #10 (id maps denses) — PAS
+l'union/disjonction. (Le job es a flaké ce run sur le build backend = fetch
+wikidata transitoire ; ES p50 3,7ms repris du run stable, même ES/probe.)
