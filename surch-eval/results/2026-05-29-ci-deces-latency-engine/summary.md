@@ -62,3 +62,23 @@ Reste (87ms vs 3,7ms ES) : autre nature (intersection de BTreeSet<String> d'IDs
 publics + scoring + runner 2-vCPU), pistes backlog #10 (id maps denses) — PAS
 l'union/disjonction. (Le job es a flaké ce run sur le build backend = fetch
 wikidata transitoire ; ES p50 3,7ms repris du run stable, même ES/probe.)
+
+---
+## MAJ — après optimisation #10 (intersection sur doc-ids entiers denses u32)
+Run matchID `26651526846` (Surch `sha-8aae6a1`). Candidate resolution +
+intersection en `u32` interne (plus de clone de `String` publique par doc).
+
+| moteur | p50 | p95 | p99 | max | moy |
+|--------|----:|----:|----:|----:|----:|
+| ES 8.6.1 (run stable) | 3,7 ms | 8,1 | 11,7 | 21,4 | 4,2 |
+| Surch après #1 | 87,2 | 166,3 | 196,7 | 287,0 | 98,0 |
+| **Surch après #10** | **69,9** | **84,7** | **120,5** | **150,0** | **70,3** |
+
+→ #10 : **p50 −20%, p95 ÷2** (166→85). Cumulé deces **4513→70 ms (~64x)**,
+écart vs ES **1200x → ~19x**, 0 erreur, parité préservée (37 blocs verts).
+
+Résidu (70 vs 3,7 ms) : la résolution construit encore les DEUX posting-lists
+complètes (PRENOM, NOM = dizaines de milliers chacune) avant d'intersecter —
+O(df) par clause. Une intersection leapfrog/galloping sur skip-lists (Surch les
+a côté maxscore) éviterait de matérialiser les deux ensembles → prochain levier
+deces (rendements décroissants). + runner 2-vCPU.
