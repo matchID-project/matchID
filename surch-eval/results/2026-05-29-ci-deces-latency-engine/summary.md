@@ -82,3 +82,26 @@ complètes (PRENOM, NOM = dizaines de milliers chacune) avant d'intersecter —
 O(df) par clause. Une intersection leapfrog/galloping sur skip-lists (Surch les
 a côté maxscore) éviterait de matérialiser les deux ensembles → prochain levier
 deces (rendements décroissants). + runner 2-vCPU.
+
+---
+## DÉCOMPOSITION des 70ms (run 26666766298, surch sha-8aae6a1) — diagnostic
+Même noms, 3 formes : `match` (1 terme NOM) / `bool` (PRENOM ∧ NOM) / `full`.
+
+| p50 (ms) | match | bool | full |
+|----------|------:|-----:|-----:|
+| ES 8.6.1 | 4,0 | **3,0** | 2,8 |
+| Surch    | 36,1 | **68,2** | 68,7 |
+
+**Constats (data-driven)** :
+1. Wrapper `function_score`+`min_score:0`+`track_total_hits`+`sort` ≈ **gratuit**
+   (Surch full 68,7 ≈ bool 68,2). Écarté comme cause.
+2. Un **seul `match` terme courant = 36 ms** (vs ES 4 ms, 9x). Coût de base.
+3. `bool` ≈ **2× match** → Surch **matérialise la posting-list COMPLÈTE de chaque
+   terme (O(df))** ; l'intersection est gratuite. ES : `bool` (3ms) < `match`
+   (4ms) → block-max skip, ne touche jamais les listes complètes.
+
+**Levier confirmé** : éviter de matérialiser les listes O(df).
+- bool deces → **intersection leapfrog** (piloter le terme rare, `advance_to`
+  l'autre ; primitive `PostingsBlockSkipIter::advance_to` déjà présente).
+- match seul → s'assurer que le top-K block-max WAND **skippe** vraiment
+  (ne score que ce qu'il faut pour le top-20).
