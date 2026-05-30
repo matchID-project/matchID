@@ -105,3 +105,32 @@ Même noms, 3 formes : `match` (1 terme NOM) / `bool` (PRENOM ∧ NOM) / `full`.
   l'autre ; primitive `PostingsBlockSkipIter::advance_to` déjà présente).
 - match seul → s'assurer que le top-K block-max WAND **skippe** vraiment
   (ne score que ce qu'il faut pour le top-20).
+
+---
+## MAJ — après #11 (intersection leapfrog/galloping) — NEUTRE sur deces (honnête)
+Run matchID `26668292578` (Surch `sha-a6fa7aa`, es+surch dans le MÊME run).
+Intersection leapfrog implémentée (pilote le terme rare, `advance_to` sur skip-lists
+FoR, sans matérialiser les listes complètes). **Parité préservée** : `cargo test`
+vert + ci-k8s ndcg-gate vert (SciFact Surch 0,6576 ; TREC-COVID 0,4750 — inchangés).
+
+| p50 (ms) | match | bool | full | full (probe 2000) |
+|----------|------:|-----:|-----:|------------------:|
+| ES 8.6.1 (ce run) | 3,6 | 3,1 | 2,7 | 4,6 |
+| Surch #10 (run préc.) | 36,1 | 68,2 | 68,7 | 69,9 |
+| **Surch #11 (ce run)** | 39,7 | 74,4 | 75,2 | **78,2** |
+
+**Verdict honnête : #11 ne bouge PAS la latence deces.** Preuve : le `match` (terme
+seul, leapfrog NON engagé car mono-terme) passe 36,1→39,7 (+10%) sans aucun
+changement de code sur ce chemin → ce run-runner 2-vCPU est ~10% plus lent ; le
+même +10% appliqué au bool #10 (68,2×1,10≈75) explique entièrement le 74,4. La
+stratégie d'intersection a changé le bool de ~0%. **La conjonction n'était pas le
+goulot.**
+
+**Vrai levier (re-confirmé par la décompo)** : `match` terme courant = ~40 ms ≈
+**11× ES**, et `bool ≈ 2× match`. Le coût dominant est le **hot-loop par-terme**
+(décodage FoR + scoring BM25 de toute la posting-list), PAS l'intersection. ES ne
+le paie jamais (block-max WAND top-K : son `bool` 3,1 ms < son `match` 3,6 ms).
+Prochain levier deces : faire **skipper** le top-K du `match` nu
+(`run_topk_search`/`maxscore_match`) sur ce corpus → fixe aussi le `bool`. #11
+reste en place (parité-safe, utile pour conjonctions sélectives `df_rare ≪ df_autre`
+mono-token) mais ne rapproche pas des 2× ES.
