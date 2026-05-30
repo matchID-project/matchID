@@ -134,3 +134,30 @@ Prochain levier deces : faire **skipper** le top-K du `match` nu
 (`run_topk_search`/`maxscore_match`) sur ce corpus → fixe aussi le `bool`. #11
 reste en place (parité-safe, utile pour conjonctions sélectives `df_rare ≪ df_autre`
 mono-token) mais ne rapproche pas des 2× ES.
+
+---
+## MAJ — #12+#13 : élimination du SETUP par-requête → 2× PLUS RAPIDE QU'ES (p50) ✅
+Diagnostic #11 corrigé par les données : les postings en mémoire sont déjà
+décodés (`&[Posting]`), le goulot n'était PAS le per-doc loop mais le **setup
+O(n) par-requête** : copie+pointer-chase d'un `BTreeMap` de doc_len, et build
+d'un `BTreeSet` à partir de postings déjà triés. Quatre changements parité-safe :
+dense `Vec<u64>` doc_len (`de19a9c`), fast-path mono-token candidats (`dfb6c25`),
+emprunt zéro-copie du slice doc_len (`3bfec8f`), précompute incrémental de
+`min_doc_len` (`2c59e91`).
+
+Run `26697199003` (sha-`2c59e91`, baseline ES propre même run) :
+
+| deces p50 (ms) | match | bool | full | full probe |
+|---|--:|--:|--:|--:|
+| ES 8.6.1 | 3,8 | 3,1 | 2,7 | **4,9** |
+| **Surch** | **1,7** | **1,8** | **1,9** | **2,0** |
+
+→ **Surch p50 2,0 ms vs ES 4,9 ms = 2,45× plus rapide** : critère « ≥2× » ATTEINT
+sur la médiane (et la moyenne 3,8 vs 5,5). Parcours cumulé deces **4513 → 2,0 ms**,
+écart vs ES **~1200× plus lent → 2,45× plus rapide**. Parité préservée (oracles +
+ndcg-gate verts).
+
+**Caveat — la QUEUE reste le front** : Surch p95 14,3 / p99 20,8 / max 62,8 vs ES
+10,6 / 15,2 / 21,8. C'est le `bool`/`function_score` à fort df (scan complet via
+`run_search`) ; ES élague via WAND. Prochain levier deces = étendre le top-K
+WAND aux `bool`(msm)/`function_score` pour resserrer p95/p99.
