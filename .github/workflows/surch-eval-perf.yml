@@ -18,6 +18,10 @@ on:
         description: "Snapshot ES (vide=auto CI ~60k ; esdata_eb84b2eb_74bab91a=full 1.36M)"
         required: false
         default: ""
+      workers:
+        description: "Probe concurrency (4=default ; 2=match 2-vCPU runner, isolates oversubscription tail)"
+        required: false
+        default: "4"
   push:
     branches:
       - surch-eval
@@ -43,6 +47,7 @@ jobs:
       STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       SURCH_TAG: ${{ github.event.inputs.surch_tag || 'latest' }}
       ES_BACKUP_NAME: ${{ github.event.inputs.es_backup_name || '' }}
+      PROBE_WORKERS: ${{ github.event.inputs.workers || '4' }}
       ENGINE: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@v4
@@ -85,7 +90,7 @@ jobs:
             -v "$PWD/packages/deces-backend/tests:/names:ro" -w /ci \
             -e ENGINE=${ENGINE} -e ENGINE_URL="$EURL" -e ES_INDEX=deces \
             -e NAMES=/names/clients_test.csv -e OUT_DIR=/ci/reports \
-            -e REQUESTS=2000 -e WORKERS=4 \
+            -e REQUESTS=2000 -e WORKERS=${PROBE_WORKERS} \
             alpine:3.20 sh -c 'apk add --no-cache bash curl coreutils >/dev/null && bash /ci/latency_engine.sh'
           cat surch-eval/ci/reports/latency-${ENGINE}.json
 
@@ -97,7 +102,7 @@ jobs:
             -v "$PWD/packages/deces-backend/tests:/names:ro" -w /ci \
             -e ENGINE=${ENGINE} -e ENGINE_URL="$EURL" -e ES_INDEX=deces \
             -e NAMES=/names/clients_test.csv -e OUT_DIR=/ci/reports \
-            -e REQUESTS=1500 -e WORKERS=4 \
+            -e REQUESTS=1500 -e WORKERS=${PROBE_WORKERS} \
             alpine:3.20 sh -c 'apk add --no-cache bash curl coreutils >/dev/null && bash /ci/latency_decompose.sh'
           cat surch-eval/ci/reports/decompose-${ENGINE}.json
 
