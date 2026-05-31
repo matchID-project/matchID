@@ -80,10 +80,22 @@ spec:
               value: redis
             - name: REDIS_PORT
               value: "6379"
+            # Bulk jobs and proofs runtime paths. processStream.ts and
+            # search.controller.ts write payloads under these roots; without
+            # them Node interpolates `undefined/...` and crashes on first
+            # submission. emptyDir is fine for smoke and single-pod dev;
+            # M1 swaps in a PVC for persistence.
+            - name: JOBS
+              value: /data/jobs
+            - name: PROOFS
+              value: /data/proofs
           envFrom:
             - secretRef:
                 name: deces-backend-secrets
                 optional: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
           readinessProbe:
             httpGet:
               path: /deces/api/v1/healthcheck
@@ -105,3 +117,6 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+      volumes:
+        - name: data
+          emptyDir: {}

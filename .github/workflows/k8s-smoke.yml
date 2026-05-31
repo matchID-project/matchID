@@ -19,7 +19,7 @@ name: K8s smoke
 on:
   push:
     branches:
-      - experiment/k8s
+      - main
     paths:
       - 'deploy/k8s/**'
       - '.github/workflows/k8s-smoke.yml'

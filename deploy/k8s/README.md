@@ -1,8 +1,9 @@
 # matchID on Kubernetes — local k3s + PoC overlays
 
-Experimental k8s manifests for matchID. **Not** yet wired into CI/CD; meant
-to be driven by hand on a local k3d cluster or against the `poc` Kapsule
-cluster owned by `rhanka/poc-k8s`.
+Experimental k8s manifests for matchID. Wired into CI via
+`.github/workflows/k8s-smoke.yml` (k3d-local smoke on push/PR, dispatch-only
+Kapsule PoC smoke). Can also be driven by hand on a local k3d cluster or
+against the `poc` Kapsule cluster owned by `rhanka/poc-k8s`.
 
 ## Environment tiers (target topology)
 
@@ -29,16 +30,17 @@ deploy/k8s/
 
 `base/` declares the four workloads :
 
-| Workload          | Image                                                  | Port  | Notes                                    |
-| ----------------- | ------------------------------------------------------ | ----- | ---------------------------------------- |
-| deces-backend     | `matchid/deces-backend:latest`                         | 8080  | Node.js API, talks to ES via `ES_URL`    |
-| deces-ui          | `matchid/deces-ui:latest`                              | 8083  | Nginx reverse-proxy + static UI          |
-| elasticsearch     | `docker.elastic.co/elasticsearch/elasticsearch:7.17.28`| 9200  | single-node, dev profile, JVM -Xmx512m   |
+| Workload          | Image                                                | Port  | Notes                                    |
+| ----------------- | ---------------------------------------------------- | ----- | ---------------------------------------- |
+| deces-backend     | `matchid/deces-backend:latest`                       | 8080  | Node.js API, talks to ES via `ES_URL`    |
+| deces-ui          | `matchid/deces-ui:latest`                            | 8083  | Nginx reverse-proxy + static UI          |
+| elasticsearch     | `docker.elastic.co/elasticsearch/elasticsearch:8.6.1`| 9200  | single-node, dev profile, JVM -Xmx512m   |
+| redis             | `redis:alpine`                                       | 6379  | BullMQ broker for bulk/proof jobs        |
 
-> **Heads-up — ES version drift.** The repo's compose files declare
-> `ES_VERSION=8.6.1`. The poc-k8s contract demands 7.17.x to stay under
-> 1 GiB heap; we pin `7.17.28` here. Reconciling the two is part of the
-> follow-up surch swap (see `EXPERIMENT_SURCH.md`).
+ES version aligned with the rest of the repo (`ES_VERSION=8.6.1` in
+`packages/deces-infra/Makefile`, `packages/deces-dataprep/Makefile`,
+`packages/dataprep-backend/Makefile`). Reconciliation with the poc-k8s
+heap budget is M1 follow-up.
 
 ## Local flow (recommended: k3d)
 
@@ -116,13 +118,14 @@ The `poc` overlay assumes :
 
 ## Resource sizing
 
-Aligned 1:1 with the poc-k8s intake (`requests/matchid.md`) :
+Aligned with the poc-k8s intake (`requests/matchid.md`) :
 
-| Pod            | CPU req / limit | RAM req / limit | Notes                  |
-| -------------- | --------------- | --------------- | ---------------------- |
-| deces-backend  | 100m / 500m     | 256Mi / 512Mi   | single replica         |
-| deces-ui       | 50m  / 200m     | 64Mi  / 128Mi   | single replica         |
-| elasticsearch  | 250m / 1500m    | 512Mi / 1Gi     | dev profile, 512m heap |
+| Pod            | CPU req / limit | RAM req / limit | Notes                       |
+| -------------- | --------------- | --------------- | --------------------------- |
+| deces-backend  | 100m / 500m     | 256Mi / 512Mi   | single replica              |
+| deces-ui       | 50m  / 200m     | 64Mi  / 128Mi   | single replica              |
+| elasticsearch  | 250m / 1500m    | 512Mi / 1Gi     | dev profile, 512m heap      |
+| redis          | 25m  / 100m     | 32Mi  / 192Mi   | BullMQ broker, no eviction  |
 
-Totals : **400m / 2200m CPU, 832Mi / 1664Mi RAM** — fits inside the
-proposed quota (500m/2500m + 512Mi/3Gi).
+Totals : **425m / 2300m CPU, 864Mi / 1856Mi RAM**. Quota tuning per
+overlay is part of M1 (see `K8S_READINESS_AUDIT.md`).

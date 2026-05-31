@@ -65,7 +65,7 @@ spec:
             runAsUser: 0
       containers:
         - name: elasticsearch
-          image: docker.elastic.co/elasticsearch/elasticsearch:7.17.28
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.6.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
