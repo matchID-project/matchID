@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: deces-backend
+  labels:
+    app.kubernetes.io/name: deces-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: matchid
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: deces-backend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
