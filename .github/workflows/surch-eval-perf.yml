@@ -92,6 +92,17 @@ jobs:
             test "$RUNNER_LABEL" != "ubuntu-latest" || { echo "::error::full/prod surch-eval must run on a non-default runner or remote-capable label"; exit 2; }
           fi
 
+      - name: "Seed empty wikidata.json (skip flaky Wikidata SPARQL fetch)"
+        run: |
+          # backend-build-image depends on data/wikidata.json (a Makefile file target
+          # that fetches query.wikidata.org via SPARQL — flaky, fails the whole run
+          # before any measurement). Pre-seeding [] makes Make see the file as present
+          # and skip the fetch. Empty wikidata is harmless for the deces search-latency
+          # bench (no entity enrichment is exercised). DATA_DIR=data + make -C
+          # packages/deces-backend => packages/deces-backend/data/wikidata.json.
+          mkdir -p packages/deces-backend/data
+          [ -f packages/deces-backend/data/wikidata.json ] || echo '[]' > packages/deces-backend/data/wikidata.json
+
       - name: "Build backend image"
         run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
 
