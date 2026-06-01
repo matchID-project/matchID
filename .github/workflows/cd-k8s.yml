@@ -1,0 +1,179 @@
+name: CD k8s
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deploy/k8s/**'
+      - 'packages/deces-backend/**'
+      - 'packages/deces-ui/**'
+      - '.github/workflows/cd-k8s.yml'
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: Kubernetes target
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - test
+      image_tag:
+        description: Existing Docker image tag to deploy for both backend and UI; empty uses repo artifact versions
+        required: false
+        type: string
+
+concurrency:
+  group: cd-k8s-${{ github.event.inputs.deploy_target || 'dev' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      REQUESTED_TARGET: ${{ github.event.inputs.deploy_target || 'dev' }}
+      IMAGE_TAG_INPUT: ${{ github.event.inputs.image_tag || '' }}
+      KUBE_CONFIG_DATA_DEV: ${{ secrets.KUBE_CONFIG_DATA_DEV }}
+      KUBE_CONFIG_DATA_TEST: ${{ secrets.KUBE_CONFIG_DATA_TEST }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target and image tags
+        run: |
+          set -euo pipefail
+
+          case "$REQUESTED_TARGET" in
+            dev)
+              echo "NAMESPACE=matchid-dev" >> "$GITHUB_ENV"
+              echo "OVERLAY=dev" >> "$GITHUB_ENV"
+              echo "HOSTNAME=dev.deces.matchid.io" >> "$GITHUB_ENV"
+              ;;
+            test)
+              echo "NAMESPACE=matchid-test" >> "$GITHUB_ENV"
+              echo "OVERLAY=test" >> "$GITHUB_ENV"
+              echo "HOSTNAME=test.deces.matchid.io" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Unsupported deploy target: $REQUESTED_TARGET" >&2
+              exit 1
+              ;;
+          esac
+
+          if [ -n "$IMAGE_TAG_INPUT" ]; then
+            backend_tag="$IMAGE_TAG_INPUT"
+            ui_tag="$IMAGE_TAG_INPUT"
+          else
+            backend_tag="$(make -s artifact-version-deces-backend)"
+            ui_tag="$(make -s artifact-version-deces-ui)"
+          fi
+
+          {
+            echo "BACKEND_IMAGE_TAG=$backend_tag"
+            echo "UI_IMAGE_TAG=$ui_tag"
+          } >> "$GITHUB_ENV"
+
+      - name: Install kubeconfig
+        run: |
+          set -euo pipefail
+          case "$REQUESTED_TARGET" in
+            dev) kubeconfig_data="$KUBE_CONFIG_DATA_DEV" ;;
+            test) kubeconfig_data="$KUBE_CONFIG_DATA_TEST" ;;
+          esac
+          if [ -z "${kubeconfig_data:-}" ]; then
+            echo "Missing kubeconfig secret for target $REQUESTED_TARGET" >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$kubeconfig_data" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl version --client=true
+          kubectl get ns "$NAMESPACE"
+
+      - name: Wait for Docker images
+        run: |
+          set -euo pipefail
+          for image in "matchid/deces-backend:$BACKEND_IMAGE_TAG" "matchid/deces-ui:$UI_IMAGE_TAG"; do
+            echo "Waiting for $image"
+            for attempt in $(seq 1 18); do
+              if docker manifest inspect "$image" >/dev/null 2>&1; then
+                echo "$image is available"
+                break
+              fi
+              if [ "$attempt" -eq 18 ]; then
+                echo "$image not available after retries" >&2
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+
+      - name: Render and apply overlay
+        run: |
+          set -euo pipefail
+          work_dir="$(mktemp -d)"
+          cp -R deploy/k8s "$work_dir/k8s"
+          overlay_dir="$work_dir/k8s/overlays/$OVERLAY"
+          cat >> "$overlay_dir/kustomization.yaml" <<EOF
+          images:
+            - name: matchid/deces-backend
+              newTag: $BACKEND_IMAGE_TAG
+            - name: matchid/deces-ui
+              newTag: $UI_IMAGE_TAG
+          EOF
+          kubectl kustomize "$overlay_dir" >/tmp/matchid-k8s-rendered.yaml
+          kubectl apply -f /tmp/matchid-k8s-rendered.yaml
+
+      - name: Scale test target up
+        if: env.REQUESTED_TARGET == 'test'
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" scale deploy/redis --replicas=1
+          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=3m deploy/redis
+          kubectl -n "$NAMESPACE" scale statefulset/elasticsearch --replicas=1
+          kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=10m
+          kubectl -n "$NAMESPACE" scale deploy/deces-backend deploy/deces-ui --replicas=1
+
+      - name: Wait for runtime
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m deploy/redis
+          kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=10m
+          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
+            deploy/deces-backend deploy/deces-ui
+
+      - name: Smoke readiness
+        run: |
+          set -euo pipefail
+          traefik_lb="$(
+            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+            kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+            true
+          )"
+          if [ -n "$traefik_lb" ]; then
+            curl -fsSk -m 10 -H "Host: $HOSTNAME" \
+              "https://$traefik_lb/deces/api/v1/readiness"
+          else
+            kubectl -n "$NAMESPACE" port-forward svc/deces-backend 8080:8080 &
+            pf=$!
+            trap 'kill "$pf" 2>/dev/null || true' EXIT
+            sleep 5
+            curl -fsS -m 10 http://localhost:8080/deces/api/v1/readiness
+          fi
+
+      - name: Diagnostics on failure
+        if: failure() || cancelled()
+        run: |
+          kubectl -n "$NAMESPACE" get pods -o wide || true
+          kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -80 || true
+          kubectl -n "$NAMESPACE" describe pods | tail -160 || true
+          kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
+
+      - name: Scale test target down
+        if: always() && env.REQUESTED_TARGET == 'test'
+        run: |
+          kubectl -n "$NAMESPACE" scale deploy/deces-backend deploy/deces-ui deploy/redis --replicas=0 || true
+          kubectl -n "$NAMESPACE" scale statefulset/elasticsearch --replicas=0 || true

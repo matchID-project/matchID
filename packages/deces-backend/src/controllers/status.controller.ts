@@ -1,6 +1,7 @@
-import { Controller, Get, Route, Response, Tags  } from 'tsoa';
-import { HealthcheckResponse } from '../models/result';
-import { getClient } from '../elasticsearch';
+import { Controller, Get, Route, Response, Tags } from 'tsoa';
+import { HealthcheckResponse, ReadinessResponse } from '../models/result';
+import { checkClientHealth, getClient } from '../elasticsearch';
+import { checkRedisHealth } from '../redisClient';
 import loggerStream from '../logger';
 
 interface DecesRecord {
@@ -31,6 +32,31 @@ export class StatusController extends Controller {
   @Get('/healthcheck')
   public msg(): HealthcheckResponse {
     return { msg: 'OK' };
+  }
+
+  /**
+   * Readiness check endpoint
+   * @summary Vérifie que les dépendances runtime du backend sont joignables
+   */
+  @Response<ReadinessResponse>('200', 'OK')
+  @Response<ReadinessResponse>('503', 'Unavailable')
+  @Tags('Check')
+  @Get('/readiness')
+  public async readiness(): Promise<ReadinessResponse> {
+    const [elasticsearch, redis] = await Promise.all([
+      checkClientHealth(),
+      checkRedisHealth(),
+    ]);
+    const ready = elasticsearch && redis;
+
+    this.setStatus(ready ? 200 : 503);
+    return {
+      msg: ready ? 'OK' : 'Unavailable',
+      dependencies: {
+        elasticsearch,
+        redis,
+      },
+    };
   }
 
   /**

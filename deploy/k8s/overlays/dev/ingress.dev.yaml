@@ -1,5 +1,4 @@
-# PoC overlay : real hostname behind cert-manager-issued TLS.
-# The `letsencrypt-prod` ClusterIssuer is provisioned by the poc-k8s repo.
+# Dev overlay : public hostname behind cert-manager-issued TLS.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,10 +9,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - matchid-poc.matchid.io
-      secretName: matchid-poc-tls
+        - dev.deces.matchid.io
+      secretName: matchid-dev-tls
   rules:
-    - host: matchid-poc.matchid.io
+    - host: dev.deces.matchid.io
       http:
         paths:
           - path: /deces/api/v1

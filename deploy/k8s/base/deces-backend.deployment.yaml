@@ -112,7 +112,7 @@ spec:
               mountPath: /data
           readinessProbe:
             httpGet:
-              path: /deces/api/v1/healthcheck
+              path: /deces/api/v1/readiness
               port: http
             initialDelaySeconds: 15
             periodSeconds: 10

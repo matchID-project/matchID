@@ -68,16 +68,6 @@ jobs:
             --wait
           kubectl wait --for=condition=Ready node --all --timeout=120s
 
-      - name: Wait for Traefik CRDs
-        run: |
-          for _ in $(seq 1 60); do
-            kubectl get crd ingressroutes.traefik.io >/dev/null 2>&1 && exit 0
-            sleep 2
-          done
-          echo "Traefik CRDs did not land within 120s" >&2
-          kubectl get pods -A
-          exit 1
-
       - name: Apply local overlay
         run: |
           kubectl apply -k deploy/k8s/overlays/local/
@@ -121,10 +111,10 @@ jobs:
           set -e
           # via NodePort exposed by k3d loadbalancer
           for _ in $(seq 1 30); do
-            curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck && break
+            curl -fsS -m 5 http://localhost:8080/deces/api/v1/readiness && break
             sleep 4
           done
-          curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck
+          curl -fsS -m 5 http://localhost:8080/deces/api/v1/readiness
           curl -fsS -m 5 http://localhost:8083/ | head -c 200
 
       - name: Diagnostics on failure
@@ -140,7 +130,7 @@ jobs:
           k3d cluster delete matchid-ci || true
 
   smoke-poc:
-    name: smoke-poc (Scaleway Kapsule)
+    name: smoke-poc (Scaleway Kapsule matchid-test)
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'poc'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -170,46 +160,64 @@ jobs:
           mkdir -p "$HOME/.kube"
           scw k8s kubeconfig get "$SCW_POC_CLUSTER_ID" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
-          kubectl get ns matchid
+          kubectl get ns matchid-test
 
-      - name: Apply poc overlay
+      - name: Apply test overlay
         run: |
-          kubectl apply -k deploy/k8s/overlays/poc/
-          kubectl -n matchid get all
+          kubectl apply -k deploy/k8s/overlays/test/
+          kubectl -n matchid-test get all
+
+      - name: Scale test stack up
+        run: |
+          kubectl -n matchid-test scale deploy/redis --replicas=1
+          kubectl -n matchid-test wait --for=condition=Available --timeout=3m deploy/redis
+          kubectl -n matchid-test scale statefulset/elasticsearch --replicas=1
+          kubectl -n matchid-test rollout status statefulset/elasticsearch --timeout=10m
+          kubectl -n matchid-test scale deploy/deces-backend deploy/deces-ui --replicas=1
 
       - name: Wait for deployments
         run: |
           set +e
-          kubectl -n matchid wait --for=condition=Available --timeout=10m \
+          kubectl -n matchid-test wait --for=condition=Available --timeout=10m \
             deploy/deces-backend deploy/deces-ui
           B=$?
-          kubectl -n matchid rollout status statefulset/elasticsearch --timeout=10m
+          kubectl -n matchid-test rollout status statefulset/elasticsearch --timeout=10m
           E=$?
           if [ $B -ne 0 ] || [ $E -ne 0 ]; then
-            kubectl -n matchid get events --sort-by=.lastTimestamp | tail -40
-            kubectl -n matchid describe pod -l app.kubernetes.io/part-of=matchid | tail -80
+            kubectl -n matchid-test get events --sort-by=.lastTimestamp | tail -40
+            kubectl -n matchid-test describe pod -l app.kubernetes.io/part-of=matchid | tail -80
             exit 1
           fi
 
-      - name: Smoke via IngressRoute
+      - name: Smoke via Ingress
         run: |
-          # The poc overlay publishes an IngressRoute. We don't TLS-validate here.
+          # The test overlay publishes a standard Ingress. We don't TLS-validate here.
           # Find the ingress public endpoint via the LoadBalancer service Traefik exposes.
-          TRAEFIK_LB=$(kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+          TRAEFIK_LB=$(
+            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+            kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+            true
+          )
           if [ -z "$TRAEFIK_LB" ]; then
             echo "::warning::No Traefik LB IP yet — falling back to port-forward smoke"
-            kubectl -n matchid port-forward svc/deces-backend 8080:8080 &
+            kubectl -n matchid-test port-forward svc/deces-backend 8080:8080 &
             PF=$!
             sleep 4
-            curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck
+            curl -fsS -m 5 http://localhost:8080/deces/api/v1/readiness
             kill $PF
             exit 0
           fi
-          curl -fsSk -m 8 -H "Host: matchid-poc.matchid.io" "http://$TRAEFIK_LB/deces/api/v1/healthcheck"
+          curl -fsSk -m 8 -H "Host: test.deces.matchid.io" "https://$TRAEFIK_LB/deces/api/v1/readiness"
 
       - name: Diagnostics on failure
         if: failure() || cancelled()
         run: |
-          kubectl -n matchid get pods -o wide
-          kubectl -n matchid describe pods | tail -120
-          kubectl -n matchid logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
+          kubectl -n matchid-test get pods -o wide
+          kubectl -n matchid-test describe pods | tail -120
+          kubectl -n matchid-test logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
+
+      - name: Scale test stack down
+        if: always()
+        run: |
+          kubectl -n matchid-test scale deploy/deces-backend deploy/deces-ui deploy/redis --replicas=0 || true
+          kubectl -n matchid-test scale statefulset/elasticsearch --replicas=0 || true

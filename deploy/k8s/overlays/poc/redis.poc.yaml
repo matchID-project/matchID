@@ -1,0 +1,12 @@
+# PoC overlay : Redis is part of the burst stack and stays at 0 replicas at
+# rest. Workflows scale it to 1 before backend readiness is evaluated.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+spec:
+  replicas: 0
+  template:
+    spec:
+      nodeSelector:
+        k8s.scaleway.com/pool-name: burst

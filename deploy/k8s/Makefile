@@ -11,7 +11,7 @@ NAMESPACE    ?= matchid
 UI_LOCAL_PORT ?= 8083
 BACKEND_LOCAL_PORT ?= 8080
 
-.PHONY: help k3d-up k3d-down apply-local apply-poc port-forward logs status
+.PHONY: help k3d-up k3d-down apply-local apply-poc apply-dev apply-test port-forward logs status
 
 help:
 	@echo "matchID k8s — local k3s scaffold"
@@ -20,6 +20,8 @@ help:
 	@echo "  make k3d-down         Tear the k3d cluster down"
 	@echo "  make apply-local      kubectl apply -k overlays/local/  (k3d / k3s-local)"
 	@echo "  make apply-poc        kubectl apply -k overlays/poc/    (Scaleway Kapsule poc)"
+	@echo "  make apply-dev        kubectl apply -k overlays/dev/    (namespace matchid-dev)"
+	@echo "  make apply-test       kubectl apply -k overlays/test/   (namespace matchid-test, 0 at rest)"
 	@echo "  make port-forward     Port-forward UI:$(UI_LOCAL_PORT) and backend:$(BACKEND_LOCAL_PORT)"
 	@echo "  make logs             Tail logs from all matchid pods"
 	@echo "  make status           Show namespace, pods, services, PVCs"
@@ -46,6 +48,20 @@ apply-poc:
 	  exit 1; \
 	fi
 	kubectl apply -k overlays/poc/
+
+apply-dev:
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for matchid-dev tenant"; \
+	  exit 1; \
+	fi
+	kubectl apply -k overlays/dev/
+
+apply-test:
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for matchid-test tenant"; \
+	  exit 1; \
+	fi
+	kubectl apply -k overlays/test/
 
 port-forward:
 	@echo "deces-ui  → http://localhost:$(UI_LOCAL_PORT)"

@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deces-backend
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: deces-backend
+          env:
+            - name: APP_DNS
+              value: dev.deces.matchid.io
+            - name: APP_URL
+              value: https://dev.deces.matchid.io
+          envFrom:
+            - secretRef:
+                name: deces-backend-secrets
+                optional: false
