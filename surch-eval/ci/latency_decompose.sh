@@ -41,7 +41,7 @@ time_shape() {           # $1=label  $2=bodyfile  -> echoes "label p50 p95 p99 m
     { if($1=="200"){a[++n]=$2*1000} else {e++} }
     END { if(n==0){printf "\"%s\":{\"requests\":0,\"errors\":%d}", lbl, e+0; exit}
       for(i=1;i<=n;i++)for(j=i+1;j<=n;j++)if(a[j]<a[i]){t=a[i];a[i]=a[j];a[j]=t}
-      printf "\"%s\":{\"req\":%d,\"p50\":%.1f,\"p95\":%.1f,\"p99\":%.1f,\"max\":%.1f}", lbl, n, a[int(n*0.5)], a[int(n*0.95)], a[int(n*0.99)], a[n] }' "$d/out"
+      printf "\"%s\":{\"req\":%d,\"errors\":%d,\"p50\":%.1f,\"p95\":%.1f,\"p99\":%.1f,\"max\":%.1f}", lbl, n, e+0, a[int(n*0.5)], a[int(n*0.95)], a[int(n*0.99)], a[n] }' "$d/out"
   rm -rf "$d"
 }
 

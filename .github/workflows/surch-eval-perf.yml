@@ -22,6 +22,26 @@ on:
         description: "Probe concurrency (4=default ; 2=match 2-vCPU runner, isolates oversubscription tail)"
         required: false
         default: "4"
+      files_to_process:
+        description: "Corpus selector restored by dataprep/dependencies"
+        required: false
+        default: "deaths.txt.gz"
+      repository_bucket:
+        description: "Snapshot bucket (dev by default; prod for full 28M)"
+        required: false
+        default: "fichier-des-personnes-decedees-elasticsearch-dev"
+      expected_count:
+        description: "Fail-closed final doc count gate (1355728 for deaths.txt.gz)"
+        required: false
+        default: "1355728"
+      es_mem:
+        description: "Elasticsearch heap for dependency restore"
+        required: false
+        default: "1024m"
+      runner_label:
+        description: "Runner label; full/prod runs must not use ubuntu-latest"
+        required: false
+        default: "ubuntu-latest"
   push:
     branches:
       - surch-eval
@@ -32,7 +52,7 @@ on:
 jobs:
   perf:
     name: "perf ${{ matrix.engine }}"
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.inputs.runner_label || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -40,9 +60,11 @@ jobs:
     permissions:
       contents: read
     env:
-      FILES_TO_PROCESS: "deaths.txt.gz"
-      REPOSITORY_BUCKET: "fichier-des-personnes-decedees-elasticsearch-dev"
-      ES_MEM: "1024m"
+      FILES_TO_PROCESS: ${{ github.event.inputs.files_to_process || 'deaths.txt.gz' }}
+      REPOSITORY_BUCKET: ${{ github.event.inputs.repository_bucket || 'fichier-des-personnes-decedees-elasticsearch-dev' }}
+      EXPECTED_COUNT: ${{ github.event.inputs.expected_count || '' }}
+      ES_MEM: ${{ github.event.inputs.es_mem || '1024m' }}
+      RUNNER_LABEL: ${{ github.event.inputs.runner_label || 'ubuntu-latest' }}
       STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
       STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       SURCH_TAG: ${{ github.event.inputs.surch_tag || 'latest' }}
@@ -51,6 +73,24 @@ jobs:
       ENGINE: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: "Preflight F6 inputs"
+        run: |
+          set -euo pipefail
+          echo "files_to_process=${FILES_TO_PROCESS}"
+          echo "repository_bucket=${REPOSITORY_BUCKET}"
+          echo "expected_count=${EXPECTED_COUNT:-<none>}"
+          echo "es_mem=${ES_MEM}"
+          echo "runner_label=${RUNNER_LABEL}"
+          if [ -n "${EXPECTED_COUNT}" ]; then
+            case "$EXPECTED_COUNT" in
+              *[!0-9]*) echo "::error::expected_count must be a non-negative integer"; exit 2 ;;
+            esac
+          fi
+          if [ "$REPOSITORY_BUCKET" = "fichier-des-personnes-decedees-elasticsearch" ] || [ "$FILES_TO_PROCESS" != "deaths.txt.gz" ]; then
+            test -n "${EXPECTED_COUNT}" || { echo "::error::full/prod surch-eval requires expected_count"; exit 2; }
+            test "$RUNNER_LABEL" != "ubuntu-latest" || { echo "::error::full/prod surch-eval must run on a non-default runner or remote-capable label"; exit 2; }
+          fi
 
       - name: "Build backend image"
         run: make -C packages/deces-backend DATA_DIR=data NPM_AUDIT_DRY_RUN=true backend-build-image GIT_BRANCH=${GITHUB_REF_NAME}
@@ -73,10 +113,24 @@ jobs:
 
       - name: "Indexation timed (${{ matrix.engine }})"
         run: |
+          mkdir -p surch-eval/ci/reports
+          if [ "$ENGINE" = "surch" ]; then RSS_CONTAINER=surch-eval; else RSS_CONTAINER=deces-elasticsearch; fi
+          bash surch-eval/ci/rss_container.sh "$ENGINE" "$RSS_CONTAINER" "surch-eval/ci/reports/rss-${ENGINE}.json" &
+          RSS_PID=$!
+          set +e
           docker run --rm --network "$NET" -v "$PWD/surch-eval/ci:/ci" -w /ci \
             -e ENGINE=${ENGINE} -e ES_URL=http://elasticsearch:9200 -e SURCH_URL=http://surch:9200 -e OUT_DIR=/ci/reports \
+            -e EXPECTED_COUNT="${EXPECTED_COUNT}" \
             alpine:3.20 sh -c 'apk add --no-cache bash curl jq bc coreutils >/dev/null && bash /ci/index_engine.sh'
+          RC=$?
+          kill "$RSS_PID" >/dev/null 2>&1 || true
+          wait "$RSS_PID" >/dev/null 2>&1 || true
+          set -e
           cat surch-eval/ci/reports/indexation-${ENGINE}.json
+          cat surch-eval/ci/reports/rss-${ENGINE}.json
+          jq -e '.samples > 0 and .peak_mib > 0' "surch-eval/ci/reports/rss-${ENGINE}.json"
+          test "$RC" -eq 0
+          jq -e '.verdict == "pass"' "surch-eval/ci/reports/indexation-${ENGINE}.json"
 
       - name: "Latency probe engine-to-engine (${{ matrix.engine }})"
         run: |
@@ -93,6 +147,7 @@ jobs:
             -e REQUESTS=2000 -e WORKERS=${PROBE_WORKERS} \
             alpine:3.20 sh -c 'apk add --no-cache bash curl coreutils >/dev/null && bash /ci/latency_engine.sh'
           cat surch-eval/ci/reports/latency-${ENGINE}.json
+          jq -e '.errors == 0' "surch-eval/ci/reports/latency-${ENGINE}.json"
 
       - name: "Latency decompose (${{ matrix.engine }})"
         run: |
@@ -105,6 +160,7 @@ jobs:
             -e REQUESTS=1500 -e WORKERS=${PROBE_WORKERS} \
             alpine:3.20 sh -c 'apk add --no-cache bash curl coreutils >/dev/null && bash /ci/latency_decompose.sh'
           cat surch-eval/ci/reports/decompose-${ENGINE}.json
+          jq -e '(.match.errors // 0) == 0 and (.bool.errors // 0) == 0 and (.full.errors // 0) == 0' "surch-eval/ci/reports/decompose-${ENGINE}.json"
 
       - name: "Point backend at Surch (stop ES, Surch->elasticsearch alias)"
         if: matrix.engine == 'surch'
@@ -133,6 +189,20 @@ jobs:
           make -C packages/deces-backend test-perf-v1 DC_NETWORK="$NET" || true
           mkdir -p surch-eval/ci/reports/art
           cp -r packages/deces-backend/tests/performance/reports/* surch-eval/ci/reports/art/ 2>/dev/null || true
+
+      - name: "Write summary"
+        if: always()
+        run: |
+          ENGINE=${ENGINE} \
+          OUT_DIR=surch-eval/ci/reports \
+          FILES_TO_PROCESS="${FILES_TO_PROCESS}" \
+          REPOSITORY_BUCKET="${REPOSITORY_BUCKET}" \
+          ES_BACKUP_NAME="${ES_BACKUP_NAME}" \
+          EXPECTED_COUNT="${EXPECTED_COUNT}" \
+          RUNNER_LABEL="${RUNNER_LABEL}" \
+          PROBE_WORKERS="${PROBE_WORKERS}" \
+          bash surch-eval/ci/write_summary.sh
+          cat "surch-eval/ci/reports/summary-${ENGINE}.md"
 
       - name: "Upload report"
         if: always()
