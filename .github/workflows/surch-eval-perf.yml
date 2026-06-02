@@ -173,6 +173,18 @@ jobs:
           cat surch-eval/ci/reports/decompose-${ENGINE}.json
           jq -e '(.match.errors // 0) == 0 and (.bool.errors // 0) == 0 and (.full.errors // 0) == 0' "surch-eval/ci/reports/decompose-${ENGINE}.json"
 
+      - name: "Scrape Surch fused-path instrumentation (#20)"
+        if: matrix.engine == 'surch'
+        run: |
+          # After the probes populated the histograms, dump Surch's per-stage
+          # quantiles (recall+score / finalize / hydrate) + the intersection
+          # size, to locate the bool/full ~10ms tail. Surch is still up here.
+          docker run --rm --network "$NET" curlimages/curl:8.10.1 -s \
+            http://surch:9200/_prometheus_metrics \
+            | grep -E 'surch_bool_' > surch-eval/ci/reports/fused-metrics-surch.txt || true
+          echo "=== surch_bool_* (stage quantiles us / candidates) ==="
+          cat surch-eval/ci/reports/fused-metrics-surch.txt || echo "(no surch_bool_ metrics scraped)"
+
       - name: "Point backend at Surch (stop ES, Surch->elasticsearch alias)"
         if: matrix.engine == 'surch'
         run: |
