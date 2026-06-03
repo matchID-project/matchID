@@ -48,6 +48,12 @@ on:
     paths:
       - ".github/workflows/surch-eval-perf.yml"
       - "surch-eval/ci/**"
+  # Daily LONG confirmation run (<=1/day): full 1.36M deces corpus, fair
+  # concurrency (WORKERS=2), `latest` image — confirms indexation throughput +
+  # the full matchID search (engine probe + end-to-end backend artillery) do not
+  # regress. Schedule-only overrides set the full corpus below.
+  schedule:
+    - cron: "0 3 * * *"
 
 jobs:
   perf:
@@ -62,14 +68,16 @@ jobs:
     env:
       FILES_TO_PROCESS: ${{ github.event.inputs.files_to_process || 'deaths.txt.gz' }}
       REPOSITORY_BUCKET: ${{ github.event.inputs.repository_bucket || 'fichier-des-personnes-decedees-elasticsearch-dev' }}
-      EXPECTED_COUNT: ${{ github.event.inputs.expected_count || '' }}
+      # Daily scheduled confirmation runs the FULL 1.36M corpus; manual/push keep
+      # their input / the small CI corpus.
+      EXPECTED_COUNT: ${{ github.event.inputs.expected_count || (github.event_name == 'schedule' && '1355728' || '') }}
       ES_MEM: ${{ github.event.inputs.es_mem || '1024m' }}
       RUNNER_LABEL: ${{ github.event.inputs.runner_label || 'ubuntu-latest' }}
       STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
       STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       SURCH_TAG: ${{ github.event.inputs.surch_tag || 'latest' }}
-      ES_BACKUP_NAME: ${{ github.event.inputs.es_backup_name || '' }}
-      PROBE_WORKERS: ${{ github.event.inputs.workers || '4' }}
+      ES_BACKUP_NAME: ${{ github.event.inputs.es_backup_name || (github.event_name == 'schedule' && 'esdata_eb84b2eb_74bab91a' || '') }}
+      PROBE_WORKERS: ${{ github.event.inputs.workers || (github.event_name == 'schedule' && '2' || '4') }}
       ENGINE: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@v4
@@ -181,7 +189,7 @@ jobs:
           # size, to locate the bool/full ~10ms tail. Surch is still up here.
           docker run --rm --network "$NET" curlimages/curl:8.10.1 -s \
             http://surch:9200/_prometheus_metrics \
-            | grep -E 'surch_bool_|surch_dbg_|surch_search_duration' > surch-eval/ci/reports/fused-metrics-surch.txt || true
+            | grep -E 'surch_bool_|surch_dbg_|surch_search_duration|surch_index_' > surch-eval/ci/reports/fused-metrics-surch.txt || true
           echo "=== surch_bool_* (stage quantiles us / candidates) ==="
           cat surch-eval/ci/reports/fused-metrics-surch.txt || echo "(no surch_bool_ metrics scraped)"
 
