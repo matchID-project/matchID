@@ -110,19 +110,18 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-          # startupProbe gates on the deps-aware /readiness endpoint so the
-          # pod is only declared started once ES + Redis are reachable.
-          # readiness/liveness then run on the cheap /healthcheck so a
-          # transient ES/Redis blip does not flap traffic or kill the pod.
-          # The exercised end-to-end check stays on /readiness via smoke
-          # steps (cd-k8s.yml).
+          # All k8s probes target the cheap /healthcheck so pod scheduling
+          # never depends on ES/Redis. The deps-aware /readiness endpoint
+          # is exercised by smoke steps in cd-k8s.yml instead.
+          # startupProbe tolerates long Node boot (Tsoa route generation,
+          # BullMQ worker init, JSON file loads) before liveness kicks in.
           startupProbe:
             httpGet:
-              path: /deces/api/v1/readiness
+              path: /deces/api/v1/healthcheck
               port: http
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            failureThreshold: 30
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /deces/api/v1/healthcheck
