@@ -1,4 +1,3 @@
-# PoC overlay : same burst-mode treatment as deces-backend.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

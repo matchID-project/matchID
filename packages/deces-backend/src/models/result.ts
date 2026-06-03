@@ -341,3 +341,23 @@ export interface ErrorResponse {
 export interface HealthcheckResponse {
   msg: string;
 }
+
+/**
+ * The message shows dependency status for Kubernetes readiness checks
+ * @tsoaModel
+ * @example
+ * {
+ *   "msg": "OK",
+ *   "dependencies": {
+ *     "elasticsearch": true,
+ *     "redis": true
+ *   }
+ * }
+ */
+export interface ReadinessResponse {
+  msg: string;
+  dependencies: {
+    elasticsearch: boolean;
+    redis: boolean;
+  };
+}

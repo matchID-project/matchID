@@ -54,3 +54,18 @@ export const getRedisClient = (): Redis => {
 export const __setRedisClientForTests = (mock: Redis | null) => {
   client = mock;
 };
+
+export const checkRedisHealth = async (): Promise<boolean> => {
+  try {
+    const redis = getRedisClient();
+    await redis.ping();
+    return true;
+  } catch (error) {
+    log({
+      redisError: error instanceof Error ? error.message || error.toString() : String(error),
+      redisStack: error instanceof Error ? error.stack : undefined,
+      msg: 'Redis health check failed',
+    });
+    return false;
+  }
+};

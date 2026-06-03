@@ -1,11 +1,8 @@
-# PoC overlay : pin ES to the Scaleway-managed `burst` pool.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: elasticsearch
 spec:
-  # Burst-mode: at rest the namespace consumes 0 CPU / 0 RAM. A test
-  # session scales ES → 1 before the backend Deployment ramps up.
   replicas: 0
   template:
     spec:

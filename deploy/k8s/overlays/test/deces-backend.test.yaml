@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deces-backend
+spec:
+  replicas: 0
+  template:
+    spec:
+      nodeSelector:
+        k8s.scaleway.com/pool-name: burst
+      containers:
+        - name: deces-backend
+          env:
+            - name: APP_DNS
+              value: test.deces.matchid.io
+            - name: APP_URL
+              value: https://test.deces.matchid.io
