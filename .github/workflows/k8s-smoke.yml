@@ -111,10 +111,10 @@ jobs:
           set -e
           # via NodePort exposed by k3d loadbalancer
           for _ in $(seq 1 30); do
-            curl -fsS -m 5 http://localhost:8080/deces/api/v1/readiness && break
+            curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck && break
             sleep 4
           done
-          curl -fsS -m 5 http://localhost:8080/deces/api/v1/readiness
+          curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck
           curl -fsS -m 5 http://localhost:8083/ | head -c 200
 
       - name: Diagnostics on failure
@@ -203,7 +203,7 @@ jobs:
             kubectl -n matchid-test port-forward svc/deces-backend 8080:8080 &
             PF=$!
             sleep 4
-            curl -fsS -m 5 http://localhost:8080/deces/api/v1/readiness
+            curl -fsS -m 5 http://localhost:8080/deces/api/v1/healthcheck
             kill $PF
             exit 0
           fi
