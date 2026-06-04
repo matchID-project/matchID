@@ -1,10 +1,17 @@
 # Dev overlay : public hostname behind cert-manager-issued TLS.
+#
+# Traefik v3 with the k8s Ingress provider does not auto-bind ingresses with
+# a `tls:` section to the websecure entrypoint; HTTPS requests 404 even with
+# a valid cert. The explicit `router.entrypoints` + `router.tls` annotations
+# force the router to register on both web and websecure.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: deces
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   tls:
