@@ -140,10 +140,14 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 256Mi
+              # communes.json (~60 MB) + wikidata.json (~9 MB) are loaded
+              # at startup. After V8 parses them and keeps them in module
+              # scope as objects, the resident set sits well above 512 MiB,
+              # which used to OOM the container on the first /search hit.
+              memory: 512Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1Gi
       volumes:
         - name: data
           emptyDir: {}
