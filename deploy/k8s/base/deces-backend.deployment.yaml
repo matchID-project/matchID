@@ -78,17 +78,20 @@ spec:
               value: "5"
             - name: BACKEND_TMP_WINDOW
               value: "60"
-            # File paths read at import time (mail.ts, communes.ts, etc.).
-            # Pointing at /dev/null lets the requires return empty data and
-            # log a soft warning rather than crash.
+            # Reference data baked into the image by the deces-backend build
+            # (Dockerfile `COPY ${DATA_DIR} ./data` step). Pointing at
+            # /dev/null instead silently returns empty arrays at import time
+            # but then crashes `/search` enrichment in models/result.ts on
+            # the very first hit (TypeError: Cannot read properties of
+            # undefined (reading '<wikidata id>')).
             - name: DISPOSABLE_MAIL
-              value: /dev/null
+              value: /deces-backend/data/disposable-mail.txt
             - name: COMMUNES_JSON
-              value: /dev/null
+              value: /deces-backend/data/communes.json
             - name: DB_JSON
-              value: /dev/null
+              value: /deces-backend/data/userDB.json
             - name: WIKIDATA_LINKS
-              value: /dev/null
+              value: /deces-backend/data/wikidata.json
             # BullMQ Redis broker
             - name: REDIS_HOST
               value: redis
