@@ -127,16 +127,6 @@ jobs:
           kubectl kustomize "$overlay_dir" >/tmp/matchid-k8s-rendered.yaml
           kubectl apply -f /tmp/matchid-k8s-rendered.yaml
 
-      - name: Scale test target up
-        if: env.REQUESTED_TARGET == 'test'
-        run: |
-          set -euo pipefail
-          kubectl -n "$NAMESPACE" scale deploy/redis --replicas=1
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=3m deploy/redis
-          kubectl -n "$NAMESPACE" scale statefulset/elasticsearch --replicas=1
-          kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=10m
-          kubectl -n "$NAMESPACE" scale deploy/deces-backend deploy/deces-ui --replicas=1
-
       - name: Wait for runtime
         run: |
           set -euo pipefail
@@ -171,9 +161,3 @@ jobs:
           kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -80 || true
           kubectl -n "$NAMESPACE" describe pods | tail -160 || true
           kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
-
-      - name: Scale test target down
-        if: always() && env.REQUESTED_TARGET == 'test'
-        run: |
-          kubectl -n "$NAMESPACE" scale deploy/deces-backend deploy/deces-ui deploy/redis --replicas=0 || true
-          kubectl -n "$NAMESPACE" scale statefulset/elasticsearch --replicas=0 || true
