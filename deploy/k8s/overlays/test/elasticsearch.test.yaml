@@ -35,4 +35,4 @@ spec:
           requests:
             # Full snapshot from the prod bucket is ~6 GiB; +headroom for
             # background segment merges and translog.
-            storage: 20Gi
+            storage: 30Gi
