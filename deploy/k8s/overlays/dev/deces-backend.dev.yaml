@@ -6,6 +6,12 @@ spec:
   replicas: 1
   template:
     spec:
+      # Pin to the cheap default DEV1-M pool. Without this nodeSelector the
+      # scheduler has been spreading matchid-dev pods across `burst` and
+      # `burst-rwx` whenever the default pool was under pressure, which both
+      # squats other tenants' pools and drives up cost.
+      nodeSelector:
+        k8s.scaleway.com/pool-name: default
       containers:
         - name: deces-backend
           env:

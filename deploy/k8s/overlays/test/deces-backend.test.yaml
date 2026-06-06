@@ -7,10 +7,10 @@ spec:
   template:
     spec:
       # matchid-test mirrors the prod VM (GP1-XS = 4 vCPU / 16 GiB) on the
-      # POP2-4C-16G burst pool. The burst pool is the matchID prod-class
-      # workload target and is reserved by quota for this tenant.
+      # dedicated `matchid` pool (POP2-4C-16G, 1 node always-on), provisioned
+      # by rhanka/k8s-ops `make pool-matchid`.
       nodeSelector:
-        k8s.scaleway.com/pool-name: burst
+        k8s.scaleway.com/pool-name: matchid
       containers:
         - name: deces-backend
           env:

@@ -26,6 +26,14 @@ patches:
     target:
       kind: Deployment
       name: deces-backend
+  - path: deces-ui.dev.yaml
+    target:
+      kind: Deployment
+      name: deces-ui
+  - path: redis.dev.yaml
+    target:
+      kind: Deployment
+      name: redis
   - path: ingress.dev.yaml
     target:
       kind: Ingress

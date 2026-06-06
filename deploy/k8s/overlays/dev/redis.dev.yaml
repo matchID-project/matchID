@@ -1,10 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: deces-ui
+  name: redis
 spec:
-  replicas: 1
   template:
     spec:
       nodeSelector:
-        k8s.scaleway.com/pool-name: matchid
+        k8s.scaleway.com/pool-name: default
