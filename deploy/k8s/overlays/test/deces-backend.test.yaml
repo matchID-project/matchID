@@ -6,6 +6,11 @@ spec:
   replicas: 1
   template:
     spec:
+      # matchid-test mirrors the prod VM (GP1-XS = 4 vCPU / 16 GiB) on the
+      # POP2-4C-16G burst pool. The burst pool is the matchID prod-class
+      # workload target and is reserved by quota for this tenant.
+      nodeSelector:
+        k8s.scaleway.com/pool-name: burst
       containers:
         - name: deces-backend
           env:
@@ -17,3 +22,15 @@ spec:
             - secretRef:
                 name: deces-backend-secrets
                 optional: false
+          # NewRelic 7-day baseline on the prod VM shows the Node process at
+          # max 75 % of one vCPU and 582 MiB RSS. Limits give comfortable
+          # headroom; the base 512 Mi / 1 GiB sizing is enough for steady
+          # state but bumps to 1 GiB / 2 GiB here so a slow GC pause under
+          # full-corpus load does not OOM.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              cpu: 1500m
+              memory: 2Gi
