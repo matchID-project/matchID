@@ -45,6 +45,14 @@ spec:
           env:
             - name: NODE_ENV
               value: production
+            # status.controller.ts:/version returns `backend: process.env.APP_VERSION`.
+            # The UI reads that field as `$version.api` and the badge goes red
+            # ("API indisponible (êtes vous hors ligne ?)") if it is falsy,
+            # even when the /version call itself succeeded. Hardcoding a value
+            # here keeps the badge green; cd-k8s.yml can override at deploy
+            # time when an image-tag-derived version is wanted.
+            - name: APP_VERSION
+              value: "1.0.0-k8s"
             - name: BACKEND_PORT
               value: "8080"
             - name: APP

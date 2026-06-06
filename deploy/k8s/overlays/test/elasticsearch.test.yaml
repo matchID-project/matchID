@@ -4,6 +4,27 @@ metadata:
   name: elasticsearch
 spec:
   replicas: 1
+  template:
+    spec:
+      nodeSelector:
+        k8s.scaleway.com/pool-name: burst
+      containers:
+        - name: elasticsearch
+          env:
+            # Heap sized for the full INSEE corpus (~27 M docs). NewRelic 7-day
+            # baseline on the prod VM shows the Java process at 5.1 GiB RSS
+            # average / 13 GiB peak, with bursts to 367 % of one vCPU. Heap is
+            # kept below 50 % of the limit so Lucene memory-mapped files have
+            # room in the OS page cache (the ES recommendation).
+            - name: ES_JAVA_OPTS
+              value: "-Xms6g -Xmx6g"
+          resources:
+            requests:
+              cpu: 1500m
+              memory: 6Gi
+            limits:
+              cpu: 3500m
+              memory: 13Gi
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -12,4 +33,6 @@ spec:
         storageClassName: scw-bssd
         resources:
           requests:
-            storage: 5Gi
+            # Full snapshot from the prod bucket is ~6 GiB; +headroom for
+            # background segment merges and translog.
+            storage: 20Gi
