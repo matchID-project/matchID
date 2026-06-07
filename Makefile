@@ -600,7 +600,11 @@ DEPLOY_REMOTE_OPTIONAL_VARS = \
 export $(DEPLOY_REMOTE_REQUIRED_VARS) $(DEPLOY_REMOTE_OPTIONAL_VARS)
 
 deploy-remote-preflight: config-minimal
-	@missing=0; \
+	@if [ "${DEPLOY_TARGET}" != "prod" ]; then \
+		echo "legacy preprod remote deploy (${APP_DNS_TARGET}) is retired; use make -C deploy/k8s apply-dev"; \
+		exit 1; \
+	fi; \
+	missing=0; \
 	for var in ${DEPLOY_REMOTE_REQUIRED_VARS}; do \
 		value="$${!var}"; \
 		if [ -z "$$value" ]; then \
@@ -616,27 +620,9 @@ deploy-remote-preflight: config-minimal
 		fi; \
 	done; \
 	if [ "$$missing" -ne 0 ]; then exit 1; fi; \
-	if [ "${DEPLOY_TARGET}" != "prod" ]; then \
-		if [ "${GIT_BRANCH}" != "dev" ]; then \
-			echo "GIT_BRANCH=${GIT_BRANCH} is not the expected preprod runtime label dev"; \
-			exit 1; \
-		fi; \
-		if [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
-			echo "REMOTE_DEPLOY_BRANCH=${REMOTE_DEPLOY_BRANCH} is not the expected preprod git ref ${GIT_BRANCH_MAIN}"; \
-			exit 1; \
-		fi; \
-		if [ "${REPOSITORY_BUCKET}" != "${REPOSITORY_BUCKET_DEV}" ]; then \
-			echo "REPOSITORY_BUCKET=${REPOSITORY_BUCKET} is not preprod bucket ${REPOSITORY_BUCKET_DEV}"; \
-			exit 1; \
-		fi; \
-	else \
-		if [ "${GIT_BRANCH}" != "master" ]; then \
-			echo "GIT_BRANCH=${GIT_BRANCH} is not the expected prod runtime label master"; \
-			exit 1; \
-		fi; \
-	fi; \
-	if [ "${DEPLOY_TARGET}" != "prod" ] && [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH}" ] && [ "${REMOTE_DEPLOY_BRANCH}" != "${GIT_BRANCH_MAIN}" ]; then \
-		echo "warning remote deploy branch ${REMOTE_DEPLOY_BRANCH} differs from deploy branch ${GIT_BRANCH}"; \
+	if [ "${GIT_BRANCH}" != "master" ]; then \
+		echo "GIT_BRANCH=${GIT_BRANCH} is not the expected prod runtime label master"; \
+		exit 1; \
 	fi; \
 	if [ ! -f "${SSHKEY_PRIVATE}" ]; then \
 		echo "missing SSH key ${SSHKEY_PRIVATE}"; \

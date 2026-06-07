@@ -10,14 +10,39 @@ KUBE_CTX     ?= k3d-$(CLUSTER_NAME)
 NAMESPACE    ?= matchid
 UI_LOCAL_PORT ?= 8083
 BACKEND_LOCAL_PORT ?= 8080
+ROOT_DIR := $(abspath ../..)
 
-.PHONY: help k3d-up k3d-down apply-local apply-poc apply-dev apply-test port-forward logs status
+-include $(ROOT_DIR)/packages/tools/artifacts.SCW
+-include $(ROOT_DIR)/artifacts
+
+API_EMAIL ?= contact@matchid.io
+BACKEND_TOKEN_USER ?= matchid.project@gmail.com
+K8S_SMTP_PORT ?= 2587
+
+BACKEND_SECRET_NAME ?= deces-backend-secrets
+BACKEND_SECRET_REQUIRED_KEYS := \
+	API_EMAIL \
+	BACKEND_TOKEN_KEY \
+	BACKEND_TOKEN_PASSWORD \
+	BACKEND_TOKEN_USER \
+	SMTP_HOST \
+	SMTP_PORT \
+	SMTP_USER \
+	SMTP_PWD
+BACKEND_SECRET_KEYS := \
+	$(BACKEND_SECRET_REQUIRED_KEYS) \
+	SMTP_TLS_SELFSIGNED
+
+export $(BACKEND_SECRET_KEYS)
+
+.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets apply-local apply-poc apply-dev apply-test port-forward logs status
 
 help:
 	@echo "matchID k8s — local k3s scaffold"
 	@echo ""
 	@echo "  make k3d-up           Create a k3d cluster '$(CLUSTER_NAME)' with NodePort mappings"
 	@echo "  make k3d-down         Tear the k3d cluster down"
+	@echo "  make backend-secrets  Apply $(BACKEND_SECRET_NAME) from root artifacts/env and restart backend"
 	@echo "  make apply-local      kubectl apply -k overlays/local/  (k3d / k3s-local)"
 	@echo "  make apply-poc        kubectl apply -k overlays/poc/    (Scaleway Kapsule poc)"
 	@echo "  make apply-dev        kubectl apply -k overlays/dev/    (namespace matchid-dev)"
@@ -39,6 +64,39 @@ k3d-up:
 k3d-down:
 	k3d cluster delete $(CLUSTER_NAME)
 
+backend-secrets-preflight:
+	@missing=0; \
+	for var in $(BACKEND_SECRET_REQUIRED_KEYS); do \
+	  eval "value=\$${$${var}-}"; \
+	  if [ -z "$$value" ]; then \
+	    echo "missing $$var"; \
+	    missing=1; \
+	  fi; \
+	done; \
+	exit $$missing
+
+backend-secrets: backend-secrets-preflight
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for $(NAMESPACE)"; \
+	  exit 1; \
+	fi
+	@tmp="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	for var in $(BACKEND_SECRET_KEYS); do \
+	  if [ "$$var" = "SMTP_PORT" ] && [ -n "$(K8S_SMTP_PORT)" ]; then \
+	    value="$(K8S_SMTP_PORT)"; \
+	  else \
+	    eval "value=\$${$${var}-}"; \
+	  fi; \
+	  printf '%s' "$$value" > "$$tmp/$$var"; \
+	done; \
+	kubectl -n "$(NAMESPACE)" create secret generic "$(BACKEND_SECRET_NAME)" \
+	  $(foreach var,$(BACKEND_SECRET_KEYS),--from-file=$(var)="$$tmp/$(var)") \
+	  --dry-run=client -o yaml | kubectl apply -f -; \
+	if kubectl -n "$(NAMESPACE)" get deploy/deces-backend >/dev/null 2>&1; then \
+	  kubectl -n "$(NAMESPACE)" rollout restart deploy/deces-backend; \
+	fi
+
 apply-local:
 	kubectl --context $(KUBE_CTX) apply -k overlays/local/
 
@@ -49,14 +107,16 @@ apply-poc:
 	fi
 	kubectl apply -k overlays/poc/
 
-apply-dev:
+apply-dev: NAMESPACE = matchid-dev
+apply-dev: backend-secrets
 	@if [ -z "$$KUBECONFIG" ]; then \
 	  echo "ERROR: KUBECONFIG not set for matchid-dev tenant"; \
 	  exit 1; \
 	fi
 	kubectl apply -k overlays/dev/
 
-apply-test:
+apply-test: NAMESPACE = matchid-test
+apply-test: backend-secrets
 	@if [ -z "$$KUBECONFIG" ]; then \
 	  echo "ERROR: KUBECONFIG not set for matchid-test tenant"; \
 	  exit 1; \

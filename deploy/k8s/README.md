@@ -108,29 +108,37 @@ The legacy `overlays/poc` remains for old manual smokes against namespace
 
 ## K8s CD
 
-`.github/workflows/cd-k8s.yml` deploys with tenant-scoped kubeconfigs:
+`.github/workflows/cd.yml` owns the automatic dev application deploy:
+after the `deces-backend` and `deces-ui` image jobs finish, `deploy-dev-k8s`
+applies `overlays/dev/` to `matchid-dev` and smokes
+`dev.deces.matchid.io`. The legacy VM deploy for `dev-deces.matchid.io` is no
+longer part of CI.
+
+`.github/workflows/cd-k8s.yml` remains available for K8s manifest changes and
+manual tenant deploys with tenant-scoped kubeconfigs:
 
 - `KUBE_CONFIG_DATA_DEV` for `matchid-dev`.
 - `KUBE_CONFIG_DATA_TEST` for `matchid-test`.
 
-On `main` pushes touching `deploy/k8s`, `packages/deces-backend` or
-`packages/deces-ui`, the workflow deploys `overlays/dev/` with image tags
-resolved from the repo artifact versions. Manual dispatch can target
-`dev` or `test`; for `test`, the workflow applies the 0-at-rest overlay,
-scales the stack to 1, smokes `/deces/api/v1/readiness`, then scales back to
-0 in an `always()` cleanup step.
+On `main` pushes touching `deploy/k8s` or the K8s workflow itself,
+`cd-k8s.yml` deploys `overlays/dev/` with image tags resolved from the repo
+artifact versions. Manual dispatch can target `dev` or `test`.
 
 ## What's not yet wired
 
-- **OIDC auth** — matchID OTP / SMTP flow not wired yet. The
-  Deployment env block carries placeholders pointing at the future
-  `mail.matchid.io` Brevo→Scaleway TEM relay.
+- **OIDC auth** — matchID OTP / SMTP flow is wired through the
+  `deces-backend-secrets` Secret. Apply it from the root `artifacts`/env with
+  `make -C deploy/k8s backend-secrets NAMESPACE=matchid-test` before validating
+  login flows. K8s uses `K8S_SMTP_PORT=2587` by default because standard SMTP
+  ports `25`/`465`/`587` are blocked from the Kapsule pod network; override it
+  explicitly only after re-testing TCP from a backend pod.
 - **Surch swap** — the long-term plan is to drop the ES StatefulSet
   and point `deces-backend` at the surch tenant's `surch-api` Service.
   Blocked on the DSL inventory in `EXPERIMENT_SURCH.md`.
 - **Secrets** — backend secrets (`BACKEND_TOKEN_KEY`, SMTP creds,
-  etc.) declared as `envFrom: secretRef` but the Secret itself is out-of-tree.
-  In `matchid-dev`, the Secret is required.
+  etc.) are declared as `envFrom: secretRef`; `make -C deploy/k8s apply-dev`
+  and `make -C deploy/k8s apply-test` apply `deces-backend-secrets` first from
+  local root `artifacts`/environment values.
 - **Dataprep** — `deces-dataprep` (the INSEE ingest job) is not
   manifested yet; it's a one-shot Job that should live alongside
   the ES StatefulSet but we want to land the read path first.

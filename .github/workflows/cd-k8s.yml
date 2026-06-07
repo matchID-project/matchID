@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - 'deploy/k8s/**'
-      - 'packages/deces-backend/**'
-      - 'packages/deces-ui/**'
       - '.github/workflows/cd-k8s.yml'
   workflow_dispatch:
     inputs:
@@ -90,8 +88,25 @@ jobs:
           mkdir -p "$HOME/.kube"
           printf '%s' "$kubeconfig_data" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
           kubectl version --client=true
           kubectl get ns "$NAMESPACE"
+
+      - name: Apply backend secrets
+        env:
+          API_EMAIL: ${{ secrets.API_EMAIL || 'contact@matchid.io' }}
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+          BACKEND_TOKEN_USER: ${{ secrets.BACKEND_TOKEN_USER || 'matchid.project@gmail.com' }}
+          K8S_SMTP_PORT: 2587
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_PWD: ${{ secrets.SMTP_PWD }}
+          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+        run: |
+          set -euo pipefail
+          make -C deploy/k8s backend-secrets NAMESPACE="$NAMESPACE"
 
       - name: Wait for Docker images
         run: |

@@ -405,14 +405,8 @@ jobs:
             if [ "${INPUT_DATAPREP_SCOPE}" = "all" ] || [ "${INPUT_DATAPREP_SCOPE}" = "year" ]; then
               REASON=explicit_year_dispatch
             elif [ "${INPUT_DEPLOY_TARGET}" = "dev" ]; then
-              rm -f packages/deces-dataprep/repository-check
-              make -C packages/deces-dataprep repository-check GIT_BRANCH=dev FILES_TO_PROCESS="${FILES_TO_PROCESS}" REPOSITORY_BUCKET="${REPOSITORY_BUCKET}"
-              if test -s packages/deces-dataprep/repository-check; then
-                SHOULD_RUN=false
-                REASON=year_snapshot_present
-              else
-                REASON=year_snapshot_missing
-              fi
+              SHOULD_RUN=false
+              REASON=deploy_target_dev_k8s
             fi
           elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${ARTIFACT_CHANGED}" != "true" ]; then
             SHOULD_RUN=false
@@ -610,12 +604,11 @@ jobs:
           steps.year_context.outputs.reason }})"
 
   deploy-dev:
-    name: deploy-dev
+    name: deploy-dev-k8s
     needs:
       - changes
       - ensure-deces-backend-image
       - ensure-deces-ui-image
-      - ensure-dataprep-year-snapshot
     if: >-
       ${{
         always() &&
@@ -627,9 +620,7 @@ jobs:
             github.ref == 'refs/heads/main' &&
             (
               needs.changes.outputs.artifact_deces_backend == 'true' ||
-              needs.changes.outputs.artifact_deces_ui == 'true' ||
-              needs.changes.outputs.artifact_dataprep_snapshot == 'true' ||
-              needs.changes.outputs.artifact_matchid_backend == 'true'
+              needs.changes.outputs.artifact_deces_ui == 'true'
             )
           ) ||
           (
@@ -644,165 +635,118 @@ jobs:
     permissions:
       contents: read
     env:
-      APP_DNS: deces.matchid.io
-      GIT_BRANCH: dev
-      DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || 'none' }}
+      HOSTNAME: dev.deces.matchid.io
+      NAMESPACE: matchid-dev
+      OVERLAY: dev
+      KUBE_CONFIG_DATA_DEV: ${{ secrets.KUBE_CONFIG_DATA_DEV }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.client_payload.ref || github.ref }}
-      - name: Install deploy SSH key
+
+      - name: Resolve dev image tags
         run: |
-          test -n "${SSH_PRIVATE_KEY}"
-          install -m 700 -d "${HOME}/.ssh"
-          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa_matchID"
-          chmod 600 "${HOME}/.ssh/id_rsa_matchID"
-          ssh-keygen -y -f "${HOME}/.ssh/id_rsa_matchID" > "${HOME}/.ssh/id_rsa_matchID.pub"
-          chmod 644 "${HOME}/.ssh/id_rsa_matchID.pub"
-          export SSH_AUTH_SOCK=/tmp/ssh_agent.sock
-          ssh-agent -a "${SSH_AUTH_SOCK}" > /dev/null
-          ssh-add "${HOME}/.ssh/id_rsa_matchID"
-          sanitize_host() {
-            local value
-            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
-            value="${value#\"}"
-            value="${value%\"}"
-            value="${value#\'}"
-            value="${value%\'}"
-            value="${value#http://}"
-            value="${value#https://}"
-            value="${value#ssh://}"
-            if [[ "${value}" == *@* ]]; then value="${value##*@}"; fi
-            value="${value%%/*}"
-            if [[ "${value}" =~ ^\[[^]]+\]:[0-9]+$ ]]; then
-              value="${value#\[}"
-              value="${value%%\]:*}"
-            elif [[ "${value}" =~ ^[^:]+:[0-9]+$ ]]; then
-              value="${value%%:*}"
-            fi
-            printf '%s' "${value}"
-          }
-          sanitize_user() {
-            local value
-            value="$(printf '%s' "$1" | tr -d '\r\n[:space:]')"
-            value="${value#\"}"
-            value="${value%\"}"
-            value="${value#\'}"
-            value="${value%\'}"
-            value="${value#ssh://}"
-            if [[ "${value}" == *@* ]]; then value="${value%%@*}"; fi
-            printf '%s' "${value}"
-          }
-          BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
-          BASTION_USER_RESOLVED=ubuntu
-          NGINX_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
-          NGINX_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
-          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
-          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
-          if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
-          if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
-          if ! getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
-            # Temporary fallback while monorepo runner secrets still expose a non-resolving bastion host.
-            BASTION_HOST_RESOLVED=163.172.185.238
-          fi
-          # Current deploy topology publishes nginx through the bastion host.
-          NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"
-          NGINX_USER_RESOLVED="${BASTION_USER_RESOLVED}"
-          test -n "${BASTION_HOST_RESOLVED}"
-          test -n "${BASTION_USER_RESOLVED}"
-          test -n "${NGINX_HOST_RESOLVED}"
-          test -n "${NGINX_USER_RESOLVED}"
-          printf '%s\n' \
-            "Host bastion" \
-            "  HostName ${BASTION_HOST_RESOLVED}" \
-            "  User ${BASTION_USER_RESOLVED}" \
-            "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
-            "  IdentitiesOnly yes" \
-            "  StrictHostKeyChecking no" \
-            "  UserKnownHostsFile /dev/null" \
-            "Host * !bastion" \
-            "  ProxyJump bastion" \
-            "  StrictHostKeyChecking no" \
-            "  UserKnownHostsFile /dev/null" \
-            > "${HOME}/.ssh/config"
+          set -euo pipefail
           {
-            echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
-            echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
-            echo "NGINX_HOST_RESOLVED=${NGINX_HOST_RESOLVED}"
-            echo "NGINX_USER_RESOLVED=${NGINX_USER_RESOLVED}"
+            echo "BACKEND_IMAGE_TAG=$(make -s artifact-version-deces-backend)"
+            echo "UI_IMAGE_TAG=$(make -s artifact-version-deces-ui)"
           } >> "${GITHUB_ENV}"
-          chmod 600 "${HOME}/.ssh/config"
-        env:
-          NGINX_HOST: ${{ secrets.NGINX_HOST }}
-          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
-          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      - name: Deploy dev-deces.matchid.io
+
+      - name: Install kubeconfig
         run: |
-          make deploy-remote-preflight \
-            GIT_BRANCH=$GIT_BRANCH \
-            REMOTE_DEPLOY_BRANCH=main \
-            DEPLOY_TARGET=dev \
-            APP_DNS=$APP_DNS \
-            FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV \
-            REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
-            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
-          make deploy-remote \
-            GIT_BRANCH=$GIT_BRANCH \
-            REMOTE_DEPLOY_BRANCH=main \
-            DEPLOY_TARGET=dev \
-            APP_DNS=$APP_DNS \
-            FILES_TO_PROCESS=$FILES_TO_PROCESS_DEV REPOSITORY_BUCKET=$REPOSITORY_BUCKET_DEV \
-            NGINX_USER=$NGINX_USER_RESOLVED NGINX_HOST=$NGINX_HOST_RESOLVED \
-            SMTP_TLS_SELFSIGNED="${SMTP_TLS_SELFSIGNED}" SMTP_HOST="${SMTP_HOST}" SMTP_PORT="${SMTP_PORT}" SMTP_USER="${SMTP_USER}" SMTP_PWD="${SMTP_PWD}" \
-            remote_http_proxy=$remote_http_proxy remote_https_proxy=$remote_https_proxy remote_no_proxy=$remote_no_proxy \
-            GOOGLE_ANALYTICS_ID=$GOOGLE_ANALYTICS_ID GOOGLE_ADSENSE_ID=$GOOGLE_ADSENSE_ID \
-            LOG_BAN_IP=$LOG_BAN_IP \
-            MMDB_TOKEN=$MMDB_TOKEN \
-            NEW_RELIC_API_KEY=$NEW_RELIC_API_KEY NEW_RELIC_ACCOUNT_ID=$NEW_RELIC_ACCOUNT_ID NEW_RELIC_INGEST_KEY=$NEW_RELIC_INGEST_KEY \
-            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
+          set -euo pipefail
+          if [ -z "${KUBE_CONFIG_DATA_DEV:-}" ]; then
+            echo "Missing KUBE_CONFIG_DATA_DEV secret" >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBE_CONFIG_DATA_DEV" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+          kubectl version --client=true
+          kubectl get ns "$NAMESPACE"
+
+      - name: Apply backend secrets
         env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
-          FILES_TO_PROCESS_DEV: deces-2020-m[0-1][0-9].txt.gz
-          REPOSITORY_BUCKET_DEV: fichier-des-personnes-decedees-elasticsearch-dev
-          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
-          GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
-          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
-          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
-          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
-          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
-          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
-          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
-          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
-          SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
-          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
-          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
-          NGINX_HOST: ${{ secrets.NGINX_HOST }}
-          NGINX_USER: ${{ secrets.NGINX_USER }}
-          CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
-          CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
-          BLOCK_DEPLOY: ${{ secrets.BLOCK_DEPLOY }}
+          API_EMAIL: ${{ secrets.API_EMAIL || 'contact@matchid.io' }}
           BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
           BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
-          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          BACKEND_TOKEN_USER: ${{ secrets.BACKEND_TOKEN_USER || 'matchid.project@gmail.com' }}
+          K8S_SMTP_PORT: 2587
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PWD: ${{ secrets.SMTP_PWD }}
-          LOG_BAN_IP: ${{ secrets.LOG_BAN_IP }}
-          MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
-          remote_http_proxy: ${{ secrets.remote_http_proxy }}
-          remote_https_proxy: ${{ secrets.remote_https_proxy }}
-          remote_no_proxy: localhost
-          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
-          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
-          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
-          MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+        run: |
+          set -euo pipefail
+          make -C deploy/k8s backend-secrets NAMESPACE="$NAMESPACE"
+
+      - name: Wait for Docker images
+        run: |
+          set -euo pipefail
+          for image in "matchid/deces-backend:$BACKEND_IMAGE_TAG" "matchid/deces-ui:$UI_IMAGE_TAG"; do
+            echo "Waiting for $image"
+            for attempt in $(seq 1 30); do
+              if docker manifest inspect "$image" >/dev/null 2>&1; then
+                echo "$image is available"
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "$image not available after retries" >&2
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+
+      - name: Render and apply dev overlay
+        run: |
+          set -euo pipefail
+          work_dir="$(mktemp -d)"
+          cp -R deploy/k8s "$work_dir/k8s"
+          overlay_dir="$work_dir/k8s/overlays/$OVERLAY"
+          cat >> "$overlay_dir/kustomization.yaml" <<EOF
+          images:
+            - name: matchid/deces-backend
+              newTag: $BACKEND_IMAGE_TAG
+            - name: matchid/deces-ui
+              newTag: $UI_IMAGE_TAG
+          EOF
+          kubectl kustomize "$overlay_dir" >/tmp/matchid-k8s-rendered.yaml
+          kubectl apply -f /tmp/matchid-k8s-rendered.yaml
+
+      - name: Wait for runtime
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m deploy/redis
+          kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=10m
+          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
+            deploy/deces-backend deploy/deces-ui
+
+      - name: Smoke readiness
+        run: |
+          set -euo pipefail
+          traefik_lb="$(
+            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+            kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+            true
+          )"
+          if [ -n "$traefik_lb" ]; then
+            curl -fsSk -m 10 -H "Host: $HOSTNAME" \
+              "https://$traefik_lb/deces/api/v1/readiness"
+          else
+            kubectl -n "$NAMESPACE" port-forward svc/deces-backend 8080:8080 &
+            pf=$!
+            trap 'kill "$pf" 2>/dev/null || true' EXIT
+            sleep 5
+            curl -fsS -m 10 http://localhost:8080/deces/api/v1/readiness
+          fi
+
+      - name: Diagnostics on failure
+        if: failure() || cancelled()
+        run: |
+          kubectl -n "$NAMESPACE" get pods -o wide || true
+          kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -80 || true
+          kubectl -n "$NAMESPACE" describe pods | tail -160 || true
+          kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=200 || true
