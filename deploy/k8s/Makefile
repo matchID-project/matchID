@@ -33,9 +33,22 @@ BACKEND_SECRET_KEYS := \
 	$(BACKEND_SECRET_REQUIRED_KEYS) \
 	SMTP_TLS_SELFSIGNED
 
-export $(BACKEND_SECRET_KEYS)
+LOG_FORWARDER_SECRET_NAME ?= matchid-log-forwarder-secrets
+LOG_STORAGE_ACCESS_KEY ?= $(if $(TOOLS_STORAGE_ACCESS_KEY),$(TOOLS_STORAGE_ACCESS_KEY),$(STORAGE_ACCESS_KEY))
+LOG_STORAGE_SECRET_KEY ?= $(if $(TOOLS_STORAGE_SECRET_KEY),$(TOOLS_STORAGE_SECRET_KEY),$(STORAGE_SECRET_KEY))
+LOG_BUCKET_PATH := $(patsubst %/,%,$(LOG_BUCKET))
+LOG_S3_BUCKET ?= $(word 1,$(subst /, ,$(LOG_BUCKET_PATH)))
+LOG_S3_PREFIX_BASE := $(if $(findstring /,$(LOG_BUCKET_PATH)),$(patsubst $(LOG_S3_BUCKET)/%,%,$(LOG_BUCKET_PATH)),)
+LOG_S3_PREFIX ?= $(if $(LOG_S3_PREFIX_BASE),$(LOG_S3_PREFIX_BASE)/k8s/$(NAMESPACE),k8s/$(NAMESPACE))
+LOG_FORWARDER_SECRET_REQUIRED_KEYS := \
+	LOG_BUCKET \
+	LOG_STORAGE_ACCESS_KEY \
+	LOG_STORAGE_SECRET_KEY \
+	NEW_RELIC_INGEST_KEY
 
-.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets apply-local apply-poc apply-dev apply-test port-forward logs status
+export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
+
+.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets apply-local apply-poc apply-dev apply-test port-forward logs status
 
 help:
 	@echo "matchID k8s — local k3s scaffold"
@@ -43,6 +56,7 @@ help:
 	@echo "  make k3d-up           Create a k3d cluster '$(CLUSTER_NAME)' with NodePort mappings"
 	@echo "  make k3d-down         Tear the k3d cluster down"
 	@echo "  make backend-secrets  Apply $(BACKEND_SECRET_NAME) from root artifacts/env and restart backend"
+	@echo "  make log-forwarder-secrets  Apply $(LOG_FORWARDER_SECRET_NAME) from root artifacts/env"
 	@echo "  make apply-local      kubectl apply -k overlays/local/  (k3d / k3s-local)"
 	@echo "  make apply-poc        kubectl apply -k overlays/poc/    (Scaleway Kapsule poc)"
 	@echo "  make apply-dev        kubectl apply -k overlays/dev/    (namespace matchid-dev)"
@@ -97,6 +111,48 @@ backend-secrets: backend-secrets-preflight
 	  kubectl -n "$(NAMESPACE)" rollout restart deploy/deces-backend; \
 	fi
 
+log-forwarder-secrets-preflight:
+	@missing=0; \
+	for var in $(LOG_FORWARDER_SECRET_REQUIRED_KEYS); do \
+	  eval "value=\$${$${var}-}"; \
+	  if [ -z "$$value" ]; then \
+	    echo "missing $$var"; \
+	    missing=1; \
+	  fi; \
+	done; \
+	if [ -z "$$LOG_S3_BUCKET" ]; then \
+	  echo "missing LOG_S3_BUCKET"; \
+	  missing=1; \
+	fi; \
+	if [ -z "$$LOG_S3_PREFIX" ]; then \
+	  echo "missing LOG_S3_PREFIX"; \
+	  missing=1; \
+	fi; \
+	exit $$missing
+
+log-forwarder-secrets: log-forwarder-secrets-preflight
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for $(NAMESPACE)"; \
+	  exit 1; \
+	fi
+	@tmp="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf '%s' "$$LOG_S3_BUCKET" > "$$tmp/LOG_S3_BUCKET"; \
+	printf '%s' "$$LOG_S3_PREFIX" > "$$tmp/LOG_S3_PREFIX"; \
+	printf '%s' "$$LOG_STORAGE_ACCESS_KEY" > "$$tmp/AWS_ACCESS_KEY_ID"; \
+	printf '%s' "$$LOG_STORAGE_SECRET_KEY" > "$$tmp/AWS_SECRET_ACCESS_KEY"; \
+	printf '%s' "$$NEW_RELIC_INGEST_KEY" > "$$tmp/NEW_RELIC_INGEST_KEY"; \
+	kubectl -n "$(NAMESPACE)" create secret generic "$(LOG_FORWARDER_SECRET_NAME)" \
+	  --from-file=LOG_S3_BUCKET="$$tmp/LOG_S3_BUCKET" \
+	  --from-file=LOG_S3_PREFIX="$$tmp/LOG_S3_PREFIX" \
+	  --from-file=AWS_ACCESS_KEY_ID="$$tmp/AWS_ACCESS_KEY_ID" \
+	  --from-file=AWS_SECRET_ACCESS_KEY="$$tmp/AWS_SECRET_ACCESS_KEY" \
+	  --from-file=NEW_RELIC_INGEST_KEY="$$tmp/NEW_RELIC_INGEST_KEY" \
+	  --dry-run=client -o yaml | kubectl apply -f -; \
+	if kubectl -n "$(NAMESPACE)" get ds/matchid-log-forwarder >/dev/null 2>&1; then \
+	  kubectl -n "$(NAMESPACE)" rollout restart ds/matchid-log-forwarder; \
+	fi
+
 apply-local:
 	kubectl --context $(KUBE_CTX) apply -k overlays/local/
 
@@ -108,7 +164,7 @@ apply-poc:
 	kubectl apply -k overlays/poc/
 
 apply-dev: NAMESPACE = matchid-dev
-apply-dev: backend-secrets
+apply-dev: backend-secrets log-forwarder-secrets
 	@if [ -z "$$KUBECONFIG" ]; then \
 	  echo "ERROR: KUBECONFIG not set for matchid-dev tenant"; \
 	  exit 1; \

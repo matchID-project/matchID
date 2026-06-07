@@ -5,6 +5,8 @@ namespace: matchid-dev
 
 resources:
   - ../../base
+  - log-forwarder.configmap.yaml
+  - log-forwarder.daemonset.yaml
 
 # poc-k8s owns Namespace, ResourceQuota, LimitRange and NetworkPolicies for
 # matchid-dev. This overlay owns only the application workload resources.

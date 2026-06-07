@@ -124,6 +124,33 @@ On `main` pushes touching `deploy/k8s` or the K8s workflow itself,
 `cd-k8s.yml` deploys `overlays/dev/` with image tags resolved from the repo
 artifact versions. Manual dispatch can target `dev` or `test`.
 
+## Dev log forwarding
+
+`overlays/dev` includes a `matchid-log-forwarder` Fluent Bit DaemonSet on the
+default Kapsule pool. It tails `/var/log/containers/*_matchid-dev_*.log`,
+excludes its own pod logs, and forwards dev logs to:
+
+- Scaleway Object Storage:
+  `s3://<LOG_S3_BUCKET>/<LOG_S3_PREFIX>/YYYYMMDD/YYYYMMDD-HHMM_<uuid>.jsonl`
+- New Relic EU Log API with `service.name=deces-matchid-dev`,
+  `environment=dev` and `k8s.namespace.name=matchid-dev`.
+
+Create or refresh the K8s Secret from local `artifacts`/env before applying the
+dev overlay:
+
+```bash
+export KUBECONFIG=/path/to/matchid-dev.kubeconfig
+make -C deploy/k8s log-forwarder-secrets NAMESPACE=matchid-dev
+kubectl apply -k deploy/k8s/overlays/dev/
+```
+
+The Make target derives `LOG_S3_BUCKET` and `LOG_S3_PREFIX` from `LOG_BUCKET`
+(`matchid-backups/deces-ui/log` becomes
+`s3://matchid-backups/deces-ui/log/k8s/matchid-dev/...`). It uses
+`TOOLS_STORAGE_ACCESS_KEY`/`TOOLS_STORAGE_SECRET_KEY` by default, matching the
+legacy VM monitoring path, and falls back to `STORAGE_ACCESS_KEY`/
+`STORAGE_SECRET_KEY` if the tools credentials are not present.
+
 ## What's not yet wired
 
 - **OIDC auth** — matchID OTP / SMTP flow is wired through the

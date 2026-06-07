@@ -108,6 +108,19 @@ jobs:
           set -euo pipefail
           make -C deploy/k8s backend-secrets NAMESPACE="$NAMESPACE"
 
+      - name: Apply log forwarder secrets
+        if: env.REQUESTED_TARGET == 'dev'
+        env:
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          make -C deploy/k8s log-forwarder-secrets NAMESPACE="$NAMESPACE"
+
       - name: Wait for Docker images
         run: |
           set -euo pipefail

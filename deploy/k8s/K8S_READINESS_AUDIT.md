@@ -276,15 +276,16 @@ const chunkQueue = new Queue('chunks', {
 
 ---
 
-### 2. Logging to File Only
+### 2. Logging Export
 
 **Location:** `packages/deces-backend/src/logger.ts` (console output, but loggerStream used throughout)
 
-**Why it breaks:** Winston logs to console (OK). But code calls `loggerStream.write()` directly in many places. If `loggerStream` is a file transport, logs lost on pod restart. Missing central logging.
+**Why it breaks:** Winston logs to console (OK). But code calls `loggerStream.write()` directly in many places. If `loggerStream` is a file transport, logs can be lost on pod restart without central collection.
 
-**Proposed Fix:** Use Winston file + syslog/ELK sink. Or: remove file logging, use stdout only (K8s native).  
-**Effort:** S (Winston config change + remove file transport)  
-**Priority:** P2 (debugging harder, but audit logs recoverable from ES)
+**Dev status:** `overlays/dev` now includes `matchid-log-forwarder`, a Fluent Bit DaemonSet that collects namespace stdout logs and forwards them to the legacy S3 log bucket and New Relic.
+**Proposed Fix:** Keep stdout as the app contract. Extend the log forwarder pattern to future test/prod overlays or replace it with the cluster-level logging stack.
+**Effort:** S for test/prod once destinations and credentials are confirmed.
+**Priority:** P2 (dev is covered; remaining risk is standardizing the target logging stack)
 
 ---
 
