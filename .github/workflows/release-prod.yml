@@ -697,7 +697,14 @@ jobs:
           CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
         run: |
           set -euo pipefail
+          public_readiness_ok() {
+            curl -fsS -m 20 "https://${HOSTNAME}/deces/api/v1/readiness" >/dev/null 2>&1
+          }
           if [ -z "${CDN_DNS_TOKEN:-}" ]; then
+            if public_readiness_ok; then
+              echo "CDN_DNS_TOKEN is missing, but ${HOSTNAME} already serves readiness; skipping DNS cutover"
+              exit 0
+            fi
             echo "Missing CDN_DNS_TOKEN secret with Cloudflare Zone:DNS:Edit + Zone:Read on matchid.io" >&2
             exit 1
           fi
