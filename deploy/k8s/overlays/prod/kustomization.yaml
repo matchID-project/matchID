@@ -5,6 +5,8 @@ namespace: matchid-prod
 
 resources:
   - ../../base
+  - log-forwarder.configmap.yaml
+  - log-forwarder.daemonset.yaml
 
 # poc-k8s/k8s-ops owns Namespace, ResourceQuota, LimitRange and
 # NetworkPolicies for matchid-prod. This overlay owns only matchID runtime

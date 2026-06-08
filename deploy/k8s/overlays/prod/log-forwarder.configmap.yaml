@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matchid-log-forwarder-config
+  labels:
+    app.kubernetes.io/name: matchid-log-forwarder
+    app.kubernetes.io/component: logging
+    app.kubernetes.io/part-of: matchid
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        5
+        Daemon       Off
+        Log_Level    info
+        Parsers_File /fluent-bit/etc/parsers.conf
+
+    [INPUT]
+        Name              tail
+        Tag               matchid.prod
+        Path              /var/log/containers/*_matchid-prod_*.log
+        Exclude_Path      /var/log/containers/matchid-log-forwarder*_matchid-prod_*.log
+        Parser            cri
+        DB                /fluent-bit/state/matchid-prod.db
+        Mem_Buf_Limit     10MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+    [FILTER]
+        Name   record_modifier
+        Match  matchid.prod
+        Record service.name deces-matchid-prod
+        Record environment prod
+        Record k8s.namespace.name matchid-prod
+        Record k8s.node.name ${NODE_NAME}
+
+    [OUTPUT]
+        Name              s3
+        Match             matchid.prod
+        bucket            ${LOG_S3_BUCKET}
+        region            fr-par
+        endpoint          s3.fr-par.scw.cloud
+        total_file_size   1M
+        upload_timeout    30s
+        workers           1
+        use_put_object    On
+        compression       gzip
+        store_dir         /fluent-bit/state/s3
+        s3_key_format     /${LOG_S3_PREFIX}/%Y%m%d/%Y%m%d-%H%M_$UUID.jsonl
+
+    [OUTPUT]
+        Name              http
+        Match             matchid.prod
+        Host              log-api.eu.newrelic.com
+        Port              443
+        URI               /log/v1
+        Format            json
+        Json_date_key     timestamp
+        Json_date_format  iso8601
+        tls               On
+        Header            Api-Key ${NEW_RELIC_INGEST_KEY}
+        Header            Content-Type application/json
+  parsers.conf: |
+    [PARSER]
+        Name        cri
+        Format      regex
+        Regex       ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<message>.*)$
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
