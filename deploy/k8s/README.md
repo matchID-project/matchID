@@ -133,6 +133,9 @@ Traefik, cuts the Cloudflare `deces.matchid.io` record over to
 `TRAEFIK_LB_IP_PROD`, and verifies S3/New Relic log delivery before the
 release job passes.
 
+Prod DNS cutover uses `CDN_DNS_TOKEN` with Cloudflare `Zone:DNS:Edit` and
+`Zone:Read` on `matchid.io`; `CDN_TOKEN` is kept for cache purge.
+
 ## Dev log forwarding
 
 `overlays/dev` includes a `matchid-log-forwarder` Fluent Bit DaemonSet on the

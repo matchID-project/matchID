@@ -686,18 +686,22 @@ jobs:
 
       - name: Cut over Cloudflare DNS
         env:
+          CDN_DNS_TOKEN: ${{ secrets.CDN_DNS_TOKEN }}
           CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
           CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
         run: |
           set -euo pipefail
-          test -n "${CDN_TOKEN:-}"
+          if [ -z "${CDN_DNS_TOKEN:-}" ]; then
+            echo "Missing CDN_DNS_TOKEN secret with Cloudflare Zone:DNS:Edit + Zone:Read on matchid.io" >&2
+            exit 1
+          fi
           test -n "${CDN_ZONE_ID:-}"
           test -n "${TRAEFIK_LB_IP_PROD:-}"
 
           api="https://api.cloudflare.com/client/v4/zones/${CDN_ZONE_ID}"
           records_json="$(
             curl -fsS \
-              -H "Authorization: Bearer ${CDN_TOKEN}" \
+              -H "Authorization: Bearer ${CDN_DNS_TOKEN}" \
               -H "Content-Type: application/json" \
               "${api}/dns_records?name=${HOSTNAME}"
           )"
@@ -714,7 +718,7 @@ jobs:
           fi
           for record_id in "${delete_record_ids[@]}"; do
             curl -fsS -X DELETE \
-              -H "Authorization: Bearer ${CDN_TOKEN}" \
+              -H "Authorization: Bearer ${CDN_DNS_TOKEN}" \
               -H "Content-Type: application/json" \
               "${api}/dns_records/${record_id}" >/dev/null
           done
@@ -724,7 +728,7 @@ jobs:
           if [ -n "$a_record_id" ]; then
             dns_response="$(
               curl -fsS -X PUT \
-                -H "Authorization: Bearer ${CDN_TOKEN}" \
+                -H "Authorization: Bearer ${CDN_DNS_TOKEN}" \
                 -H "Content-Type: application/json" \
                 --data "$payload" \
                 "${api}/dns_records/${a_record_id}"
@@ -732,7 +736,7 @@ jobs:
           else
             dns_response="$(
               curl -fsS -X POST \
-                -H "Authorization: Bearer ${CDN_TOKEN}" \
+                -H "Authorization: Bearer ${CDN_DNS_TOKEN}" \
                 -H "Content-Type: application/json" \
                 --data "$payload" \
                 "${api}/dns_records"
@@ -743,10 +747,11 @@ jobs:
             exit 1
           fi
 
+          purge_token="${CDN_TOKEN:-$CDN_DNS_TOKEN}"
           purge_response="$(
             jq -n --arg host "$HOSTNAME" '{hosts: [$host]}' |
               curl -fsS -X POST \
-                -H "Authorization: Bearer ${CDN_TOKEN}" \
+                -H "Authorization: Bearer ${purge_token}" \
                 -H "Content-Type: application/json" \
                 --data @- \
                 "${api}/purge_cache"
