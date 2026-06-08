@@ -16,7 +16,6 @@ on:
         type: choice
         options:
           - dev
-          - test
       image_tag:
         description: Existing Docker image tag to deploy for both backend and UI; empty uses repo artifact versions
         required: false
@@ -36,7 +35,6 @@ jobs:
       REQUESTED_TARGET: ${{ github.event.inputs.deploy_target || 'dev' }}
       IMAGE_TAG_INPUT: ${{ github.event.inputs.image_tag || '' }}
       KUBE_CONFIG_DATA_DEV: ${{ secrets.KUBE_CONFIG_DATA_DEV }}
-      KUBE_CONFIG_DATA_TEST: ${{ secrets.KUBE_CONFIG_DATA_TEST }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,11 +47,6 @@ jobs:
               echo "NAMESPACE=matchid-dev" >> "$GITHUB_ENV"
               echo "OVERLAY=dev" >> "$GITHUB_ENV"
               echo "HOSTNAME=dev.deces.matchid.io" >> "$GITHUB_ENV"
-              ;;
-            test)
-              echo "NAMESPACE=matchid-test" >> "$GITHUB_ENV"
-              echo "OVERLAY=test" >> "$GITHUB_ENV"
-              echo "HOSTNAME=test.deces.matchid.io" >> "$GITHUB_ENV"
               ;;
             *)
               echo "Unsupported deploy target: $REQUESTED_TARGET" >&2
@@ -79,7 +72,6 @@ jobs:
           set -euo pipefail
           case "$REQUESTED_TARGET" in
             dev) kubeconfig_data="$KUBE_CONFIG_DATA_DEV" ;;
-            test) kubeconfig_data="$KUBE_CONFIG_DATA_TEST" ;;
           esac
           if [ -z "${kubeconfig_data:-}" ]; then
             echo "Missing kubeconfig secret for target $REQUESTED_TARGET" >&2

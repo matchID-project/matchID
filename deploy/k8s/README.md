@@ -1,9 +1,9 @@
-# matchID on Kubernetes - local k3s + PoC overlays
+# matchID on Kubernetes - local k3s, dev and prod overlays
 
 Experimental k8s manifests for matchID. Wired into CI via
-`.github/workflows/k8s-smoke.yml` (k3d-local smoke on push/PR, dispatch-only
-Kapsule PoC smoke). Can also be driven by hand on a local k3d cluster or
-against the `poc` Kapsule cluster owned by `rhanka/poc-k8s`.
+`.github/workflows/k8s-smoke.yml` (k3d-local smoke on push/PR/manual
+dispatch). Can also be driven by hand on a local k3d cluster or against the
+Kapsule tenants owned by `rhanka/poc-k8s`.
 
 ## Environment tiers (target topology)
 
@@ -11,8 +11,10 @@ against the `poc` Kapsule cluster owned by `rhanka/poc-k8s`.
 | ----------- | ------------------------------------------- | ------------------------ | --------------------------------------------- |
 | **CI**      | k3s in GH Actions (or k3d if a local runner is free) | `overlays/local`         | Ephemeral per job — bring up, smoke, tear down |
 | **Dev**     | Scaleway Kapsule `poc` (shared, fr-par-2)   | `overlays/dev`           | Long-running tenant, namespace `matchid-dev`  |
-| **Test**    | Scaleway Kapsule `poc` burst pool           | `overlays/test`          | 0 at rest, scale to 1 for release smokes      |
-| **Prod**    | Dedicated cluster (TBD — not Kapsule `poc`) | `overlays/prod` (future) | Stable, separate IaC stack                    |
+| **Prod**    | Scaleway Kapsule prod tenant                | `overlays/prod`          | Stable release runtime, namespace `matchid-prod` |
+
+`test.deces.matchid.io` is retired as a CD target. Prod validation now happens
+inside `.github/workflows/release-prod.yml` before traffic cutover.
 
 Local k3d runs are convenient when the laptop has headroom; CI falls back to
 k3s when local is saturated. `overlays/local` is shared between both — it just
@@ -27,7 +29,8 @@ deploy/k8s/
 │   ├── local/             # k3d / k3s-local: NodePort, hostPath PV, no nodeSelector
 │   ├── poc/               # legacy single-namespace PoC smoke overlay
 │   ├── dev/               # matchid-dev: 24/7 dev endpoint
-│   └── test/              # matchid-test: burst release/smoke endpoint
+│   ├── prod/              # matchid-prod: release-prod runtime
+│   └── test/              # retired matchid-test overlay kept for historical reference
 └── local/                 # alias overlay used by the `apply-local` Make target
 ```
 
@@ -76,29 +79,28 @@ curl -sfL https://get.k3s.io | sh -                        # systemd service `k3
 sudo k3s kubectl apply -k deploy/k8s/overlays/local/
 ```
 
-## PoC cluster flow
+## Kapsule tenant flow
 
-Once the `matchid-dev` and `matchid-test` tenants land in `rhanka/k8s-ops`
-(see `requests/matchid.md`) :
+Once the `matchid-dev` and `matchid-prod` tenants land in `rhanka/k8s-ops`
+(see `requests/matchid.md`):
 
 ```bash
 export KUBECONFIG=/path/to/matchid-dev.kubeconfig
 kubectl apply -k deploy/k8s/overlays/dev/
 kubectl -n matchid-dev wait --for=condition=available --timeout=10m deploy/deces-backend deploy/deces-ui
 
-export KUBECONFIG=/path/to/matchid-test.kubeconfig
-kubectl apply -k deploy/k8s/overlays/test/
-kubectl -n matchid-test scale deploy/redis --replicas=1
-kubectl -n matchid-test scale statefulset/elasticsearch --replicas=1
-kubectl -n matchid-test scale deploy/deces-backend deploy/deces-ui --replicas=1
+export KUBECONFIG=/path/to/matchid-prod.kubeconfig
+make -C deploy/k8s prod-secrets NAMESPACE=matchid-prod
+make -C deploy/k8s prod-restore-secrets NAMESPACE=matchid-prod SNAPSHOT_NAME=<snapshot>
+kubectl apply -k deploy/k8s/overlays/prod/
 ```
 
-The `dev` and `test` overlays assume :
+The `dev` and `prod` overlays assume:
 
-- `matchid-dev` and `matchid-test` namespaces, quotas and NetworkPolicies are
+- `matchid-dev` and `matchid-prod` namespaces, quotas and NetworkPolicies are
   owned by the poc-k8s/k8s-ops repo,
-- test workloads target the Scaleway-managed pool label
-  `k8s.scaleway.com/pool-name=burst`,
+- prod workloads target the Scaleway-managed pool label
+  `k8s.scaleway.com/pool-name=matchid`,
 - a `scw-bssd` StorageClass for ES persistence,
 - Traefik standard `Ingress` with `ingressClassName: traefik`,
 - cert-manager `letsencrypt-prod` ClusterIssuer.
@@ -114,15 +116,20 @@ applies `overlays/dev/` to `matchid-dev` and smokes
 `dev.deces.matchid.io`. The legacy VM deploy for `dev-deces.matchid.io` is no
 longer part of CI.
 
-`.github/workflows/cd-k8s.yml` remains available for K8s manifest changes and
-manual tenant deploys with tenant-scoped kubeconfigs:
+`.github/workflows/cd-k8s.yml` remains available for dev K8s manifest changes
+and manual dev deploys with tenant-scoped kubeconfigs:
 
 - `KUBE_CONFIG_DATA_DEV` for `matchid-dev`.
-- `KUBE_CONFIG_DATA_TEST` for `matchid-test`.
 
 On `main` pushes touching `deploy/k8s` or the K8s workflow itself,
 `cd-k8s.yml` deploys `overlays/dev/` with image tags resolved from the repo
-artifact versions. Manual dispatch can target `dev` or `test`.
+artifact versions. Manual dispatch targets `dev`.
+
+`.github/workflows/release-prod.yml` owns prod. It keeps prod tag resolution
+and snapshot production, then deploys `overlays/prod/` with
+`KUBE_CONFIG_DATA_PROD`, applies backend/mail/logging/seed/Elasticsearch S3
+secrets, restores the selected snapshot, smokes `deces.matchid.io` through
+Traefik, and verifies S3/New Relic log delivery before the release job passes.
 
 ## Dev log forwarding
 
@@ -154,18 +161,17 @@ legacy VM monitoring path, and falls back to `STORAGE_ACCESS_KEY`/
 ## What's not yet wired
 
 - **OIDC auth** — matchID OTP / SMTP flow is wired through the
-  `deces-backend-secrets` Secret. Apply it from the root `artifacts`/env with
-  `make -C deploy/k8s backend-secrets NAMESPACE=matchid-test` before validating
-  login flows. K8s uses `K8S_SMTP_PORT=2587` by default because standard SMTP
-  ports `25`/`465`/`587` are blocked from the Kapsule pod network; override it
-  explicitly only after re-testing TCP from a backend pod.
+  `deces-backend-secrets` Secret. K8s uses `K8S_SMTP_PORT=2587` by default
+  because standard SMTP ports `25`/`465`/`587` are blocked from the Kapsule pod
+  network; override it explicitly only after re-testing TCP from a backend pod.
 - **Surch swap** — the long-term plan is to drop the ES StatefulSet
   and point `deces-backend` at the surch tenant's `surch-api` Service.
   Blocked on the DSL inventory in `EXPERIMENT_SURCH.md`.
 - **Secrets** — backend secrets (`BACKEND_TOKEN_KEY`, SMTP creds,
   etc.) are declared as `envFrom: secretRef`; `make -C deploy/k8s apply-dev`
-  and `make -C deploy/k8s apply-test` apply `deces-backend-secrets` first from
-  local root `artifacts`/environment values.
+  applies `deces-backend-secrets` first from local root `artifacts`/environment
+  values. Prod uses `make -C deploy/k8s prod-secrets` plus
+  `prod-restore-secrets` from release workflow secrets.
 - **Dataprep** — `deces-dataprep` (the INSEE ingest job) is not
   manifested yet; it's a one-shot Job that should live alongside
   the ES StatefulSet but we want to land the read path first.
