@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deces-backend
+spec:
+  replicas: 1
+  template:
+    spec:
+      nodeSelector:
+        k8s.scaleway.com/pool-name: matchid
+      containers:
+        - name: deces-backend
+          env:
+            - name: APP_DNS
+              value: deces.matchid.io
+            - name: APP_URL
+              value: https://deces.matchid.io
+            - name: DB_JSON
+              value: /run/secrets/deces-backend/userDB.json
+            - name: BACKEND_JOB_CONCURRENCY
+              value: "6"
+            - name: BACKEND_CHUNK_CONCURRENCY
+              value: "3"
+          envFrom:
+            - secretRef:
+                name: deces-backend-secrets
+                optional: false
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            limits:
+              cpu: 1500m
+              memory: 2Gi
+          volumeMounts:
+            - name: userdb
+              mountPath: /run/secrets/deces-backend/userDB.json
+              subPath: userDB.json
+              readOnly: true
+      volumes:
+        - name: userdb
+          secret:
+            secretName: deces-backend-userdb

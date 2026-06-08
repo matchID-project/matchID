@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  replicas: 1
+  template:
+    spec:
+      nodeSelector:
+        k8s.scaleway.com/pool-name: matchid
+      containers:
+        - name: elasticsearch
+          env:
+            - name: ES_JAVA_OPTS
+              value: "-Xms6g -Xmx6g"
+          resources:
+            requests:
+              cpu: 1500m
+              memory: 6Gi
+            limits:
+              cpu: 3500m
+              memory: 13Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: scw-bssd
+        resources:
+          requests:
+            storage: 30Gi

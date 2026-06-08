@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: matchid-prod
+
+resources:
+  - ../../base
+
+# poc-k8s/k8s-ops owns Namespace, ResourceQuota, LimitRange and
+# NetworkPolicies for matchid-prod. This overlay owns only matchID runtime
+# resources.
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: matchid
+    target:
+      kind: Namespace
+      name: matchid
+  - path: elasticsearch.prod.yaml
+    target:
+      kind: StatefulSet
+      name: elasticsearch
+  - path: redis.prod.yaml
+    target:
+      kind: Deployment
+      name: redis
+  - path: deces-backend.prod.yaml
+    target:
+      kind: Deployment
+      name: deces-backend
+  - path: deces-ui.prod.yaml
+    target:
+      kind: Deployment
+      name: deces-ui
+  - path: ingress.prod.yaml
+    target:
+      kind: Ingress
+      name: deces

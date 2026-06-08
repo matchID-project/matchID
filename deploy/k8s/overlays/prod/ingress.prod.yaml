@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: deces
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - deces.matchid.io
+      secretName: matchid-prod-tls
+  rules:
+    - host: deces.matchid.io
+      http:
+        paths:
+          - path: /deces/api/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: deces-backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: deces-ui
+                port:
+                  number: 8083
