@@ -46,9 +46,18 @@ LOG_FORWARDER_SECRET_REQUIRED_KEYS := \
 	LOG_STORAGE_SECRET_KEY \
 	NEW_RELIC_INGEST_KEY
 
-export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
+USERDB_SECRET_NAME ?= deces-backend-userdb
+USERDB_SECRET_REQUIRED_KEYS := \
+	DECES_BACKEND_USERDB_JSON
 
-.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets apply-local apply-poc apply-dev apply-test port-forward logs status
+PROD_SECRET_REQUIRED_KEYS := \
+	$(BACKEND_SECRET_REQUIRED_KEYS) \
+	$(LOG_FORWARDER_SECRET_REQUIRED_KEYS) \
+	$(USERDB_SECRET_REQUIRED_KEYS)
+
+export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) $(USERDB_SECRET_REQUIRED_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
+
+.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets userdb-seed-secret-preflight userdb-seed-secret prod-secrets-preflight prod-secrets apply-local apply-poc apply-dev apply-prod apply-test port-forward logs status
 
 help:
 	@echo "matchID k8s — local k3s scaffold"
@@ -57,9 +66,12 @@ help:
 	@echo "  make k3d-down         Tear the k3d cluster down"
 	@echo "  make backend-secrets  Apply $(BACKEND_SECRET_NAME) from root artifacts/env and restart backend"
 	@echo "  make log-forwarder-secrets  Apply $(LOG_FORWARDER_SECRET_NAME) from root artifacts/env"
+	@echo "  make userdb-seed-secret  Apply $(USERDB_SECRET_NAME) from DECES_BACKEND_USERDB_JSON"
+	@echo "  make prod-secrets     Apply all prod runtime secrets for matchid-prod"
 	@echo "  make apply-local      kubectl apply -k overlays/local/  (k3d / k3s-local)"
 	@echo "  make apply-poc        kubectl apply -k overlays/poc/    (Scaleway Kapsule poc)"
 	@echo "  make apply-dev        kubectl apply -k overlays/dev/    (namespace matchid-dev)"
+	@echo "  make apply-prod       kubectl apply -k overlays/prod/   (namespace matchid-prod)"
 	@echo "  make apply-test       kubectl apply -k overlays/test/   (namespace matchid-test, 0 at rest)"
 	@echo "  make port-forward     Port-forward UI:$(UI_LOCAL_PORT) and backend:$(BACKEND_LOCAL_PORT)"
 	@echo "  make logs             Tail logs from all matchid pods"
@@ -153,6 +165,43 @@ log-forwarder-secrets: log-forwarder-secrets-preflight
 	  kubectl -n "$(NAMESPACE)" rollout restart ds/matchid-log-forwarder; \
 	fi
 
+userdb-seed-secret-preflight:
+	@missing=0; \
+	for var in $(USERDB_SECRET_REQUIRED_KEYS); do \
+	  eval "value=\$${$${var}-}"; \
+	  if [ -z "$$value" ]; then \
+	    echo "missing $$var"; \
+	    missing=1; \
+	  fi; \
+	done; \
+	if [ "$$missing" -eq 0 ]; then \
+	  printf '%s' "$$DECES_BACKEND_USERDB_JSON" | jq -e 'type == "object" and length > 0 and all(.[]; type == "string" and length > 0)' >/dev/null || { \
+	    echo "invalid DECES_BACKEND_USERDB_JSON"; \
+	    missing=1; \
+	  }; \
+	fi; \
+	exit $$missing
+
+userdb-seed-secret: userdb-seed-secret-preflight
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for $(NAMESPACE)"; \
+	  exit 1; \
+	fi
+	@tmp="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf '%s' "$$DECES_BACKEND_USERDB_JSON" > "$$tmp/userDB.json"; \
+	kubectl -n "$(NAMESPACE)" create secret generic "$(USERDB_SECRET_NAME)" \
+	  --from-file=userDB.json="$$tmp/userDB.json" \
+	  --dry-run=client -o yaml | kubectl apply -f -; \
+	if kubectl -n "$(NAMESPACE)" get deploy/deces-backend >/dev/null 2>&1; then \
+	  kubectl -n "$(NAMESPACE)" rollout restart deploy/deces-backend; \
+	fi
+
+prod-secrets-preflight: backend-secrets-preflight log-forwarder-secrets-preflight userdb-seed-secret-preflight
+
+prod-secrets: NAMESPACE = matchid-prod
+prod-secrets: backend-secrets log-forwarder-secrets userdb-seed-secret
+
 apply-local:
 	kubectl --context $(KUBE_CTX) apply -k overlays/local/
 
@@ -170,6 +219,14 @@ apply-dev: backend-secrets log-forwarder-secrets
 	  exit 1; \
 	fi
 	kubectl apply -k overlays/dev/
+
+apply-prod: NAMESPACE = matchid-prod
+apply-prod: prod-secrets
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for matchid-prod tenant"; \
+	  exit 1; \
+	fi
+	kubectl apply -k overlays/prod/
 
 apply-test: NAMESPACE = matchid-test
 apply-test: backend-secrets
