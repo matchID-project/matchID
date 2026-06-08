@@ -559,6 +559,7 @@ jobs:
       OVERLAY: prod
       PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
       KUBE_CONFIG_DATA_PROD: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
+      TRAEFIK_LB_IP_PROD: ${{ secrets.TRAEFIK_LB_IP_PROD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -666,17 +667,110 @@ jobs:
       - name: Smoke readiness
         run: |
           set -euo pipefail
-          traefik_lb="$(
+          resolve_traefik_lb() {
+            if [ -n "${TRAEFIK_LB_IP_PROD:-}" ]; then
+              printf '%s' "$TRAEFIK_LB_IP_PROD"
+              return
+            fi
             kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            true
-          )"
+              kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+              true
+          }
+          traefik_lb="$(resolve_traefik_lb)"
           if [ -z "$traefik_lb" ]; then
-            echo "missing Traefik load balancer IP" >&2
+            echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
             exit 1
           fi
           curl -fsSk -m 20 -H "Host: $HOSTNAME" \
             "https://$traefik_lb/deces/api/v1/readiness"
+
+      - name: Cut over Cloudflare DNS
+        env:
+          CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
+          CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CDN_TOKEN:-}"
+          test -n "${CDN_ZONE_ID:-}"
+          test -n "${TRAEFIK_LB_IP_PROD:-}"
+
+          api="https://api.cloudflare.com/client/v4/zones/${CDN_ZONE_ID}"
+          records_json="$(
+            curl -fsS \
+              -H "Authorization: Bearer ${CDN_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${api}/dns_records?name=${HOSTNAME}"
+          )"
+          if [ "$(printf '%s' "$records_json" | jq -r '.success')" != "true" ]; then
+            printf '%s\n' "$records_json" | jq -c '.errors' >&2
+            exit 1
+          fi
+
+          a_record_id="$(printf '%s' "$records_json" | jq -r '[.result[] | select(.type == "A")][0].id // ""')"
+          if [ -n "$a_record_id" ]; then
+            mapfile -t delete_record_ids < <(printf '%s' "$records_json" | jq -r --arg keep "$a_record_id" '.result[] | select(.id != $keep) | .id')
+          else
+            mapfile -t delete_record_ids < <(printf '%s' "$records_json" | jq -r '.result[].id')
+          fi
+          for record_id in "${delete_record_ids[@]}"; do
+            curl -fsS -X DELETE \
+              -H "Authorization: Bearer ${CDN_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${api}/dns_records/${record_id}" >/dev/null
+          done
+
+          payload="$(jq -n --arg name "$HOSTNAME" --arg content "$TRAEFIK_LB_IP_PROD" \
+            '{type: "A", name: $name, content: $content, ttl: 1, proxied: true}')"
+          if [ -n "$a_record_id" ]; then
+            dns_response="$(
+              curl -fsS -X PUT \
+                -H "Authorization: Bearer ${CDN_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data "$payload" \
+                "${api}/dns_records/${a_record_id}"
+            )"
+          else
+            dns_response="$(
+              curl -fsS -X POST \
+                -H "Authorization: Bearer ${CDN_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data "$payload" \
+                "${api}/dns_records"
+            )"
+          fi
+          if [ "$(printf '%s' "$dns_response" | jq -r '.success')" != "true" ]; then
+            printf '%s\n' "$dns_response" | jq -c '.errors' >&2
+            exit 1
+          fi
+
+          purge_response="$(
+            jq -n --arg host "$HOSTNAME" '{hosts: [$host]}' |
+              curl -fsS -X POST \
+                -H "Authorization: Bearer ${CDN_TOKEN}" \
+                -H "Content-Type: application/json" \
+                --data @- \
+                "${api}/purge_cache"
+          )"
+          if [ "$(printf '%s' "$purge_response" | jq -r '.success')" != "true" ]; then
+            printf '%s\n' "$purge_response" | jq -c '.errors' >&2
+            exit 1
+          fi
+
+      - name: Wait for prod certificate
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" wait --for=condition=Ready --timeout=10m certificate/matchid-prod-tls
+
+      - name: Smoke public readiness
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/readiness"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/readiness"
 
       - name: Verify prod log sinks
         env:
@@ -687,11 +781,20 @@ jobs:
           TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
         run: |
           set -euo pipefail
-          traefik_lb="$(
+          resolve_traefik_lb() {
+            if [ -n "${TRAEFIK_LB_IP_PROD:-}" ]; then
+              printf '%s' "$TRAEFIK_LB_IP_PROD"
+              return
+            fi
             kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            true
-          )"
+              kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+              true
+          }
+          traefik_lb="$(resolve_traefik_lb)"
+          if [ -z "$traefik_lb" ]; then
+            echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
+            exit 1
+          fi
           curl -fsSk -m 20 -H "Host: $HOSTNAME" \
             "https://$traefik_lb/deces/api/v1/readiness" >/dev/null
           sleep 45

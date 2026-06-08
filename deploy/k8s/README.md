@@ -129,7 +129,9 @@ artifact versions. Manual dispatch targets `dev`.
 and snapshot production, then deploys `overlays/prod/` with
 `KUBE_CONFIG_DATA_PROD`, applies backend/mail/logging/seed/Elasticsearch S3
 secrets, restores the selected snapshot, smokes `deces.matchid.io` through
-Traefik, and verifies S3/New Relic log delivery before the release job passes.
+Traefik, cuts the Cloudflare `deces.matchid.io` record over to
+`TRAEFIK_LB_IP_PROD`, and verifies S3/New Relic log delivery before the
+release job passes.
 
 ## Dev log forwarding
 
