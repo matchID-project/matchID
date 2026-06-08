@@ -18,8 +18,8 @@ spec:
               set -eu
               cp -R /usr/share/elasticsearch/config/. /elastic-config/
               ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore create
-              printf '%s' "$STORAGE_ACCESS_KEY" | ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore add --stdin --force s3.client.default.access_key
-              printf '%s' "$STORAGE_SECRET_KEY" | ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore add --stdin --force s3.client.default.secret_key
+              printf '%s\n' "$STORAGE_ACCESS_KEY" | ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore add --stdin --force s3.client.default.access_key
+              printf '%s\n' "$STORAGE_SECRET_KEY" | ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore add --stdin --force s3.client.default.secret_key
           env:
             - name: STORAGE_ACCESS_KEY
               valueFrom:
