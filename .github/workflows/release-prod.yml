@@ -41,6 +41,7 @@ jobs:
       artifact_matchid_backend: ${{ steps.context.outputs.artifact_matchid_backend }}
       dataprep_runtime_changed: ${{ steps.context.outputs.dataprep_runtime_changed }}
       release_mode: ${{ steps.context.outputs.release_mode }}
+      deploy_checkout_ref: ${{ steps.context.outputs.deploy_checkout_ref }}
       should_run_full: ${{ steps.selection.outputs.should_run_full }}
       snapshot_name: ${{ steps.selection.outputs.snapshot_name }}
       dataprep_version: ${{ steps.selection.outputs.dataprep_version }}
@@ -62,6 +63,7 @@ jobs:
           set -euo pipefail
           PROD_TAG="${INPUT_PROD_TAG:-${GITHUB_REF_NAME}}"
           RELEASE_MODE="${INPUT_RELEASE_MODE:-auto}"
+          DEPLOY_CHECKOUT_REF="${PROD_TAG}"
           case "${PROD_TAG}" in
             v*) ;;
             *)
@@ -76,6 +78,9 @@ jobs:
               exit 1
               ;;
           esac
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${RELEASE_MODE}" = "deploy_only" ]; then
+            DEPLOY_CHECKOUT_REF="${GITHUB_REF}"
+          fi
           git fetch --force --tags origin main
           TAG_SHA=$(git rev-list -n 1 "${PROD_TAG}")
           git merge-base --is-ancestor "${TAG_SHA}" origin/main
@@ -120,6 +125,7 @@ jobs:
             echo "artifact_matchid_backend=${ARTIFACT_MATCHID_BACKEND}"
             echo "dataprep_runtime_changed=${DATAPREP_RUNTIME_CHANGED}"
             echo "release_mode=${RELEASE_MODE}"
+            echo "deploy_checkout_ref=${DEPLOY_CHECKOUT_REF}"
           } >> "${GITHUB_OUTPUT}"
 
       - name: Resolve existing prod snapshot metadata
@@ -563,7 +569,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+          ref: ${{ needs.release-context.outputs.deploy_checkout_ref }}
 
       - name: Install kubeconfig
         run: |
