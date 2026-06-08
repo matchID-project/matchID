@@ -5,6 +5,7 @@ namespace: matchid-prod
 
 resources:
   - ../../base
+  - elasticsearch-restore.job.yaml
   - log-forwarder.configmap.yaml
   - log-forwarder.daemonset.yaml
 

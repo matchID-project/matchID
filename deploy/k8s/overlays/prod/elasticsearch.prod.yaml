@@ -8,6 +8,32 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: matchid
+      initContainers:
+        - name: prepare-s3-keystore
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.6.1
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              cp -a /usr/share/elasticsearch/config/. /elastic-config/
+              ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore create
+              printf '%s' "$STORAGE_ACCESS_KEY" | ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore add --stdin --force s3.client.default.access_key
+              printf '%s' "$STORAGE_SECRET_KEY" | ES_PATH_CONF=/elastic-config bin/elasticsearch-keystore add --stdin --force s3.client.default.secret_key
+          env:
+            - name: STORAGE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-s3-secrets
+                  key: STORAGE_ACCESS_KEY
+            - name: STORAGE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-s3-secrets
+                  key: STORAGE_SECRET_KEY
+          volumeMounts:
+            - name: es-config
+              mountPath: /elastic-config
       containers:
         - name: elasticsearch
           env:
@@ -20,6 +46,14 @@ spec:
             limits:
               cpu: 3500m
               memory: 13Gi
+          volumeMounts:
+            - name: es-config
+              mountPath: /usr/share/elasticsearch/config
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+      volumes:
+        - name: es-config
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: data

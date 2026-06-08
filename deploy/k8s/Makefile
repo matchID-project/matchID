@@ -18,6 +18,7 @@ ROOT_DIR := $(abspath ../..)
 API_EMAIL ?= contact@matchid.io
 BACKEND_TOKEN_USER ?= matchid.project@gmail.com
 K8S_SMTP_PORT ?= 2587
+REPOSITORY_BUCKET ?= fichier-des-personnes-decedees-elasticsearch
 
 BACKEND_SECRET_NAME ?= deces-backend-secrets
 BACKEND_SECRET_REQUIRED_KEYS := \
@@ -50,14 +51,26 @@ USERDB_SECRET_NAME ?= deces-backend-userdb
 USERDB_SECRET_REQUIRED_KEYS := \
 	DECES_BACKEND_USERDB_JSON
 
+ELASTICSEARCH_S3_SECRET_NAME ?= elasticsearch-s3-secrets
+ELASTICSEARCH_RESTORE_SECRET_NAME ?= elasticsearch-restore-secrets
+ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS := \
+	STORAGE_ACCESS_KEY \
+	STORAGE_SECRET_KEY
+ELASTICSEARCH_RESTORE_SECRET_REQUIRED_KEYS := \
+	SNAPSHOT_NAME \
+	STORAGE_ACCESS_KEY \
+	STORAGE_SECRET_KEY \
+	REPOSITORY_BUCKET
+
 PROD_SECRET_REQUIRED_KEYS := \
 	$(BACKEND_SECRET_REQUIRED_KEYS) \
 	$(LOG_FORWARDER_SECRET_REQUIRED_KEYS) \
-	$(USERDB_SECRET_REQUIRED_KEYS)
+	$(USERDB_SECRET_REQUIRED_KEYS) \
+	$(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS)
 
-export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) $(USERDB_SECRET_REQUIRED_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
+export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) $(USERDB_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_RESTORE_SECRET_REQUIRED_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
 
-.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets userdb-seed-secret-preflight userdb-seed-secret prod-secrets-preflight prod-secrets apply-local apply-poc apply-dev apply-prod apply-test port-forward logs status
+.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets userdb-seed-secret-preflight userdb-seed-secret elasticsearch-s3-secrets-preflight elasticsearch-s3-secrets prod-restore-preflight prod-restore-secrets prod-secrets-preflight prod-secrets apply-local apply-poc apply-dev apply-prod apply-test port-forward logs status
 
 help:
 	@echo "matchID k8s — local k3s scaffold"
@@ -67,6 +80,7 @@ help:
 	@echo "  make backend-secrets  Apply $(BACKEND_SECRET_NAME) from root artifacts/env and restart backend"
 	@echo "  make log-forwarder-secrets  Apply $(LOG_FORWARDER_SECRET_NAME) from root artifacts/env"
 	@echo "  make userdb-seed-secret  Apply $(USERDB_SECRET_NAME) from DECES_BACKEND_USERDB_JSON"
+	@echo "  make prod-restore-secrets  Apply Elasticsearch restore snapshot/storage secrets"
 	@echo "  make prod-secrets     Apply all prod runtime secrets for matchid-prod"
 	@echo "  make apply-local      kubectl apply -k overlays/local/  (k3d / k3s-local)"
 	@echo "  make apply-poc        kubectl apply -k overlays/poc/    (Scaleway Kapsule poc)"
@@ -197,10 +211,63 @@ userdb-seed-secret: userdb-seed-secret-preflight
 	  kubectl -n "$(NAMESPACE)" rollout restart deploy/deces-backend; \
 	fi
 
-prod-secrets-preflight: backend-secrets-preflight log-forwarder-secrets-preflight userdb-seed-secret-preflight
+elasticsearch-s3-secrets-preflight:
+	@missing=0; \
+	for var in $(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS); do \
+	  eval "value=\$${$${var}-}"; \
+	  if [ -z "$$value" ]; then \
+	    echo "missing $$var"; \
+	    missing=1; \
+	  fi; \
+	done; \
+	exit $$missing
+
+elasticsearch-s3-secrets: elasticsearch-s3-secrets-preflight
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for $(NAMESPACE)"; \
+	  exit 1; \
+	fi
+	@tmp="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf '%s' "$$STORAGE_ACCESS_KEY" > "$$tmp/STORAGE_ACCESS_KEY"; \
+	printf '%s' "$$STORAGE_SECRET_KEY" > "$$tmp/STORAGE_SECRET_KEY"; \
+	kubectl -n "$(NAMESPACE)" create secret generic "$(ELASTICSEARCH_S3_SECRET_NAME)" \
+	  --from-file=STORAGE_ACCESS_KEY="$$tmp/STORAGE_ACCESS_KEY" \
+	  --from-file=STORAGE_SECRET_KEY="$$tmp/STORAGE_SECRET_KEY" \
+	  --dry-run=client -o yaml | kubectl apply -f -
+
+prod-restore-preflight:
+	@missing=0; \
+	for var in $(ELASTICSEARCH_RESTORE_SECRET_REQUIRED_KEYS); do \
+	  eval "value=\$${$${var}-}"; \
+	  if [ -z "$$value" ]; then \
+	    echo "missing $$var"; \
+	    missing=1; \
+	  fi; \
+	done; \
+	exit $$missing
+
+prod-restore-secrets: NAMESPACE = matchid-prod
+prod-restore-secrets: prod-restore-preflight elasticsearch-s3-secrets
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for $(NAMESPACE)"; \
+	  exit 1; \
+	fi
+	@tmp="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	printf '%s' "$$SNAPSHOT_NAME" > "$$tmp/SNAPSHOT_NAME"; \
+	printf '%s' "$$STORAGE_ACCESS_KEY" > "$$tmp/STORAGE_ACCESS_KEY"; \
+	printf '%s' "$$STORAGE_SECRET_KEY" > "$$tmp/STORAGE_SECRET_KEY"; \
+	kubectl -n "$(NAMESPACE)" create secret generic "$(ELASTICSEARCH_RESTORE_SECRET_NAME)" \
+	  --from-file=SNAPSHOT_NAME="$$tmp/SNAPSHOT_NAME" \
+	  --from-file=STORAGE_ACCESS_KEY="$$tmp/STORAGE_ACCESS_KEY" \
+	  --from-file=STORAGE_SECRET_KEY="$$tmp/STORAGE_SECRET_KEY" \
+	  --dry-run=client -o yaml | kubectl apply -f -
+
+prod-secrets-preflight: backend-secrets-preflight log-forwarder-secrets-preflight userdb-seed-secret-preflight elasticsearch-s3-secrets-preflight
 
 prod-secrets: NAMESPACE = matchid-prod
-prod-secrets: backend-secrets log-forwarder-secrets userdb-seed-secret
+prod-secrets: backend-secrets log-forwarder-secrets userdb-seed-secret elasticsearch-s3-secrets
 
 apply-local:
 	kubectl --context $(KUBE_CTX) apply -k overlays/local/

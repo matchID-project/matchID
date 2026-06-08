@@ -13,5 +13,7 @@ make -C deploy/k8s prod-secrets-preflight NAMESPACE=matchid-prod \
   LOG_BUCKET=matchid-backups/deces-ui/log \
   LOG_STORAGE_ACCESS_KEY=storage-key \
   LOG_STORAGE_SECRET_KEY=storage-secret \
+  STORAGE_ACCESS_KEY=es-storage-key \
+  STORAGE_SECRET_KEY=es-storage-secret \
   NEW_RELIC_INGEST_KEY=nr-ingest \
   DECES_BACKEND_USERDB_JSON='{"user@example.com":"hash"}'

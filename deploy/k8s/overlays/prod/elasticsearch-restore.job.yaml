@@ -1,0 +1,97 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: elasticsearch-restore
+  labels:
+    app.kubernetes.io/name: elasticsearch-restore
+    app.kubernetes.io/component: search
+    app.kubernetes.io/part-of: matchid
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: elasticsearch-restore
+        app.kubernetes.io/component: search
+        app.kubernetes.io/part-of: matchid
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        k8s.scaleway.com/pool-name: matchid
+      containers:
+        - name: elasticsearch-restore
+          image: curlimages/curl:8.8.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ES_URL
+              value: http://elasticsearch:9200
+            - name: ES_INDEX
+              value: deces
+            - name: REPOSITORY_NAME
+              value: matchID
+            - name: REPOSITORY_BUCKET
+              value: fichier-des-personnes-decedees-elasticsearch
+            - name: SNAPSHOT_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-restore-secrets
+                  key: SNAPSHOT_NAME
+            - name: STORAGE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-restore-secrets
+                  key: STORAGE_ACCESS_KEY
+            - name: STORAGE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-restore-secrets
+                  key: STORAGE_SECRET_KEY
+          command:
+            - sh
+            - -c
+          args:
+            - |
+              set -eu
+
+              count_from_json() {
+                sed -n 's/.*"count"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p'
+              }
+
+              echo "waiting for elasticsearch"
+              timeout=600
+              until curl -fsS "$ES_URL/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
+                timeout=$((timeout - 1))
+                if [ "$timeout" -le 0 ]; then
+                  echo "elasticsearch did not become ready"
+                  exit 1
+                fi
+                sleep 1
+              done
+
+              existing_count="$(
+                curl -fsS "$ES_URL/$ES_INDEX/_count" 2>/dev/null | count_from_json || true
+              )"
+              if [ -n "$existing_count" ] && [ "$existing_count" -gt 0 ]; then
+                echo "index $ES_INDEX already has $existing_count documents; skipping restore"
+                exit 0
+              fi
+
+              echo "configuring snapshot repository $REPOSITORY_NAME"
+              curl -fsS -XPUT "$ES_URL/_snapshot/$REPOSITORY_NAME" \
+                -H 'Content-Type: application/json' \
+                -d "{\"type\":\"s3\",\"settings\":{\"bucket\":\"$REPOSITORY_BUCKET\",\"client\":\"default\",\"region\":\"fr-par\",\"endpoint\":\"s3.fr-par.scw.cloud\",\"path_style_access\":true,\"protocol\":\"https\"}}"
+
+              echo "restoring snapshot $SNAPSHOT_NAME"
+              curl -fsS -XPOST "$ES_URL/_snapshot/$REPOSITORY_NAME/$SNAPSHOT_NAME/_restore?wait_for_completion=true" \
+                -H 'Content-Type: application/json' \
+                -d "{\"indices\":\"$ES_INDEX\",\"ignore_unavailable\":true,\"include_global_state\":false}"
+
+              restored_count="$(
+                curl -fsS "$ES_URL/$ES_INDEX/_count" | count_from_json
+              )"
+              if [ -z "$restored_count" ] || [ "$restored_count" -le 0 ]; then
+                echo "restore completed but $ES_INDEX count is empty"
+                exit 1
+              fi
+              echo "restored $restored_count documents into $ES_INDEX"
