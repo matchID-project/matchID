@@ -30,11 +30,11 @@ spec:
               fi
               json_count="$(find /data/proofs -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
               echo "restoring proofs from $source; local json files before restore: $json_count"
-              rclone lsf "$source" --files-only --recursive --include '*.json' |
-                while IFS= read -r rel; do
-                  mkdir -p "$(dirname "/data/proofs/$rel")"
-                  rclone copyto "$source/$rel" "/data/proofs/$rel" --checksum --ignore-existing
-                done
+              if [ "$json_count" = "0" ]; then
+                rclone copy "$source" /data/proofs --checksum --ignore-existing --fast-list --include '*.json' --exclude '*'
+              else
+                echo "local proofs JSON already present; skipping initial bucket restore"
+              fi
               restored_count="$(find /data/proofs -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
               if [ "$restored_count" = "0" ]; then
                 echo "no proofs JSON restored from $source; leaving restore marker absent for retry" >&2
