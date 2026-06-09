@@ -19,6 +19,7 @@ API_EMAIL ?= contact@matchid.io
 BACKEND_TOKEN_USER ?= matchid.project@gmail.com
 K8S_SMTP_PORT ?= 2587
 REPOSITORY_BUCKET ?= fichier-des-personnes-decedees-elasticsearch
+FORCE_RESTORE ?= false
 
 BACKEND_SECRET_NAME ?= deces-backend-secrets
 BACKEND_SECRET_REQUIRED_KEYS := \
@@ -61,6 +62,9 @@ ELASTICSEARCH_RESTORE_SECRET_REQUIRED_KEYS := \
 	STORAGE_ACCESS_KEY \
 	STORAGE_SECRET_KEY \
 	REPOSITORY_BUCKET
+ELASTICSEARCH_RESTORE_SECRET_KEYS := \
+	$(ELASTICSEARCH_RESTORE_SECRET_REQUIRED_KEYS) \
+	FORCE_RESTORE
 
 PROD_SECRET_REQUIRED_KEYS := \
 	$(BACKEND_SECRET_REQUIRED_KEYS) \
@@ -68,7 +72,7 @@ PROD_SECRET_REQUIRED_KEYS := \
 	$(USERDB_SECRET_REQUIRED_KEYS) \
 	$(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS)
 
-export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) $(USERDB_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_RESTORE_SECRET_REQUIRED_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
+export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) $(USERDB_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_RESTORE_SECRET_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
 
 .PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets userdb-seed-secret-preflight userdb-seed-secret elasticsearch-s3-secrets-preflight elasticsearch-s3-secrets prod-restore-preflight prod-restore-secrets prod-secrets-preflight prod-secrets apply-local apply-poc apply-dev apply-prod apply-test port-forward logs status
 
@@ -258,10 +262,12 @@ prod-restore-secrets: prod-restore-preflight elasticsearch-s3-secrets
 	printf '%s' "$$SNAPSHOT_NAME" > "$$tmp/SNAPSHOT_NAME"; \
 	printf '%s' "$$STORAGE_ACCESS_KEY" > "$$tmp/STORAGE_ACCESS_KEY"; \
 	printf '%s' "$$STORAGE_SECRET_KEY" > "$$tmp/STORAGE_SECRET_KEY"; \
+	printf '%s' "$$FORCE_RESTORE" > "$$tmp/FORCE_RESTORE"; \
 	kubectl -n "$(NAMESPACE)" create secret generic "$(ELASTICSEARCH_RESTORE_SECRET_NAME)" \
 	  --from-file=SNAPSHOT_NAME="$$tmp/SNAPSHOT_NAME" \
 	  --from-file=STORAGE_ACCESS_KEY="$$tmp/STORAGE_ACCESS_KEY" \
 	  --from-file=STORAGE_SECRET_KEY="$$tmp/STORAGE_SECRET_KEY" \
+	  --from-file=FORCE_RESTORE="$$tmp/FORCE_RESTORE" \
 	  --dry-run=client -o yaml | kubectl apply -f -
 
 prod-secrets-preflight: backend-secrets-preflight log-forwarder-secrets-preflight userdb-seed-secret-preflight elasticsearch-s3-secrets-preflight

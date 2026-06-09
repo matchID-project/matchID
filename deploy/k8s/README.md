@@ -136,6 +136,21 @@ passes.
 Prod DNS cutover uses `CDN_DNS_TOKEN` with Cloudflare `Zone:DNS:Edit` and
 `Zone:Read` on `matchid.io`; `CDN_TOKEN` is kept for cache purge.
 
+The prod Elasticsearch StatefulSet keeps data on a Scaleway block storage PVC.
+The restore Job is idempotent: it records the restored `SNAPSHOT_NAME` in
+`.matchid-restore-state`, skips when the PVC already contains the requested
+snapshot, and refuses to replace a different indexed snapshot unless
+`FORCE_RESTORE=true`. Full prod releases set `FORCE_RESTORE=true`; deploy-only
+releases keep the existing index.
+
+`.github/workflows/dataprep-monthly.yml` owns the monthly INSEE refresh. It runs
+the existing remote dataprep producer, captures the new snapshot metadata, then
+deploys the refreshed snapshot through `overlays/prod/` with the same K8s
+secrets, health checks, certificate wait and S3/New Relic log verification as
+the release workflow. It compares with the latest monthly metadata when
+available, falling back to the latest release metadata, and only forces the ES
+restore when the snapshot name changes.
+
 ## Dev log forwarding
 
 `overlays/dev` includes a `matchid-log-forwarder` Fluent Bit DaemonSet on the
@@ -177,9 +192,10 @@ legacy VM monitoring path, and falls back to `STORAGE_ACCESS_KEY`/
   applies `deces-backend-secrets` first from local root `artifacts`/environment
   values. Prod uses `make -C deploy/k8s prod-secrets` plus
   `prod-restore-secrets` from release workflow secrets.
-- **Dataprep** — `deces-dataprep` (the INSEE ingest job) is not
-  manifested yet; it's a one-shot Job that should live alongside
-  the ES StatefulSet but we want to land the read path first.
+- **Dataprep runtime** — `deces-dataprep` still runs on the existing remote
+  dataprep producer path from CI. The prod consumer side is K8s: monthly
+  refreshes restore the produced snapshot into the prod ES StatefulSet instead
+  of provisioning a GP1-XS app VM.
 
 ## Resource sizing
 

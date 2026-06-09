@@ -612,6 +612,7 @@ jobs:
         env:
           REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
           SNAPSHOT_NAME: ${{ needs.ensure-prod-snapshot.outputs.snapshot_name }}
+          FORCE_RESTORE: ${{ needs.release-context.outputs.should_run_full }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
         run: |

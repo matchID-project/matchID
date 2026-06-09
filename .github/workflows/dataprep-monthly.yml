@@ -24,15 +24,15 @@ jobs:
       contents: read
     outputs:
       prod_tag: ${{ steps.context.outputs.prod_tag }}
+      snapshot_name: ${{ steps.snapshot.outputs.snapshot_name }}
+      dataprep_version: ${{ steps.snapshot.outputs.dataprep_version }}
+      data_version: ${{ steps.snapshot.outputs.data_version }}
+      force_restore: ${{ steps.snapshot.outputs.force_restore }}
+      deces_ui_image_version: ${{ steps.images.outputs.deces_ui_image_version }}
+      deces_backend_image_version: ${{ steps.images.outputs.deces_backend_image_version }}
     env:
       APP_DNS: deces.matchid.io
       PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
-      BACKEND_JOB_CONCURRENCY_PROD: 6
-      BACKEND_CHUNK_CONCURRENCY_PROD: 3
-      ES_MEM_PROD: 8192m
-      SCW_FLAVOR_PROD: GP1-XS
-      SCW_VOLUME_SIZE_PROD: 60000000000
-      SCW_VOLUME_TYPE_PROD: l_ssd
       DATAPREP_SCW_FLAVOR_PROD: PRO2-L
       DATAPREP_SCW_VOLUME_SIZE_PROD: 50000000000
       DATAPREP_SCW_VOLUME_TYPE_PROD: sbs_volume
@@ -57,6 +57,7 @@ jobs:
           set -euo pipefail
           PROD_TAG="${INPUT_PROD_TAG:-}"
           SOURCE_RELEASE_RUN_ID=
+          PREVIOUS_SNAPSHOT_NAME=
           if [ -z "${PROD_TAG}" ]; then
             gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-prod.yml/runs?status=completed&per_page=50" > /tmp/release-prod-runs.json
             SOURCE_RELEASE_RUN_ID=$(
@@ -89,6 +90,7 @@ jobs:
               -o /tmp/release-prod-metadata.zip
             unzip -p /tmp/release-prod-metadata.zip release-prod-metadata.txt > /tmp/release-prod-metadata.txt
             PROD_TAG=$(sed -n 's/^prod_tag=//p' /tmp/release-prod-metadata.txt)
+            PREVIOUS_SNAPSHOT_NAME=$(sed -n 's/^snapshot_name=//p' /tmp/release-prod-metadata.txt)
           fi
           case "${PROD_TAG}" in
             v*) ;;
@@ -97,6 +99,36 @@ jobs:
               exit 1
               ;;
           esac
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/dataprep-monthly.yml/runs?status=completed&per_page=20" > /tmp/dataprep-monthly-runs.json
+          PREVIOUS_MONTHLY_RUN_ID=$(
+            jq -r --argjson current "${GITHUB_RUN_ID}" '
+              .workflow_runs[]
+              | select(.id != $current and .conclusion == "success")
+              | .id
+            ' /tmp/dataprep-monthly-runs.json | head -n 1
+          )
+          if [ -n "${PREVIOUS_MONTHLY_RUN_ID}" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREVIOUS_MONTHLY_RUN_ID}/artifacts" > /tmp/dataprep-monthly-artifacts.json
+            MONTHLY_ARTIFACT_URL=$(
+              jq -r '
+                .artifacts[]
+                | select(.name == "dataprep-monthly-metadata")
+                | .archive_download_url
+              ' /tmp/dataprep-monthly-artifacts.json | head -n 1
+            )
+            if [ -n "${MONTHLY_ARTIFACT_URL}" ]; then
+              curl -fsSL \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "${MONTHLY_ARTIFACT_URL}" \
+                -o /tmp/dataprep-monthly-metadata.zip
+              unzip -p /tmp/dataprep-monthly-metadata.zip dataprep-monthly-metadata.txt > /tmp/dataprep-monthly-metadata.txt
+              MONTHLY_SNAPSHOT_NAME=$(sed -n 's/^snapshot_name=//p' /tmp/dataprep-monthly-metadata.txt)
+              if [ -n "${MONTHLY_SNAPSHOT_NAME}" ]; then
+                PREVIOUS_SNAPSHOT_NAME="${MONTHLY_SNAPSHOT_NAME}"
+              fi
+            fi
+          fi
           git fetch --force --tags origin main
           TAG_SHA=$(git rev-list -n 1 "${PROD_TAG}")
           git merge-base --is-ancestor "${TAG_SHA}" origin/main
@@ -104,6 +136,7 @@ jobs:
             echo "prod_tag=${PROD_TAG}"
             echo "tag_sha=${TAG_SHA}"
             echo "source_release_run_id=${SOURCE_RELEASE_RUN_ID}"
+            echo "previous_snapshot_name=${PREVIOUS_SNAPSHOT_NAME}"
           } >> "${GITHUB_OUTPUT}"
 
       - uses: actions/checkout@v4
@@ -245,102 +278,32 @@ jobs:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
 
       - name: Capture prod snapshot metadata
+        id: snapshot
         run: |
           set -euo pipefail
           SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${DATAPREP_FILES_TO_PROCESS_PROD}" REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" | tail -1)
           DATAPREP_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_([^_]+)_.*/\1/')
           DATA_VERSION=$(echo "${SNAPSHOT_NAME}" | sed -E 's/^esdata_[^_]+_([^_]+)$/\1/')
+          FORCE_RESTORE=false
+          if [ -z "${PREVIOUS_SNAPSHOT_NAME}" ] || [ "${SNAPSHOT_NAME}" != "${PREVIOUS_SNAPSHOT_NAME}" ]; then
+            FORCE_RESTORE=true
+          fi
           {
             echo "SNAPSHOT_NAME=${SNAPSHOT_NAME}"
             echo "DATAPREP_VERSION=${DATAPREP_VERSION}"
             echo "DATA_VERSION=${DATA_VERSION}"
+            echo "FORCE_RESTORE=${FORCE_RESTORE}"
           } >> "${GITHUB_ENV}"
+          {
+            echo "snapshot_name=${SNAPSHOT_NAME}"
+            echo "dataprep_version=${DATAPREP_VERSION}"
+            echo "data_version=${DATA_VERSION}"
+            echo "force_restore=${FORCE_RESTORE}"
+          } >> "${GITHUB_OUTPUT}"
         env:
+          PREVIOUS_SNAPSHOT_NAME: ${{ steps.context.outputs.previous_snapshot_name }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-
-      - name: Deploy deces.matchid.io
-        env:
-          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
-          PROD_TAG: ${{ steps.context.outputs.prod_tag }}
-          GOOGLE_ANALYTICS_ID: ${{ secrets.GOOGLE_ANALYTICS_ID }}
-          GOOGLE_ADSENSE_ID: ${{ secrets.GOOGLE_ADSENSE_ID }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
-          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
-          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
-          LOG_DB_BUCKET: ${{ secrets.LOG_DB_BUCKET }}
-          STATS_BUCKET: ${{ secrets.STATS_BUCKET }}
-          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
-          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
-          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
-          SCW_IMAGE_ID: ${{ secrets.SCW_IMAGE_ID }}
-          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
-          SCW_PRIVATE_NETWORK_ID: ${{ secrets.SCW_PRIVATE_NETWORK_ID }}
-          NGINX_HOST: ${{ secrets.NGINX_HOST }}
-          NGINX_USER: ${{ secrets.NGINX_USER }}
-          CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
-          CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
-          BLOCK_DEPLOY: ${{ secrets.BLOCK_DEPLOY }}
-          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
-          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
-          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PWD: ${{ secrets.SMTP_PWD }}
-          LOG_BAN_IP: ${{ secrets.LOG_BAN_IP }}
-          MMDB_TOKEN: ${{ secrets.MMDB_TOKEN }}
-          remote_http_proxy: ${{ secrets.remote_http_proxy }}
-          remote_https_proxy: ${{ secrets.remote_https_proxy }}
-          remote_no_proxy: localhost
-          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
-          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
-          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
-          MONITOR_BUCKET: ${{ secrets.MONITOR_BUCKET }}
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-          DECES_UI_IMAGE_VERSION: ${{ steps.images.outputs.deces_ui_image_version }}
-          DECES_BACKEND_IMAGE_VERSION: ${{ steps.images.outputs.deces_backend_image_version }}
-        run: |
-          make deploy-remote-preflight \
-            GIT_BRANCH=master \
-            APP_VERSION="${DECES_UI_IMAGE_VERSION}" \
-            DECES_BACKEND_APP_VERSION="${DECES_BACKEND_IMAGE_VERSION}" \
-            GIT_BACKEND_BRANCH=master \
-            REMOTE_DEPLOY_BRANCH="${PROD_TAG}" \
-            DEPLOY_TARGET=prod \
-            APP_DNS="${APP_DNS}" \
-            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
-            DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
-            DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
-            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
-          make deploy-remote \
-            GIT_BRANCH=master \
-            APP_VERSION="${DECES_UI_IMAGE_VERSION}" \
-            DECES_BACKEND_APP_VERSION="${DECES_BACKEND_IMAGE_VERSION}" \
-            GIT_BACKEND_BRANCH=master \
-            REMOTE_DEPLOY_BRANCH="${PROD_TAG}" \
-            DEPLOY_TARGET=prod \
-            APP_DNS="${APP_DNS}" \
-            REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
-            DATAPREP_VERSION_OVERRIDE="${DATAPREP_VERSION}" \
-            DATA_VERSION_OVERRIDE="${DATA_VERSION}" \
-            BACKEND_JOB_CONCURRENCY="${BACKEND_JOB_CONCURRENCY_PROD}" \
-            BACKEND_CHUNK_CONCURRENCY="${BACKEND_CHUNK_CONCURRENCY_PROD}" \
-            ES_MEM="${ES_MEM_PROD}" \
-            SCW_FLAVOR="${SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${SCW_VOLUME_TYPE_PROD}" \
-            NGINX_USER="${NGINX_USER_RESOLVED}" NGINX_HOST="${NGINX_HOST_RESOLVED}" \
-            SMTP_TLS_SELFSIGNED="${SMTP_TLS_SELFSIGNED}" SMTP_HOST="${SMTP_HOST}" SMTP_PORT="${SMTP_PORT}" SMTP_USER="${SMTP_USER}" SMTP_PWD="${SMTP_PWD}" \
-            remote_http_proxy="${remote_http_proxy}" remote_https_proxy="${remote_https_proxy}" remote_no_proxy="${remote_no_proxy}" \
-            GOOGLE_ANALYTICS_ID="${GOOGLE_ANALYTICS_ID}" GOOGLE_ADSENSE_ID="${GOOGLE_ADSENSE_ID}" \
-            LOG_BAN_IP="${LOG_BAN_IP}" \
-            MMDB_TOKEN="${MMDB_TOKEN}" \
-            NEW_RELIC_API_KEY="${NEW_RELIC_API_KEY}" NEW_RELIC_ACCOUNT_ID="${NEW_RELIC_ACCOUNT_ID}" NEW_RELIC_INGEST_KEY="${NEW_RELIC_INGEST_KEY}" \
-            SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
 
       - name: Write dataprep monthly metadata artifact
         run: |
@@ -348,9 +311,11 @@ jobs:
           prod_tag=${{ steps.context.outputs.prod_tag }}
           commit_sha=${{ steps.context.outputs.tag_sha }}
           source_release_run_id=${{ steps.context.outputs.source_release_run_id }}
+          previous_snapshot_name=${{ steps.context.outputs.previous_snapshot_name }}
           snapshot_name=${SNAPSHOT_NAME}
           dataprep_version=${DATAPREP_VERSION}
           data_version=${DATA_VERSION}
+          force_restore=${FORCE_RESTORE}
           EOF
 
       - name: Upload dataprep monthly metadata artifact
@@ -359,10 +324,239 @@ jobs:
           name: dataprep-monthly-metadata
           path: /tmp/dataprep-monthly-metadata.txt
 
+  deploy-prod-k8s:
+    name: Deploy refreshed prod snapshot to K8s
+    needs: dataprep-monthly
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      HOSTNAME: deces.matchid.io
+      NAMESPACE: matchid-prod
+      OVERLAY: prod
+      KUBE_CONFIG_DATA_PROD: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
+      TRAEFIK_LB_IP_PROD: ${{ secrets.TRAEFIK_LB_IP_PROD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install kubeconfig
+        run: |
+          set -euo pipefail
+          if [ -z "${KUBE_CONFIG_DATA_PROD:-}" ]; then
+            echo "Missing KUBE_CONFIG_DATA_PROD secret" >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBE_CONFIG_DATA_PROD" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+          kubectl version --client=true
+          kubectl get ns "$NAMESPACE"
+
+      - name: Apply prod runtime secrets
+        env:
+          API_EMAIL: ${{ secrets.API_EMAIL || 'contact@matchid.io' }}
+          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
+          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+          BACKEND_TOKEN_USER: ${{ secrets.BACKEND_TOKEN_USER || 'matchid.project@gmail.com' }}
+          DECES_BACKEND_USERDB_JSON: ${{ secrets.DECES_BACKEND_USERDB_JSON }}
+          K8S_SMTP_PORT: 2587
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          LOG_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          LOG_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_PWD: ${{ secrets.SMTP_PWD }}
+          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          make -C deploy/k8s prod-secrets NAMESPACE="$NAMESPACE"
+
+      - name: Apply prod restore secrets
+        env:
+          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+          SNAPSHOT_NAME: ${{ needs.dataprep-monthly.outputs.snapshot_name }}
+          FORCE_RESTORE: ${{ needs.dataprep-monthly.outputs.force_restore }}
+          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          make -C deploy/k8s prod-restore-secrets NAMESPACE="$NAMESPACE"
+
+      - name: Wait for Docker images
+        env:
+          DECES_BACKEND_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_backend_image_version }}
+          DECES_UI_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_ui_image_version }}
+        run: |
+          set -euo pipefail
+          for image in "matchid/deces-backend:$DECES_BACKEND_IMAGE_VERSION" "matchid/deces-ui:$DECES_UI_IMAGE_VERSION"; do
+            echo "Waiting for $image"
+            for attempt in $(seq 1 30); do
+              if docker manifest inspect "$image" >/dev/null 2>&1; then
+                echo "$image is available"
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "$image not available after retries" >&2
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+
+      - name: Render and apply prod overlay
+        env:
+          DECES_BACKEND_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_backend_image_version }}
+          DECES_UI_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_ui_image_version }}
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" delete job/elasticsearch-restore --ignore-not-found=true
+          work_dir="$(mktemp -d)"
+          cp -R deploy/k8s "$work_dir/k8s"
+          overlay_dir="$work_dir/k8s/overlays/$OVERLAY"
+          cat >> "$overlay_dir/kustomization.yaml" <<EOF
+          images:
+            - name: matchid/deces-backend
+              newTag: $DECES_BACKEND_IMAGE_VERSION
+            - name: matchid/deces-ui
+              newTag: $DECES_UI_IMAGE_VERSION
+          EOF
+          kubectl kustomize "$overlay_dir" >/tmp/matchid-prod-k8s-rendered.yaml
+          kubectl apply -f /tmp/matchid-prod-k8s-rendered.yaml
+
+      - name: Wait for runtime and restore
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m deploy/redis
+          kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=20m
+          kubectl -n "$NAMESPACE" wait --for=condition=complete --timeout=90m job/elasticsearch-restore
+          kubectl -n "$NAMESPACE" logs job/elasticsearch-restore --tail=200
+          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
+            deploy/deces-backend deploy/deces-ui
+          kubectl -n "$NAMESPACE" rollout status ds/matchid-log-forwarder --timeout=5m
+
+      - name: Smoke backend healthcheck
+        run: |
+          set -euo pipefail
+          resolve_traefik_lb() {
+            if [ -n "${TRAEFIK_LB_IP_PROD:-}" ]; then
+              printf '%s' "$TRAEFIK_LB_IP_PROD"
+              return
+            fi
+            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+              kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+              true
+          }
+          traefik_lb="$(resolve_traefik_lb)"
+          if [ -z "$traefik_lb" ]; then
+            echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
+            exit 1
+          fi
+          curl -fsSk -m 20 -H "Host: $HOSTNAME" \
+            "https://$traefik_lb/deces/api/v1/healthcheck"
+
+      - name: Wait for prod certificate
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" wait --for=condition=Ready --timeout=10m certificate/matchid-prod-tls
+
+      - name: Smoke public healthcheck
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"
+
+      - name: Verify prod log sinks
+        env:
+          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
+          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          resolve_traefik_lb() {
+            if [ -n "${TRAEFIK_LB_IP_PROD:-}" ]; then
+              printf '%s' "$TRAEFIK_LB_IP_PROD"
+              return
+            fi
+            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+              kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
+              true
+          }
+          traefik_lb="$(resolve_traefik_lb)"
+          if [ -z "$traefik_lb" ]; then
+            echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
+            exit 1
+          fi
+          curl -fsSk -m 20 -H "Host: $HOSTNAME" \
+            "https://$traefik_lb/deces/api/v1/healthcheck" >/dev/null
+          sleep 45
+
+          bucket="${LOG_BUCKET%%/*}"
+          prefix_base="${LOG_BUCKET#*/}"
+          if [ "$prefix_base" = "$LOG_BUCKET" ]; then
+            prefix_base=""
+          fi
+          prefix="${prefix_base:+$prefix_base/}k8s/$NAMESPACE/$(date -u +%Y%m%d)/"
+          s3_json="$(
+            AWS_CONFIG_FILE=/dev/null \
+            AWS_ACCESS_KEY_ID="$TOOLS_STORAGE_ACCESS_KEY" \
+            AWS_SECRET_ACCESS_KEY="$TOOLS_STORAGE_SECRET_KEY" \
+            aws --endpoint-url https://s3.fr-par.scw.cloud s3api list-objects-v2 \
+              --bucket "$bucket" \
+              --prefix "$prefix" \
+              --max-keys 1 \
+              --output json
+          )"
+          s3_count="$(printf '%s' "$s3_json" | jq '.Contents // [] | length')"
+          if [ "$s3_count" -lt 1 ]; then
+            echo "no prod K8s log object found in s3://$bucket/$prefix" >&2
+            exit 1
+          fi
+
+          nrql="SELECT count(*) FROM Log WHERE \`service.name\` = 'deces-matchid-prod' AND \`k8s.namespace.name\` = 'matchid-prod' SINCE 10 minutes AGO"
+          payload="$(jq -n --arg account "$NEW_RELIC_ACCOUNT_ID" --arg nrql "$nrql" \
+            '{query: "query($account: Int!, $nrql: Nrql!) { actor { account(id: $account) { nrql(query: $nrql) { results } } } }", variables: {account: ($account|tonumber), nrql: $nrql}}')"
+          nr_count="$(
+            curl -fsS https://api.eu.newrelic.com/graphql \
+              -H "API-Key: $NEW_RELIC_API_KEY" \
+              -H "Content-Type: application/json" \
+              --data "$payload" | jq -r '.data.actor.account.nrql.results[0].count // 0'
+          )"
+          if [ "$nr_count" -lt 1 ]; then
+            echo "no prod K8s log found in New Relic" >&2
+            exit 1
+          fi
+
+      - name: Diagnostics on failure
+        if: failure() || cancelled()
+        run: |
+          kubectl -n "$NAMESPACE" get pods -o wide || true
+          kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -100 || true
+          kubectl -n "$NAMESPACE" describe pods | tail -200 || true
+          kubectl -n "$NAMESPACE" logs job/elasticsearch-restore --tail=200 || true
+          kubectl -n "$NAMESPACE" logs ds/matchid-log-forwarder --tail=200 || true
+          kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=300 || true
+
   notify-failure:
     name: Dataprep monthly failure alert
-    needs: dataprep-monthly
-    if: ${{ always() && needs.dataprep-monthly.result == 'failure' }}
+    needs:
+      - dataprep-monthly
+      - deploy-prod-k8s
+    if: ${{ always() && (needs.dataprep-monthly.result == 'failure' || needs.deploy-prod-k8s.result == 'failure') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
