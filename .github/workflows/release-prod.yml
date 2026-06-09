@@ -411,6 +411,7 @@ jobs:
     needs:
       - release-context
       - ensure-prod-snapshot
+    if: always() && needs.release-context.result == 'success' && needs.ensure-prod-snapshot.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -776,6 +777,7 @@ jobs:
       - release-context
       - ensure-prod-snapshot
       - deploy-prod
+    if: always() && needs.release-context.result == 'success' && needs.ensure-prod-snapshot.result == 'success' && needs.deploy-prod.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

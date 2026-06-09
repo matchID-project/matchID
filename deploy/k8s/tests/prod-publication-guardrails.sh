@@ -40,6 +40,10 @@ grep -Fq "if: needs.release-context.outputs.release_kind == 'app_and_data'" "$re
   fail "runtime secrets must be limited to app_and_data"
 grep -Fq 'make -C deploy/k8s prod-runtime-secrets' "$release_workflow" ||
   fail "runtime secret application must use prod-runtime-secrets"
+grep -Fq "deploy-prod.result == 'success'" "$release_workflow" ||
+  fail "release metadata must depend on a successful deploy-prod job"
+grep -Fq "needs.ensure-prod-snapshot.result == 'success'" "$release_workflow" ||
+  fail "deploy-prod must run when snapshot selection succeeds even if dataprep image job is skipped"
 
 if grep -Fq 'make -C deploy/k8s prod-secrets' "$release_workflow"; then
   fail "release-prod must not call broad prod-secrets"
