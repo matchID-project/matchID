@@ -145,12 +145,13 @@ jobs:
               newTag: $UI_IMAGE_TAG
           EOF
           kubectl kustomize "$overlay_dir" >/tmp/matchid-k8s-rendered.yaml
+          kubectl -n "$NAMESPACE" delete deploy/redis --ignore-not-found=true
           kubectl apply -f /tmp/matchid-k8s-rendered.yaml
 
       - name: Wait for runtime
         run: |
           set -euo pipefail
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m deploy/redis
+          kubectl -n "$NAMESPACE" rollout status statefulset/redis --timeout=10m
           kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=10m
           kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
             deploy/deces-backend deploy/deces-ui

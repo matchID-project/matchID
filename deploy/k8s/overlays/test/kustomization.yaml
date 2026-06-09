@@ -24,7 +24,7 @@ patches:
       name: elasticsearch
   - path: redis.test.yaml
     target:
-      kind: Deployment
+      kind: StatefulSet
       name: redis
   - path: deces-backend.test.yaml
     target:

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deces-backend-data
+  labels:
+    app.kubernetes.io/name: deces-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: matchid
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: scw-bssd
+  resources:
+    requests:
+      storage: 20Gi

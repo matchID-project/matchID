@@ -74,7 +74,7 @@ jobs:
 
       - name: Wait for redis (BullMQ broker for deces-backend)
         run: |
-          kubectl -n matchid wait --for=condition=Available --timeout=2m deploy/redis
+          kubectl -n matchid rollout status statefulset/redis --timeout=2m
 
       - name: Wait for elasticsearch (deces-backend depends on it)
         run: |

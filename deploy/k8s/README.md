@@ -90,7 +90,7 @@ kubectl apply -k deploy/k8s/overlays/dev/
 kubectl -n matchid-dev wait --for=condition=available --timeout=10m deploy/deces-backend deploy/deces-ui
 
 export KUBECONFIG=/path/to/matchid-prod.kubeconfig
-make -C deploy/k8s prod-secrets NAMESPACE=matchid-prod
+make -C deploy/k8s prod-runtime-secrets NAMESPACE=matchid-prod
 make -C deploy/k8s prod-restore-secrets NAMESPACE=matchid-prod SNAPSHOT_NAME=<snapshot>
 kubectl apply -k deploy/k8s/overlays/prod/
 ```
@@ -144,7 +144,8 @@ snapshot, and refuses to replace a different indexed snapshot unless
 versioned index (`deces-<snapshot>`), waits for that index to become `green`,
 then atomically switches the `deces` alias. It does not delete the live `deces`
 index before the replacement is restored. Full prod releases set
-`FORCE_RESTORE=true`; deploy-only releases keep the existing index.
+`FORCE_RESTORE=true`; `data_only` releases require an explicit snapshot and
+restore only when that snapshot differs or `FORCE_RESTORE=true`.
 
 `.github/workflows/dataprep-monthly.yml` owns the monthly INSEE refresh. It runs
 the existing remote dataprep producer, captures the new snapshot metadata, then
@@ -193,20 +194,19 @@ legacy VM monitoring path, and falls back to `STORAGE_ACCESS_KEY`/
 - **Secrets** — backend secrets (`BACKEND_TOKEN_KEY`, SMTP creds,
   etc.) are declared as `envFrom: secretRef`; `make -C deploy/k8s apply-dev`
   applies `deces-backend-secrets` first from local root `artifacts`/environment
-  values. Prod uses `make -C deploy/k8s prod-secrets` plus
-  `prod-restore-secrets` from release workflow secrets.
+  values. Prod release applies `prod-runtime-secrets` only for `app_and_data`
+  releases, and always applies `prod-restore-secrets` for the requested
+  snapshot restore.
 - **Dataprep runtime** — `deces-dataprep` still runs on the existing remote
   dataprep producer path from CI. The prod consumer side is K8s: monthly
   refreshes restore the produced snapshot into the prod ES StatefulSet instead
   of provisioning a GP1-XS app VM.
-- **Long-running jobs storage** — `deces-backend` still mounts `/data` as
-  `emptyDir`, so `$JOBS` and `$PROOFS` survive neither pod deletion nor node
-  rescheduling. Use a RWX PVC (or move these files to S3) before scaling the
-  backend above one replica or relying on rolling updates for bulk jobs/proofs.
-- **Redis persistence** — BullMQ and OTP now read `REDIS_HOST`/`REDIS_PORT`, so
-  the backend can target a shared Redis service. The current in-cluster Redis is
-  still a single ephemeral Deployment; use managed Redis or a persistent
-  StatefulSet before depending on queue survival across Redis pod replacement.
+- **Long-running jobs storage** — prod `deces-backend` mounts `/data` from the
+  `deces-backend-data` PVC, so `$JOBS` and `$PROOFS` survive backend pod
+  deletion and node rescheduling for the single-replica prod topology.
+- **Redis persistence** — Redis is an in-cluster StatefulSet with append-only
+  persistence. Keep backend at one prod replica unless the queue and `/data`
+  semantics are reworked for concurrent workers.
 
 ## Resource sizing
 

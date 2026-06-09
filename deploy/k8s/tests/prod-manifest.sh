@@ -35,3 +35,23 @@ fi
 grep -Fq 'name: STORAGE_ACCESS_KEY' "$rendered"
 grep -Fq 'name: STORAGE_SECRET_KEY' "$rendered"
 grep -Fq 'value: fichier-des-personnes-decedees-elasticsearch' "$rendered"
+awk '
+  $1 == "kind:" { kind=$2 }
+  $1 == "name:" && $2 == "redis" && kind == "StatefulSet" { found=1 }
+  END { exit(found ? 0 : 1) }
+' "$rendered" || {
+  echo "prod Redis must render as a StatefulSet" >&2
+  exit 1
+}
+if awk '
+  $1 == "kind:" { kind=$2 }
+  $1 == "name:" && $2 == "redis" && kind == "Deployment" { found=1 }
+  END { exit(found ? 0 : 1) }
+' "$rendered"; then
+  echo "prod Redis must not render as a Deployment" >&2
+  exit 1
+fi
+grep -Fq 'volumeClaimTemplates:' "$rendered"
+grep -Fq 'name: redis-data' "$rendered"
+grep -Fq 'claimName: deces-backend-data' "$rendered"
+grep -Fq 'name: deces-backend-data' "$rendered"

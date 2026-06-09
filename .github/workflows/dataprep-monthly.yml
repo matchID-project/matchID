@@ -324,239 +324,71 @@ jobs:
           name: dataprep-monthly-metadata
           path: /tmp/dataprep-monthly-metadata.txt
 
-  deploy-prod-k8s:
-    name: Deploy refreshed prod snapshot to K8s
+  dispatch-release-prod:
+    name: Dispatch release-prod data_only
     needs: dataprep-monthly
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 10
     permissions:
+      actions: write
       contents: read
-    env:
-      HOSTNAME: deces.matchid.io
-      NAMESPACE: matchid-prod
-      OVERLAY: prod
-      KUBE_CONFIG_DATA_PROD: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
-      TRAEFIK_LB_IP_PROD: ${{ secrets.TRAEFIK_LB_IP_PROD }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Install kubeconfig
-        run: |
-          set -euo pipefail
-          if [ -z "${KUBE_CONFIG_DATA_PROD:-}" ]; then
-            echo "Missing KUBE_CONFIG_DATA_PROD secret" >&2
-            exit 1
-          fi
-          mkdir -p "$HOME/.kube"
-          printf '%s' "$KUBE_CONFIG_DATA_PROD" > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
-          kubectl version --client=true
-          kubectl get ns "$NAMESPACE"
-
-      - name: Apply prod runtime secrets
+      - name: Dispatch release-prod data_only
         env:
-          API_EMAIL: ${{ secrets.API_EMAIL || 'contact@matchid.io' }}
-          BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
-          BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
-          BACKEND_TOKEN_USER: ${{ secrets.BACKEND_TOKEN_USER || 'matchid.project@gmail.com' }}
-          DECES_BACKEND_USERDB_JSON: ${{ secrets.DECES_BACKEND_USERDB_JSON }}
-          K8S_SMTP_PORT: 2587
-          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
-          LOG_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
-          LOG_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
-          NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_PWD: ${{ secrets.SMTP_PWD }}
-          SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
-        run: |
-          set -euo pipefail
-          make -C deploy/k8s prod-secrets NAMESPACE="$NAMESPACE"
-
-      - name: Apply prod restore secrets
-        env:
-          REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
-          SNAPSHOT_NAME: ${{ needs.dataprep-monthly.outputs.snapshot_name }}
+          DATA_VERSION: ${{ needs.dataprep-monthly.outputs.data_version }}
+          DATAPREP_VERSION: ${{ needs.dataprep-monthly.outputs.dataprep_version }}
           FORCE_RESTORE: ${{ needs.dataprep-monthly.outputs.force_restore }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PROD_TAG: ${{ needs.dataprep-monthly.outputs.prod_tag }}
+          SNAPSHOT_NAME: ${{ needs.dataprep-monthly.outputs.snapshot_name }}
         run: |
           set -euo pipefail
-          make -C deploy/k8s prod-restore-secrets NAMESPACE="$NAMESPACE"
-
-      - name: Wait for Docker images
-        env:
-          DECES_BACKEND_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_backend_image_version }}
-          DECES_UI_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_ui_image_version }}
-        run: |
-          set -euo pipefail
-          for image in "matchid/deces-backend:$DECES_BACKEND_IMAGE_VERSION" "matchid/deces-ui:$DECES_UI_IMAGE_VERSION"; do
-            echo "Waiting for $image"
-            for attempt in $(seq 1 30); do
-              if docker manifest inspect "$image" >/dev/null 2>&1; then
-                echo "$image is available"
-                break
-              fi
-              if [ "$attempt" -eq 30 ]; then
-                echo "$image not available after retries" >&2
-                exit 1
-              fi
-              sleep 10
-            done
-          done
-
-      - name: Render and apply prod overlay
-        env:
-          DECES_BACKEND_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_backend_image_version }}
-          DECES_UI_IMAGE_VERSION: ${{ needs.dataprep-monthly.outputs.deces_ui_image_version }}
-        run: |
-          set -euo pipefail
-          kubectl -n "$NAMESPACE" delete job/elasticsearch-restore --ignore-not-found=true
-          work_dir="$(mktemp -d)"
-          cp -R deploy/k8s "$work_dir/k8s"
-          overlay_dir="$work_dir/k8s/overlays/$OVERLAY"
-          cat >> "$overlay_dir/kustomization.yaml" <<EOF
-          images:
-            - name: matchid/deces-backend
-              newTag: $DECES_BACKEND_IMAGE_VERSION
-            - name: matchid/deces-ui
-              newTag: $DECES_UI_IMAGE_VERSION
-          EOF
-          kubectl kustomize "$overlay_dir" >/tmp/matchid-prod-k8s-rendered.yaml
-          kubectl apply -f /tmp/matchid-prod-k8s-rendered.yaml
-
-      - name: Wait for runtime and restore
-        run: |
-          set -euo pipefail
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m deploy/redis
-          kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=20m
-          kubectl -n "$NAMESPACE" wait --for=condition=complete --timeout=90m job/elasticsearch-restore
-          kubectl -n "$NAMESPACE" logs job/elasticsearch-restore --tail=200
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
-            deploy/deces-backend deploy/deces-ui
-          kubectl -n "$NAMESPACE" rollout status ds/matchid-log-forwarder --timeout=5m
-
-      - name: Smoke backend healthcheck
-        run: |
-          set -euo pipefail
-          resolve_traefik_lb() {
-            if [ -n "${TRAEFIK_LB_IP_PROD:-}" ]; then
-              printf '%s' "$TRAEFIK_LB_IP_PROD"
-              return
-            fi
-            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-              kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-              true
-          }
-          traefik_lb="$(resolve_traefik_lb)"
-          if [ -z "$traefik_lb" ]; then
-            echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
-            exit 1
-          fi
-          curl -fsSk -m 20 -H "Host: $HOSTNAME" \
-            "https://$traefik_lb/deces/api/v1/healthcheck"
-
-      - name: Wait for prod certificate
-        run: |
-          set -euo pipefail
-          kubectl -n "$NAMESPACE" wait --for=condition=Ready --timeout=10m certificate/matchid-prod-tls
-
-      - name: Smoke public healthcheck
-        run: |
-          set -euo pipefail
+          dispatch_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run release-prod.yml \
+            --ref main \
+            -f release_kind=data_only \
+            -f app_ref="${PROD_TAG}" \
+            -f snapshot_name="${SNAPSHOT_NAME}" \
+            -f dataprep_version="${DATAPREP_VERSION}" \
+            -f data_version="${DATA_VERSION}" \
+            -f force_restore="${FORCE_RESTORE}"
+          release_run_id=
           for attempt in $(seq 1 30); do
-            if curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"; then
-              exit 0
+            release_run_id="$(
+              gh run list \
+                --workflow release-prod.yml \
+                --branch main \
+                --event workflow_dispatch \
+                --limit 30 \
+                --json databaseId,displayTitle,createdAt |
+                jq -r --arg snapshot "${SNAPSHOT_NAME}" --arg started "${dispatch_started_at}" '
+                  .[]
+                  | select(.createdAt >= $started)
+                  | select(.displayTitle | contains("Release prod data_only"))
+                  | select(.displayTitle | contains($snapshot))
+                  | .databaseId
+                ' |
+                head -n 1
+            )"
+            if [ -n "${release_run_id}" ]; then
+              break
             fi
             sleep 10
           done
-          curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"
-
-      - name: Verify prod log sinks
-        env:
-          LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
-          NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
-          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
-          TOOLS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
-          TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
-        run: |
-          set -euo pipefail
-          resolve_traefik_lb() {
-            if [ -n "${TRAEFIK_LB_IP_PROD:-}" ]; then
-              printf '%s' "$TRAEFIK_LB_IP_PROD"
-              return
-            fi
-            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-              kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-              true
-          }
-          traefik_lb="$(resolve_traefik_lb)"
-          if [ -z "$traefik_lb" ]; then
-            echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
+          if [ -z "${release_run_id}" ]; then
+            echo "release-prod data_only run was not found after dispatch" >&2
+            gh run list --workflow release-prod.yml --branch main --event workflow_dispatch --limit 10
             exit 1
           fi
-          curl -fsSk -m 20 -H "Host: $HOSTNAME" \
-            "https://$traefik_lb/deces/api/v1/healthcheck" >/dev/null
-          sleep 45
-
-          bucket="${LOG_BUCKET%%/*}"
-          prefix_base="${LOG_BUCKET#*/}"
-          if [ "$prefix_base" = "$LOG_BUCKET" ]; then
-            prefix_base=""
-          fi
-          prefix="${prefix_base:+$prefix_base/}k8s/$NAMESPACE/$(date -u +%Y%m%d)/"
-          s3_json="$(
-            AWS_CONFIG_FILE=/dev/null \
-            AWS_ACCESS_KEY_ID="$TOOLS_STORAGE_ACCESS_KEY" \
-            AWS_SECRET_ACCESS_KEY="$TOOLS_STORAGE_SECRET_KEY" \
-            aws --endpoint-url https://s3.fr-par.scw.cloud s3api list-objects-v2 \
-              --bucket "$bucket" \
-              --prefix "$prefix" \
-              --max-keys 1 \
-              --output json
-          )"
-          s3_count="$(printf '%s' "$s3_json" | jq '.Contents // [] | length')"
-          if [ "$s3_count" -lt 1 ]; then
-            echo "no prod K8s log object found in s3://$bucket/$prefix" >&2
-            exit 1
-          fi
-
-          nrql="SELECT count(*) FROM Log WHERE \`service.name\` = 'deces-matchid-prod' AND \`k8s.namespace.name\` = 'matchid-prod' SINCE 10 minutes AGO"
-          payload="$(jq -n --arg account "$NEW_RELIC_ACCOUNT_ID" --arg nrql "$nrql" \
-            '{query: "query($account: Int!, $nrql: Nrql!) { actor { account(id: $account) { nrql(query: $nrql) { results } } } }", variables: {account: ($account|tonumber), nrql: $nrql}}')"
-          nr_count="$(
-            curl -fsS https://api.eu.newrelic.com/graphql \
-              -H "API-Key: $NEW_RELIC_API_KEY" \
-              -H "Content-Type: application/json" \
-              --data "$payload" | jq -r '.data.actor.account.nrql.results[0].count // 0'
-          )"
-          if [ "$nr_count" -lt 1 ]; then
-            echo "no prod K8s log found in New Relic" >&2
-            exit 1
-          fi
-
-      - name: Diagnostics on failure
-        if: failure() || cancelled()
-        run: |
-          kubectl -n "$NAMESPACE" get pods -o wide || true
-          kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -100 || true
-          kubectl -n "$NAMESPACE" describe pods | tail -200 || true
-          kubectl -n "$NAMESPACE" logs job/elasticsearch-restore --tail=200 || true
-          kubectl -n "$NAMESPACE" logs ds/matchid-log-forwarder --tail=200 || true
-          kubectl -n "$NAMESPACE" logs -l app.kubernetes.io/part-of=matchid --all-containers=true --tail=300 || true
+          gh run watch "${release_run_id}" --exit-status --interval 30
 
   notify-failure:
     name: Dataprep monthly failure alert
     needs:
       - dataprep-monthly
-      - deploy-prod-k8s
-    if: ${{ always() && (needs.dataprep-monthly.result == 'failure' || needs.deploy-prod-k8s.result == 'failure') }}
+      - dispatch-release-prod
+    if: ${{ always() && (needs.dataprep-monthly.result == 'failure' || needs.dispatch-release-prod.result == 'failure') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

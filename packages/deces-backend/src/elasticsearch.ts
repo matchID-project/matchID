@@ -58,3 +58,34 @@ export const checkClientHealth = async (): Promise<boolean> => {
     return false;
   }
 };
+
+export const getSearchIndex = (): string => process.env.ES_INDEX || 'deces';
+
+export const resolveConcreteIndex = async (index = getSearchIndex()): Promise<string> => {
+  const esClient = getClient();
+
+  try {
+    const aliases = await esClient.indices.getAlias({ name: index });
+    const concreteIndices = Object.keys(aliases || {});
+
+    if (concreteIndices.length === 1) {
+      return concreteIndices[0];
+    }
+
+    if (concreteIndices.length > 1) {
+      concreteIndices.sort();
+      return concreteIndices[concreteIndices.length - 1];
+    }
+  } catch (error) {
+    loggerStream.write(JSON.stringify({
+      backend: {
+        "server-date": new Date(Date.now()).toISOString(),
+        elasticsearchError: error instanceof Error ? error.message || error.toString() : String(error),
+        elasticsearchStack: error instanceof Error ? error.stack : undefined,
+        msg: `Elasticsearch alias resolution failed for ${index}; using configured index`
+      }
+    }));
+  }
+
+  return index;
+};

@@ -5,6 +5,7 @@ namespace: matchid-prod
 
 resources:
   - ../../base
+  - backend-data.pvc.yaml
   - elasticsearch-restore.job.yaml
   - log-forwarder.configmap.yaml
   - log-forwarder.daemonset.yaml
@@ -28,9 +29,22 @@ patches:
       name: elasticsearch
   - path: redis.prod.yaml
     target:
-      kind: Deployment
+      kind: StatefulSet
       name: redis
   - path: deces-backend.prod.yaml
+    target:
+      kind: Deployment
+      name: deces-backend
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes
+        value:
+          - name: data
+            persistentVolumeClaim:
+              claimName: deces-backend-data
+          - name: userdb
+            secret:
+              secretName: deces-backend-userdb
     target:
       kind: Deployment
       name: deces-backend

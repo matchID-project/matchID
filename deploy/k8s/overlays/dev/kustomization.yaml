@@ -34,7 +34,7 @@ patches:
       name: deces-ui
   - path: redis.dev.yaml
     target:
-      kind: Deployment
+      kind: StatefulSet
       name: redis
   - path: ingress.dev.yaml
     target:

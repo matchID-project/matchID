@@ -17,6 +17,7 @@ import { promisify } from 'util';
 import { parse } from '@fast-csv/parse';
 import { format } from '@fast-csv/format';
 import iconv from 'iconv-lite';
+import { resolveConcreteIndex, getSearchIndex } from './elasticsearch';
 
 import timer from './timer';
 import { buildRedisConnectionOptions } from './redisClient';
@@ -58,7 +59,6 @@ const pipelineAsync:any = promisify(pipeline);
 const stopJob: string[] = [];
 const stopJobReason: StopJobReason[] = [];
 const stopJobError = 'job has been stopped';
-const inputsArray: JobInput[]= []
 const jobQueue = new Queue('jobs',  {
   connection: buildRedisConnectionOptions()
 });
@@ -225,11 +225,30 @@ export const processCsv =  async (job: Job<any>, jobFile: JobInput): Promise<any
   }
 }
 
-export const processChunk = async (chunk: any[], candidateNumber: number, params: ScoreParams): Promise<any[]> => {
-  const bulkRequest = {searches: chunk.map((row: any) => {
+interface BulkSearchParams extends ScoreParams {
+  esIndex?: string;
+}
+
+export const buildBulkSearchRequest = (chunk: any[], params: BulkSearchParams): any => {
+  const index = params.esIndex || getSearchIndex();
+  return {searches: chunk.map((row: any) => {
     const requestInput = new RequestInput({...row, dateFormat: params.dateFormatA});
-    return [{index: "deces"}, buildRequest(requestInput)];
-  }).flat()}
+    return [{index}, buildRequest(requestInput)];
+  }).flat()};
+};
+
+export const buildJobInput = (job: Job<any>): JobInput => {
+  const jobId = String(job.id);
+  return {
+    id: jobId,
+    file: job.data.inputFile || `${process.env.JOBS}/${jobId}.in.enc`,
+    size: Number(job.data.inputSize || job.data.totalRows || 0),
+    priority: Number(job.opts.priority || job.data.priority || 0)
+  };
+};
+
+export const processChunk = async (chunk: any[], candidateNumber: number, params: BulkSearchParams): Promise<any[]> => {
+  const bulkRequest = buildBulkSearchRequest(chunk, params);
 
   try {
     const result =  await timerRunBulkRequest(bulkRequest);
@@ -262,19 +281,22 @@ export const processChunk = async (chunk: any[], candidateNumber: number, params
 }
 
 new Worker('chunks', async (chunkJob: Job) => {
-  return await processChunk(chunkJob.data.chunk, chunkJob.data.candidateNumber, {dateFormatA: chunkJob.data.dateFormatA, pruneScore: chunkJob.data.pruneScore, candidateNumber: chunkJob.data.candidateNumber});
+  return await processChunk(chunkJob.data.chunk, chunkJob.data.candidateNumber, {
+    dateFormatA: chunkJob.data.dateFormatA,
+    pruneScore: chunkJob.data.pruneScore,
+    candidateNumber: chunkJob.data.candidateNumber,
+    esIndex: chunkJob.data.esIndex
+  });
 }, {
   connection: buildRedisConnectionOptions(),
-  concurrency: Number(process.env.BACKEND_CHUNK_CONCURRENCY)
+  concurrency: Number(process.env.BACKEND_CHUNK_CONCURRENCY || 1)
 })
 
 const workerJobs = new Worker('jobs', async (job: Job) => {
-  const jobIndex = inputsArray.findIndex(x => x.id === job.id);
-  const jobFile = inputsArray.splice(jobIndex, 1).pop();
-  return await processCsv(job, jobFile);
+  return await processCsv(job, buildJobInput(job));
 }, {
   connection: buildRedisConnectionOptions(),
-  concurrency: Number(process.env.BACKEND_JOB_CONCURRENCY)
+  concurrency: Number(process.env.BACKEND_JOB_CONCURRENCY || 1)
 })
 
 
@@ -299,6 +321,7 @@ export class ProcessStream extends Transform {
   dateFormatA: string;
   candidateNumber: number;
   pruneScore: number;
+  esIndex: string;
 
   constructor(job: Job<any>, mapField: MapField, options: any = {}) {
     // init Transform
@@ -315,6 +338,7 @@ export class ProcessStream extends Transform {
     this.dateFormatA = this.job.data.dateFormatA;
     this.pruneScore = this.job.data.pruneScore;
     this.candidateNumber = this.job.data.candidateNumber;
+    this.esIndex = this.job.data.esIndex || getSearchIndex();
     this.jobs = [];
   }
 
@@ -390,7 +414,8 @@ export class ProcessStream extends Transform {
         chunk: this.batch.map((r: any) => this.toRequest(r)),
         dateFormatA: this.dateFormatA,
         pruneScore: this.pruneScore,
-        candidateNumber: this.candidateNumber
+        candidateNumber: this.candidateNumber,
+        esIndex: this.esIndex
       }, {
         attempts: 2,
         jobId,
@@ -488,15 +513,12 @@ export const csvHandle = async (request: Request, options: Options): Promise<any
     readStream.push((request.files as any)[0].buffer);
     readStream.push(null);
     await finishedAsync(writeStream);
-    inputsArray.push({
-      id: jobId,
-      file: `${process.env.JOBS}/${jobId}.in.enc`,
-      size: options.totalRows,
-      priority: Math.round(options.totalRows/1000)+1
-    }) // Use key hash as job identifier
+    const inputFile = `${process.env.JOBS}/${jobId}.in.enc`;
+    const priority = Math.round(options.totalRows/1000)+1;
+    const esIndex = await resolveConcreteIndex();
     await jobQueue.add(jobId,
-      {...options},
-      {jobId, priority: Math.round(options.totalRows/1000)+1}
+      {...options, inputFile, inputSize: options.totalRows, priority, esIndex},
+      {jobId, priority}
     )
     await sendJobUpdate(options.user, "L'appariement a bien commencé", options.randomKey);
     if (options.webhook) {
@@ -629,8 +651,7 @@ export const returnBulkResults = async (response: Response, id: string, outputFo
     }, 0)
     const remainingRowsWaiting = jobsWaiting.reduce((acc: number, val: any) => {
       if (val.timestamp < job.timestamp) {
-        const jobIndex = inputsArray.findIndex(x => x.id === val.id)
-        return acc + (inputsArray[jobIndex] ? (inputsArray[jobIndex].size || 0) : 0)
+        return acc + Number(val.data.inputSize || val.data.totalRows || 0)
       } else {
         return acc
       }

@@ -1,28 +1,52 @@
 name: Release Prod
 
+run-name: Release prod ${{ inputs.release_kind }} ${{ inputs.final_prod_tag || inputs.snapshot_name || inputs.app_ref || 'main' }}
+
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
-      prod_tag:
-        description: Prod tag to release
+      release_kind:
+        description: Prod release kind
         required: true
-        type: string
-      release_mode:
-        description: Prod release mode
-        required: false
-        default: auto
+        default: app_and_data
         type: choice
         options:
-          - auto
-          - deploy_only
-          - full_and_deploy
+          - app_and_data
+          - data_only
+          - rollback
+      app_ref:
+        description: Git ref for the application/runtime code
+        required: false
+        default: main
+        type: string
+      final_prod_tag:
+        description: Optional final prod tag; leave empty to allocate vYYYY.MM.DD.N
+        required: false
+        type: string
+      snapshot_name:
+        description: Existing Elasticsearch snapshot for data_only/rollback, or optional app_and_data reuse
+        required: false
+        type: string
+      dataprep_version:
+        description: Optional dataprep version metadata when snapshot_name is provided
+        required: false
+        type: string
+      data_version:
+        description: Optional data version metadata when snapshot_name is provided
+        required: false
+        type: string
+      force_restore:
+        description: Force alias switch to the requested snapshot
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
-  group: release-prod-${{ github.event.inputs.prod_tag || github.ref_name }}
-  cancel-in-progress: true
+  group: prod-release
+  cancel-in-progress: false
 
 jobs:
   release-context:
@@ -30,276 +54,113 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      actions: read
       contents: read
     outputs:
-      prod_tag: ${{ steps.context.outputs.prod_tag }}
-      tag_sha: ${{ steps.context.outputs.tag_sha }}
-      previous_prod_tag: ${{ steps.context.outputs.previous_prod_tag }}
-      dataprep_changed: ${{ steps.context.outputs.dataprep_changed }}
-      artifact_dataprep_snapshot: ${{ steps.context.outputs.artifact_dataprep_snapshot }}
-      artifact_matchid_backend: ${{ steps.context.outputs.artifact_matchid_backend }}
-      dataprep_runtime_changed: ${{ steps.context.outputs.dataprep_runtime_changed }}
-      release_mode: ${{ steps.context.outputs.release_mode }}
-      deploy_checkout_ref: ${{ steps.context.outputs.deploy_checkout_ref }}
-      should_run_full: ${{ steps.selection.outputs.should_run_full }}
-      snapshot_name: ${{ steps.selection.outputs.snapshot_name }}
-      dataprep_version: ${{ steps.selection.outputs.dataprep_version }}
-      data_version: ${{ steps.selection.outputs.data_version }}
+      release_kind: ${{ steps.context.outputs.release_kind }}
+      app_ref: ${{ steps.context.outputs.app_ref }}
+      app_sha: ${{ steps.context.outputs.app_sha }}
+      final_prod_tag: ${{ steps.context.outputs.final_prod_tag }}
+      should_run_full: ${{ steps.context.outputs.should_run_full }}
+      snapshot_name: ${{ steps.context.outputs.snapshot_name }}
+      dataprep_version: ${{ steps.context.outputs.dataprep_version }}
+      data_version: ${{ steps.context.outputs.data_version }}
+      force_restore: ${{ steps.context.outputs.force_restore }}
       deces_ui_image_version: ${{ steps.images.outputs.deces_ui_image_version }}
       deces_backend_image_version: ${{ steps.images.outputs.deces_backend_image_version }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+          ref: ${{ inputs.app_ref || 'main' }}
 
-      - name: Resolve prod tag context
+      - name: Resolve prod release context
         id: context
         env:
-          INPUT_PROD_TAG: ${{ inputs.prod_tag }}
-          INPUT_RELEASE_MODE: ${{ inputs.release_mode }}
+          INPUT_APP_REF: ${{ inputs.app_ref || 'main' }}
+          INPUT_DATA_VERSION: ${{ inputs.data_version }}
+          INPUT_DATAPREP_VERSION: ${{ inputs.dataprep_version }}
+          INPUT_FINAL_PROD_TAG: ${{ inputs.final_prod_tag }}
+          INPUT_FORCE_RESTORE: ${{ inputs.force_restore || 'false' }}
+          INPUT_RELEASE_KIND: ${{ inputs.release_kind }}
+          INPUT_SNAPSHOT_NAME: ${{ inputs.snapshot_name }}
         run: |
           set -euo pipefail
-          PROD_TAG="${INPUT_PROD_TAG:-${GITHUB_REF_NAME}}"
-          RELEASE_MODE="${INPUT_RELEASE_MODE:-auto}"
-          DEPLOY_CHECKOUT_REF="${PROD_TAG}"
-          case "${PROD_TAG}" in
-            v*) ;;
-            *)
-              echo "prod tag must match v*"
-              exit 1
-              ;;
-          esac
-          case "${RELEASE_MODE}" in
-            auto|deploy_only|full_and_deploy) ;;
-            *)
-              echo "release mode must be one of auto, deploy_only, full_and_deploy"
-              exit 1
-              ;;
-          esac
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${RELEASE_MODE}" = "deploy_only" ]; then
-            DEPLOY_CHECKOUT_REF="${GITHUB_REF}"
-          fi
           git fetch --force --tags origin main
-          TAG_SHA=$(git rev-list -n 1 "${PROD_TAG}")
-          git merge-base --is-ancestor "${TAG_SHA}" origin/main
-          PREVIOUS_PROD_TAG=$(git tag --list 'v*' --sort=-creatordate | grep -Fxv "${PROD_TAG}" | head -n 1 || true)
-          DATAPREP_CHANGED=true
-          ARTIFACT_DATAPREP_SNAPSHOT=false
-          ARTIFACT_MATCHID_BACKEND=false
-          DATAPREP_RUNTIME_CHANGED=false
-          if [ -n "${PREVIOUS_PROD_TAG}" ]; then
-            git diff --name-only "${PREVIOUS_PROD_TAG}" "${PROD_TAG}" | LC_ALL=C sort -u > /tmp/release-prod-changed-files.txt
-            touch /tmp/release-prod-changed-files.txt
 
-            prefixed_version_files() {
-              local dir="$1"
-              make -s -C "${dir}" version-files | sed "s#^#${dir}/#" | LC_ALL=C sort -u
-            }
+          RELEASE_KIND="${INPUT_RELEASE_KIND:-app_and_data}"
+          APP_REF="${INPUT_APP_REF:-main}"
+          SNAPSHOT_NAME="${INPUT_SNAPSHOT_NAME:-}"
+          DATAPREP_VERSION="${INPUT_DATAPREP_VERSION:-}"
+          DATA_VERSION="${INPUT_DATA_VERSION:-}"
+          FORCE_RESTORE="${INPUT_FORCE_RESTORE:-false}"
 
-            prefixed_version_files packages/deces-dataprep > /tmp/release-prod-dataprep-snapshot.files
-            prefixed_version_files packages/dataprep-backend > /tmp/release-prod-matchid-backend.files
+          case "$RELEASE_KIND" in
+            app_and_data|data_only|rollback) ;;
+            *)
+              echo "release_kind must be one of app_and_data, data_only, rollback" >&2
+              exit 1
+              ;;
+          esac
+          case "$FORCE_RESTORE" in
+            true|false) ;;
+            *)
+              echo "force_restore must be true or false" >&2
+              exit 1
+              ;;
+          esac
 
-            if grep -Fxf /tmp/release-prod-dataprep-snapshot.files /tmp/release-prod-changed-files.txt > /dev/null 2>&1; then
-              ARTIFACT_DATAPREP_SNAPSHOT=true
-            fi
-            if grep -Fxf /tmp/release-prod-matchid-backend.files /tmp/release-prod-changed-files.txt > /dev/null 2>&1; then
-              ARTIFACT_MATCHID_BACKEND=true
-            fi
-            if grep -Eq '^(Makefile$|packages/tools/|packages/deces-infra/|scripts/|\.github/workflows/release-prod\.yml$)' /tmp/release-prod-changed-files.txt; then
-              DATAPREP_RUNTIME_CHANGED=true
-            fi
-            if [ "${ARTIFACT_DATAPREP_SNAPSHOT}" != "true" ] && \
-               [ "${ARTIFACT_MATCHID_BACKEND}" != "true" ] && \
-               [ "${DATAPREP_RUNTIME_CHANGED}" != "true" ]; then
-              DATAPREP_CHANGED=false
-            fi
-          fi
-          {
-            echo "prod_tag=${PROD_TAG}"
-            echo "tag_sha=${TAG_SHA}"
-            echo "previous_prod_tag=${PREVIOUS_PROD_TAG}"
-            echo "dataprep_changed=${DATAPREP_CHANGED}"
-            echo "artifact_dataprep_snapshot=${ARTIFACT_DATAPREP_SNAPSHOT}"
-            echo "artifact_matchid_backend=${ARTIFACT_MATCHID_BACKEND}"
-            echo "dataprep_runtime_changed=${DATAPREP_RUNTIME_CHANGED}"
-            echo "release_mode=${RELEASE_MODE}"
-            echo "deploy_checkout_ref=${DEPLOY_CHECKOUT_REF}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Resolve existing prod snapshot metadata
-        id: snapshot_auto
-        if: steps.context.outputs.release_mode == 'auto' && steps.context.outputs.dataprep_changed != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-prod.yml/runs?status=completed&per_page=50" > /tmp/release-prod-runs.json
-          PREVIOUS_RUN_ID=$(
-            jq -r --argjson current "${GITHUB_RUN_ID}" '
-              .workflow_runs[]
-              | select(.id != $current and .conclusion == "success")
-              | .id
-            ' /tmp/release-prod-runs.json | head -n 1
-          )
-          if [ -z "${PREVIOUS_RUN_ID}" ]; then
-            echo "run_full=true" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${PREVIOUS_RUN_ID}/artifacts" > /tmp/release-prod-artifacts.json
-          ARTIFACT_URL=$(
-            jq -r '
-              .artifacts[]
-              | select(.name == "release-prod-metadata")
-              | .archive_download_url
-            ' /tmp/release-prod-artifacts.json | head -n 1
-          )
-          if [ -z "${ARTIFACT_URL}" ]; then
-            echo "run_full=true" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-          curl -fsSL \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "${ARTIFACT_URL}" \
-            -o /tmp/release-prod-metadata.zip
-          unzip -p /tmp/release-prod-metadata.zip release-prod-metadata.txt > /tmp/release-prod-metadata.txt
-          SNAPSHOT_NAME=$(sed -n 's/^snapshot_name=//p' /tmp/release-prod-metadata.txt)
-          DATAPREP_VERSION=$(sed -n 's/^dataprep_version=//p' /tmp/release-prod-metadata.txt)
-          DATA_VERSION=$(sed -n 's/^data_version=//p' /tmp/release-prod-metadata.txt)
-          if [ -z "${SNAPSHOT_NAME}" ] || [ -z "${DATAPREP_VERSION}" ] || [ -z "${DATA_VERSION}" ]; then
-            echo "run_full=true" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-          {
-            echo "run_full=false"
-            echo "snapshot_name=${SNAPSHOT_NAME}"
-            echo "dataprep_version=${DATAPREP_VERSION}"
-            echo "data_version=${DATA_VERSION}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Resolve tagged prod snapshot metadata
-        id: snapshot_tagged
-        if: steps.context.outputs.release_mode == 'deploy_only'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG_SHA: ${{ steps.context.outputs.tag_sha }}
-        run: |
-          set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-prod.yml/runs?status=completed&per_page=100" > /tmp/release-prod-runs.json
-          resolve_artifact_url() {
-            local run_id="$1"
-            local artifacts_file="/tmp/release-prod-artifacts-${run_id}.json"
-            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/artifacts" > "${artifacts_file}"
-            jq -r '[.artifacts[] | select(.name == "release-prod-metadata") | .archive_download_url][0] // ""' "${artifacts_file}"
-          }
-
-          SOURCE_RUN_ID=$(
-            jq -r --argjson current "${GITHUB_RUN_ID}" --arg tag_sha "${TAG_SHA}" '
-              .workflow_runs[]
-              | select(.id != $current and .conclusion == "success" and .head_sha == $tag_sha)
-              | .id
-            ' /tmp/release-prod-runs.json | head -n 1
-          )
-
-          ARTIFACT_URL=
-          if [ -n "${SOURCE_RUN_ID}" ]; then
-            ARTIFACT_URL="$(resolve_artifact_url "${SOURCE_RUN_ID}")"
-          fi
-
-          if [ -z "${ARTIFACT_URL}" ]; then
-            while IFS= read -r candidate_run_id; do
-              if [ -z "${candidate_run_id}" ]; then
-                continue
-              fi
-              candidate_url="$(resolve_artifact_url "${candidate_run_id}")"
-              if [ -n "${candidate_url}" ]; then
-                SOURCE_RUN_ID="${candidate_run_id}"
-                ARTIFACT_URL="${candidate_url}"
-                echo "Using release-prod metadata from run ${SOURCE_RUN_ID}"
-                break
-              fi
-            done < <(
-              jq -r --argjson current "${GITHUB_RUN_ID}" '
-                .workflow_runs[]
-                | select(.id != $current and .conclusion == "success")
-                | .id
-              ' /tmp/release-prod-runs.json
-            )
-            if [ -z "${ARTIFACT_URL}" ]; then
-              echo "missing_metadata=true" >> "${GITHUB_OUTPUT}"
-              exit 0
-            fi
-          fi
-
-          curl -fsSL \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "${ARTIFACT_URL}" \
-            -o /tmp/release-prod-metadata.zip
-          unzip -p /tmp/release-prod-metadata.zip release-prod-metadata.txt > /tmp/release-prod-metadata.txt
-          SNAPSHOT_NAME=$(sed -n 's/^snapshot_name=//p' /tmp/release-prod-metadata.txt)
-          DATAPREP_VERSION=$(sed -n 's/^dataprep_version=//p' /tmp/release-prod-metadata.txt)
-          DATA_VERSION=$(sed -n 's/^data_version=//p' /tmp/release-prod-metadata.txt)
-          if [ -z "${SNAPSHOT_NAME}" ] || [ -z "${DATAPREP_VERSION}" ] || [ -z "${DATA_VERSION}" ]; then
-            echo "missing_metadata=true" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-          {
-            echo "missing_metadata=false"
-            echo "snapshot_name=${SNAPSHOT_NAME}"
-            echo "dataprep_version=${DATAPREP_VERSION}"
-            echo "data_version=${DATA_VERSION}"
-          } >> "${GITHUB_OUTPUT}"
-
-      - name: Validate deploy-only metadata
-        if: steps.context.outputs.release_mode == 'deploy_only' && steps.snapshot_tagged.outputs.missing_metadata == 'true'
-        run: |
-          echo "missing successful release-prod metadata for ${PROD_TAG}"
-          exit 1
-        env:
-          PROD_TAG: ${{ steps.context.outputs.prod_tag }}
-
-      - name: Select prod snapshot mode
-        id: selection
-        run: |
-          set -euo pipefail
           SHOULD_RUN_FULL=false
-          SNAPSHOT_NAME=
-          DATAPREP_VERSION=
-          DATA_VERSION=
-          if [ "${RELEASE_MODE}" = "full_and_deploy" ]; then
+          if [ "$RELEASE_KIND" = "app_and_data" ] && [ -z "$SNAPSHOT_NAME" ]; then
             SHOULD_RUN_FULL=true
-          elif [ "${RELEASE_MODE}" = "auto" ]; then
-            if [ "${DATAPREP_CHANGED}" = "true" ] || [ "${AUTO_RUN_FULL}" = "true" ]; then
-              SHOULD_RUN_FULL=true
-            else
-              SNAPSHOT_NAME="${AUTO_SNAPSHOT_NAME}"
-              DATAPREP_VERSION="${AUTO_DATAPREP_VERSION}"
-              DATA_VERSION="${AUTO_DATA_VERSION}"
-            fi
-          else
-            SNAPSHOT_NAME="${TAGGED_SNAPSHOT_NAME}"
-            DATAPREP_VERSION="${TAGGED_DATAPREP_VERSION}"
-            DATA_VERSION="${TAGGED_DATA_VERSION}"
+            FORCE_RESTORE=true
           fi
+          if [ "$RELEASE_KIND" = "rollback" ]; then
+            FORCE_RESTORE=true
+          fi
+          if [ "$RELEASE_KIND" != "app_and_data" ] && [ -z "$SNAPSHOT_NAME" ]; then
+            echo "snapshot_name is required for $RELEASE_KIND" >&2
+            exit 1
+          fi
+
+          FINAL_PROD_TAG="${INPUT_FINAL_PROD_TAG:-}"
+          if [ -z "$FINAL_PROD_TAG" ]; then
+            today="$(date -u +v%Y.%m.%d)"
+            escaped_today="$(printf '%s' "$today" | sed 's/\./\\./g')"
+            latest_n="$(
+              git tag --list "${today}.*" |
+                sed -n "s/^${escaped_today}\.\([0-9][0-9]*\)$/\1/p" |
+                sort -n |
+                tail -n 1
+            )"
+            next_n=$(( ${latest_n:-0} + 1 ))
+            FINAL_PROD_TAG="${today}.${next_n}"
+          fi
+
+          if ! [[ "$FINAL_PROD_TAG" =~ ^v[0-9][0-9][0-9][0-9]\.[0-9][0-9]\.[0-9][0-9]\.[0-9]+$ ]]; then
+            echo "prod tag must match vYYYY.MM.DD.N (v[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].N)" >&2
+            exit 1
+          fi
+          if [ "$FINAL_PROD_TAG" = "v0" ]; then
+            echo "v0 is a legacy tag and is not a valid prod publication tag" >&2
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/${FINAL_PROD_TAG}" >/dev/null; then
+            echo "final prod tag already exists: ${FINAL_PROD_TAG}" >&2
+            exit 1
+          fi
+
+          APP_SHA="$(git rev-parse HEAD)"
           {
+            echo "release_kind=${RELEASE_KIND}"
+            echo "app_ref=${APP_REF}"
+            echo "app_sha=${APP_SHA}"
+            echo "final_prod_tag=${FINAL_PROD_TAG}"
             echo "should_run_full=${SHOULD_RUN_FULL}"
             echo "snapshot_name=${SNAPSHOT_NAME}"
             echo "dataprep_version=${DATAPREP_VERSION}"
             echo "data_version=${DATA_VERSION}"
-          } >> "${GITHUB_OUTPUT}"
-        env:
-          RELEASE_MODE: ${{ steps.context.outputs.release_mode }}
-          DATAPREP_CHANGED: ${{ steps.context.outputs.dataprep_changed }}
-          AUTO_RUN_FULL: ${{ steps.snapshot_auto.outputs.run_full || 'false' }}
-          AUTO_SNAPSHOT_NAME: ${{ steps.snapshot_auto.outputs.snapshot_name }}
-          AUTO_DATAPREP_VERSION: ${{ steps.snapshot_auto.outputs.dataprep_version }}
-          AUTO_DATA_VERSION: ${{ steps.snapshot_auto.outputs.data_version }}
-          TAGGED_SNAPSHOT_NAME: ${{ steps.snapshot_tagged.outputs.snapshot_name }}
-          TAGGED_DATAPREP_VERSION: ${{ steps.snapshot_tagged.outputs.dataprep_version }}
-          TAGGED_DATA_VERSION: ${{ steps.snapshot_tagged.outputs.data_version }}
+            echo "force_restore=${FORCE_RESTORE}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Resolve deploy image versions
         id: images
@@ -308,55 +169,40 @@ jobs:
           {
             echo "deces_ui_image_version=$(make artifact-version-deces-ui GIT_BRANCH=master | tail -1)"
             echo "deces_backend_image_version=$(make artifact-version-deces-backend GIT_BRANCH=master | tail -1)"
-          } >> "${GITHUB_OUTPUT}"
+          } >> "$GITHUB_OUTPUT"
 
   ensure-matchid-backend-image-prod:
     name: ensure-matchid-backend-image-prod
     needs: release-context
+    if: needs.release-context.outputs.should_run_full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     outputs:
       image_version: ${{ steps.resolve.outputs.image_version }}
-      should_validate: ${{ steps.resolve.outputs.should_validate }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+          ref: ${{ needs.release-context.outputs.app_ref }}
 
       - name: Resolve matchid-backend prod image
         id: resolve
         run: |
           set -euo pipefail
-          IMAGE_VERSION=
-          SHOULD_VALIDATE=false
-          if [ "${SHOULD_RUN_FULL}" = "true" ]; then
-            IMAGE_VERSION=$(make artifact-version-dataprep-backend GIT_BRANCH=master | tail -1)
-            SHOULD_VALIDATE=true
-          fi
-          {
-            echo "image_version=${IMAGE_VERSION}"
-            echo "should_validate=${SHOULD_VALIDATE}"
-          } >> "${GITHUB_OUTPUT}"
-        env:
-          SHOULD_RUN_FULL: ${{ needs.release-context.outputs.should_run_full }}
+          echo "image_version=$(make artifact-version-dataprep-backend GIT_BRANCH=master | tail -1)" >> "$GITHUB_OUTPUT"
 
       - name: Validate matchid-backend prod image availability
-        if: steps.resolve.outputs.should_validate == 'true'
         run: make -C packages/dataprep-backend backend-docker-check GIT_BRANCH=master APP_VERSION="${APP_VERSION}"
         env:
           APP_VERSION: ${{ steps.resolve.outputs.image_version }}
-
-      - name: No-op matchid-backend prod image
-        if: steps.resolve.outputs.should_validate != 'true'
-        run: echo "No matchid-backend prod image validation needed"
 
   ensure-prod-snapshot:
     name: ensure-prod-snapshot
     needs:
       - release-context
       - ensure-matchid-backend-image-prod
+    if: always() && needs.release-context.result == 'success' && (needs.ensure-matchid-backend-image-prod.result == 'success' || needs.ensure-matchid-backend-image-prod.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -381,7 +227,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+          ref: ${{ needs.release-context.outputs.app_ref }}
 
       - name: Install deploy SSH key
         if: needs.release-context.outputs.should_run_full == 'true'
@@ -486,14 +332,14 @@ jobs:
             SCW_FLAVOR="${DATAPREP_SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${DATAPREP_SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${DATAPREP_SCW_VOLUME_TYPE_PROD}" \
             CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
             SLACK_TITLE="deces-dataprep - full" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
-            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${PROD_TAG}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
-            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${PROD_TAG}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
+            REMOTE_TOOLS_REPOSITORY=matchID REMOTE_TOOLS_BRANCH="${APP_REF}" REMOTE_TOOLS_PATH=matchID/matchID REMOTE_TOOLS_MAKE_PATH=matchID/matchID/packages/tools \
+            REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${APP_REF}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             DATAPREP_BACKEND_MAKEOVERRIDES="APP_VERSION=${DATAPREP_BACKEND_IMAGE_VERSION}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
             CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
         env:
+          APP_REF: ${{ needs.release-context.outputs.app_ref }}
           DATAPREP_BACKEND_IMAGE_VERSION: ${{ needs.ensure-matchid-backend-image-prod.outputs.image_version }}
-          PROD_TAG: ${{ needs.release-context.outputs.prod_tag }}
           remote_http_proxy: ${{ secrets.remote_http_proxy }}
           remote_https_proxy: ${{ secrets.remote_https_proxy }}
           remote_no_proxy: localhost
@@ -505,7 +351,7 @@ jobs:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
-      - name: Capture prod snapshot metadata
+      - name: Capture full prod snapshot metadata
         id: full_snapshot
         if: needs.release-context.outputs.should_run_full == 'true'
         run: |
@@ -517,7 +363,7 @@ jobs:
             echo "snapshot_name=${SNAPSHOT_NAME}"
             echo "dataprep_version=${DATAPREP_VERSION}"
             echo "data_version=${DATA_VERSION}"
-          } >> "${GITHUB_OUTPUT}"
+          } >> "$GITHUB_OUTPUT"
         env:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
@@ -531,23 +377,34 @@ jobs:
             DATAPREP_VERSION="${FULL_DATAPREP_VERSION}"
             DATA_VERSION="${FULL_DATA_VERSION}"
           else
-            SNAPSHOT_NAME="${REUSED_SNAPSHOT_NAME}"
-            DATAPREP_VERSION="${REUSED_DATAPREP_VERSION}"
-            DATA_VERSION="${REUSED_DATA_VERSION}"
+            SNAPSHOT_NAME="${INPUT_SNAPSHOT_NAME}"
+            DATAPREP_VERSION="${INPUT_DATAPREP_VERSION}"
+            DATA_VERSION="${INPUT_DATA_VERSION}"
+          fi
+
+          if [ -z "$SNAPSHOT_NAME" ]; then
+            echo "snapshot metadata is empty" >&2
+            exit 1
+          fi
+          if [ -z "$DATAPREP_VERSION" ]; then
+            DATAPREP_VERSION=$(echo "$SNAPSHOT_NAME" | sed -E 's/^esdata_([^_]+)_.*/\1/')
+          fi
+          if [ -z "$DATA_VERSION" ]; then
+            DATA_VERSION=$(echo "$SNAPSHOT_NAME" | sed -E 's/^esdata_[^_]+_([^_]+)$/\1/')
           fi
           {
             echo "snapshot_name=${SNAPSHOT_NAME}"
             echo "dataprep_version=${DATAPREP_VERSION}"
             echo "data_version=${DATA_VERSION}"
-          } >> "${GITHUB_OUTPUT}"
+          } >> "$GITHUB_OUTPUT"
         env:
           SHOULD_RUN_FULL: ${{ needs.release-context.outputs.should_run_full }}
           FULL_SNAPSHOT_NAME: ${{ steps.full_snapshot.outputs.snapshot_name }}
           FULL_DATAPREP_VERSION: ${{ steps.full_snapshot.outputs.dataprep_version }}
           FULL_DATA_VERSION: ${{ steps.full_snapshot.outputs.data_version }}
-          REUSED_SNAPSHOT_NAME: ${{ needs.release-context.outputs.snapshot_name }}
-          REUSED_DATAPREP_VERSION: ${{ needs.release-context.outputs.dataprep_version }}
-          REUSED_DATA_VERSION: ${{ needs.release-context.outputs.data_version }}
+          INPUT_SNAPSHOT_NAME: ${{ needs.release-context.outputs.snapshot_name }}
+          INPUT_DATAPREP_VERSION: ${{ needs.release-context.outputs.dataprep_version }}
+          INPUT_DATA_VERSION: ${{ needs.release-context.outputs.data_version }}
 
   deploy-prod:
     name: deploy-prod
@@ -558,6 +415,9 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+    outputs:
+      public_version_json: ${{ steps.smoke_public.outputs.public_version_json }}
+      traefik_version_json: ${{ steps.smoke_backend.outputs.traefik_version_json }}
     env:
       APP_DNS: deces.matchid.io
       HOSTNAME: deces.matchid.io
@@ -569,7 +429,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-context.outputs.deploy_checkout_ref }}
+          ref: ${{ needs.release-context.outputs.app_ref }}
 
       - name: Install kubeconfig
         run: |
@@ -586,6 +446,7 @@ jobs:
           kubectl get ns "$NAMESPACE"
 
       - name: Apply prod runtime secrets
+        if: needs.release-context.outputs.release_kind == 'app_and_data'
         env:
           API_EMAIL: ${{ secrets.API_EMAIL || 'contact@matchid.io' }}
           BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
@@ -602,17 +463,15 @@ jobs:
           SMTP_PWD: ${{ secrets.SMTP_PWD }}
           SMTP_TLS_SELFSIGNED: ${{ secrets.SMTP_TLS_SELFSIGNED }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
-          STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
-          STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
         run: |
           set -euo pipefail
-          make -C deploy/k8s prod-secrets NAMESPACE="$NAMESPACE"
+          make -C deploy/k8s prod-runtime-secrets NAMESPACE="$NAMESPACE"
 
       - name: Apply prod restore secrets
         env:
           REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
           SNAPSHOT_NAME: ${{ needs.ensure-prod-snapshot.outputs.snapshot_name }}
-          FORCE_RESTORE: ${{ needs.release-context.outputs.should_run_full }}
+          FORCE_RESTORE: ${{ needs.release-context.outputs.force_restore }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
         run: |
@@ -620,6 +479,7 @@ jobs:
           make -C deploy/k8s prod-restore-secrets NAMESPACE="$NAMESPACE"
 
       - name: Wait for Docker images
+        if: needs.release-context.outputs.release_kind == 'app_and_data'
         env:
           DECES_BACKEND_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_backend_image_version }}
           DECES_UI_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_ui_image_version }}
@@ -640,38 +500,60 @@ jobs:
             done
           done
 
-      - name: Render and apply prod overlay
+      - name: Render/apply runtime or restore job
         env:
           DECES_BACKEND_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_backend_image_version }}
           DECES_UI_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_ui_image_version }}
+          RELEASE_KIND: ${{ needs.release-context.outputs.release_kind }}
         run: |
           set -euo pipefail
           kubectl -n "$NAMESPACE" delete job/elasticsearch-restore --ignore-not-found=true
-          work_dir="$(mktemp -d)"
-          cp -R deploy/k8s "$work_dir/k8s"
-          overlay_dir="$work_dir/k8s/overlays/$OVERLAY"
-          cat >> "$overlay_dir/kustomization.yaml" <<EOF
+          kubectl -n "$NAMESPACE" wait --for=delete job/elasticsearch-restore --timeout=120s || true
+          if [ "$RELEASE_KIND" = "app_and_data" ]; then
+            kubectl -n "$NAMESPACE" delete deploy/redis --ignore-not-found=true
+            work_dir="$(mktemp -d)"
+            cp -R deploy/k8s "$work_dir/k8s"
+            overlay_dir="$work_dir/k8s/overlays/$OVERLAY"
+            cat >> "$overlay_dir/kustomization.yaml" <<EOF
           images:
             - name: matchid/deces-backend
               newTag: $DECES_BACKEND_IMAGE_VERSION
             - name: matchid/deces-ui
               newTag: $DECES_UI_IMAGE_VERSION
           EOF
-          kubectl kustomize "$overlay_dir" >/tmp/matchid-prod-k8s-rendered.yaml
-          kubectl apply -f /tmp/matchid-prod-k8s-rendered.yaml
+            kubectl kustomize "$overlay_dir" >/tmp/matchid-prod-k8s-rendered.yaml
+            kubectl apply -f /tmp/matchid-prod-k8s-rendered.yaml
+          else
+            kubectl -n "$NAMESPACE" apply -f deploy/k8s/overlays/prod/elasticsearch-restore.job.yaml
+          fi
 
       - name: Wait for runtime and restore
+        env:
+          RELEASE_KIND: ${{ needs.release-context.outputs.release_kind }}
         run: |
           set -euo pipefail
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m deploy/redis
+          kubectl -n "$NAMESPACE" rollout status statefulset/redis --timeout=10m
           kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=20m
           kubectl -n "$NAMESPACE" wait --for=condition=complete --timeout=90m job/elasticsearch-restore
           kubectl -n "$NAMESPACE" logs job/elasticsearch-restore --tail=200
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
-            deploy/deces-backend deploy/deces-ui
-          kubectl -n "$NAMESPACE" rollout status ds/matchid-log-forwarder --timeout=5m
+          if [ "$RELEASE_KIND" = "app_and_data" ]; then
+            kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
+              deploy/deces-backend deploy/deces-ui
+            kubectl -n "$NAMESPACE" rollout status ds/matchid-log-forwarder --timeout=5m
+          fi
 
-      - name: Smoke backend healthcheck
+      - name: Smoke Redis
+        run: |
+          set -euo pipefail
+          redis_pod="$(
+            kubectl -n "$NAMESPACE" get pods \
+              -l app.kubernetes.io/name=redis,app.kubernetes.io/part-of=matchid \
+              -o jsonpath='{.items[0].metadata.name}'
+          )"
+          kubectl -n "$NAMESPACE" exec "$redis_pod" -- redis-cli ping | grep -Fx PONG
+
+      - name: Smoke backend via Traefik
+        id: smoke_backend
         run: |
           set -euo pipefail
           resolve_traefik_lb() {
@@ -688,10 +570,18 @@ jobs:
             echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
             exit 1
           fi
-          curl -fsSk -m 20 -H "Host: $HOSTNAME" \
-            "https://$traefik_lb/deces/api/v1/healthcheck"
+          for endpoint in healthcheck readiness version; do
+            curl -fsSk -m 20 -H "Host: $HOSTNAME" \
+              "https://$traefik_lb/deces/api/v1/$endpoint" >/tmp/prod-smoke-"$endpoint".json
+            cat /tmp/prod-smoke-"$endpoint".json
+            if [ "$endpoint" = "version" ]; then
+              version_json="$(jq -c . </tmp/prod-smoke-"$endpoint".json)"
+              echo "traefik_version_json=${version_json}" >> "$GITHUB_OUTPUT"
+            fi
+          done
 
       - name: Cut over Cloudflare DNS
+        if: needs.release-context.outputs.release_kind == 'app_and_data'
         env:
           CDN_DNS_TOKEN: ${{ secrets.CDN_DNS_TOKEN }}
           CDN_TOKEN: ${{ secrets.CDN_TOKEN }}
@@ -776,22 +666,34 @@ jobs:
           fi
 
       - name: Wait for prod certificate
+        if: needs.release-context.outputs.release_kind == 'app_and_data'
         run: |
           set -euo pipefail
           kubectl -n "$NAMESPACE" wait --for=condition=Ready --timeout=10m certificate/matchid-prod-tls
 
-      - name: Smoke public healthcheck
+      - name: Smoke public endpoints
+        id: smoke_public
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 30); do
-            if curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"; then
-              exit 0
-            fi
-            sleep 10
+          for endpoint in healthcheck readiness version; do
+            for attempt in $(seq 1 30); do
+              if curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/$endpoint" >/tmp/public-prod-smoke-"$endpoint".json; then
+                cat /tmp/public-prod-smoke-"$endpoint".json
+                if [ "$endpoint" = "version" ]; then
+                  version_json="$(jq -c . </tmp/public-prod-smoke-"$endpoint".json)"
+                  echo "public_version_json=${version_json}" >> "$GITHUB_OUTPUT"
+                fi
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/$endpoint"
+              fi
+              sleep 10
+            done
           done
-          curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"
 
       - name: Verify prod log sinks
+        if: needs.release-context.outputs.release_kind == 'app_and_data'
         env:
           LOG_BUCKET: ${{ secrets.LOG_BUCKET }}
           NEW_RELIC_ACCOUNT_ID: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
@@ -800,24 +702,7 @@ jobs:
           TOOLS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
         run: |
           set -euo pipefail
-          resolve_traefik_lb() {
-            if [ -n "${TRAEFIK_LB_IP_PROD:-}" ]; then
-              printf '%s' "$TRAEFIK_LB_IP_PROD"
-              return
-            fi
-            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-              kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-              true
-          }
-          traefik_lb="$(resolve_traefik_lb)"
-          if [ -z "$traefik_lb" ]; then
-            echo "missing Traefik load balancer IP; set TRAEFIK_LB_IP_PROD for tenant-scoped kubeconfigs" >&2
-            exit 1
-          fi
-          curl -fsSk -m 20 -H "Host: $HOSTNAME" \
-            "https://$traefik_lb/deces/api/v1/healthcheck" >/dev/null
           sleep 45
-
           bucket="${LOG_BUCKET%%/*}"
           prefix_base="${LOG_BUCKET#*/}"
           if [ "$prefix_base" = "$LOG_BUCKET" ]; then
@@ -873,25 +758,60 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.prod_tag || github.ref }}
+          fetch-depth: 0
+          ref: ${{ needs.release-context.outputs.app_ref }}
 
       - name: Write release metadata artifact
+        env:
+          APP_REF: ${{ needs.release-context.outputs.app_ref }}
+          APP_SHA: ${{ needs.release-context.outputs.app_sha }}
+          DATA_VERSION: ${{ needs.ensure-prod-snapshot.outputs.data_version }}
+          DATAPREP_VERSION: ${{ needs.ensure-prod-snapshot.outputs.dataprep_version }}
+          FINAL_PROD_TAG: ${{ needs.release-context.outputs.final_prod_tag }}
+          FORCE_RESTORE: ${{ needs.release-context.outputs.force_restore }}
+          PUBLIC_VERSION_JSON: ${{ needs.deploy-prod.outputs.public_version_json }}
+          RELEASE_KIND: ${{ needs.release-context.outputs.release_kind }}
+          SNAPSHOT_NAME: ${{ needs.ensure-prod-snapshot.outputs.snapshot_name }}
+          TRAEFIK_VERSION_JSON: ${{ needs.deploy-prod.outputs.traefik_version_json }}
         run: |
+          set -euo pipefail
           cat <<EOF > /tmp/release-prod-metadata.txt
-          prod_tag=${{ needs.release-context.outputs.prod_tag }}
-          commit_sha=${{ needs.release-context.outputs.tag_sha }}
-          snapshot_name=${{ needs.ensure-prod-snapshot.outputs.snapshot_name }}
-          dataprep_version=${{ needs.ensure-prod-snapshot.outputs.dataprep_version }}
-          data_version=${{ needs.ensure-prod-snapshot.outputs.data_version }}
+          prod_tag=${FINAL_PROD_TAG}
+          release_kind=${RELEASE_KIND}
+          app_ref=${APP_REF}
+          commit_sha=${APP_SHA}
+          snapshot_name=${SNAPSHOT_NAME}
+          dataprep_version=${DATAPREP_VERSION}
+          data_version=${DATA_VERSION}
+          traefik_version_json=${TRAEFIK_VERSION_JSON}
+          public_version_json=${PUBLIC_VERSION_JSON}
+          force_restore=${FORCE_RESTORE}
+          workflow_run_id=${GITHUB_RUN_ID}
           deces_ui_version=$(make package-version-deces-ui)
           deces_backend_version=$(make package-version-deces-backend)
           dataprep_backend_version=$(make package-version-dataprep-backend)
           dataprep_frontend_version=$(make package-version-dataprep-frontend)
           EOF
+
+      - name: Create final prod tag
+        env:
+          APP_SHA: ${{ needs.release-context.outputs.app_sha }}
+          FINAL_PROD_TAG: ${{ needs.release-context.outputs.final_prod_tag }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          if git rev-parse -q --verify "refs/tags/${FINAL_PROD_TAG}" >/dev/null; then
+            echo "tag already exists: ${FINAL_PROD_TAG}" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$FINAL_PROD_TAG" -F /tmp/release-prod-metadata.txt "$APP_SHA"
+          git push origin "refs/tags/${FINAL_PROD_TAG}"
 
       - name: Upload release metadata artifact
         uses: actions/upload-artifact@v4

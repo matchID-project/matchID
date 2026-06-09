@@ -1,7 +1,4 @@
-# Redis — backing store for BullMQ workers in deces-backend.
-# Single-replica, ephemeral (data lives in-memory, no PVC). Good enough for
-# the smoke gate and dev usage; production should use a managed Redis or a
-# StatefulSet with persistence.
+# Redis backing store for BullMQ workers and login OTP state.
 apiVersion: v1
 kind: Service
 metadata:
@@ -21,7 +18,7 @@ spec:
       protocol: TCP
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: redis
   labels:
@@ -29,9 +26,8 @@ metadata:
     app.kubernetes.io/component: queue
     app.kubernetes.io/part-of: matchid
 spec:
+  serviceName: redis
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: redis
@@ -46,11 +42,25 @@ spec:
         - name: redis
           image: redis:7.2-alpine
           imagePullPolicy: IfNotPresent
-          args: ["--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+          args:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+            - --dir
+            - /data
+            - --maxmemory
+            - 128mb
+            - --maxmemory-policy
+            - noeviction
           ports:
             - name: redis
               containerPort: 6379
               protocol: TCP
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
           readinessProbe:
             tcpSocket:
               port: redis
@@ -64,7 +74,16 @@ spec:
           resources:
             requests:
               cpu: 25m
-              memory: 32Mi
+              memory: 64Mi
             limits:
               cpu: 100m
-              memory: 192Mi
+              memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
