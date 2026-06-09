@@ -48,6 +48,18 @@ LOG_FORWARDER_SECRET_REQUIRED_KEYS := \
 	LOG_STORAGE_SECRET_KEY \
 	NEW_RELIC_INGEST_KEY
 
+PROOFS_STORAGE_SECRET_NAME ?= deces-proofs-storage
+PROOFS_GIT_BRANCH ?= main
+PROOFS_STORAGE_ACCESS_KEY ?= $(if $(TOOLS_STORAGE_ACCESS_KEY),$(TOOLS_STORAGE_ACCESS_KEY),$(STORAGE_ACCESS_KEY))
+PROOFS_STORAGE_SECRET_KEY ?= $(if $(TOOLS_STORAGE_SECRET_KEY),$(TOOLS_STORAGE_SECRET_KEY),$(STORAGE_SECRET_KEY))
+PROOFS_STORAGE_SECRET_REQUIRED_KEYS := \
+	PROOFS_BUCKET \
+	PROOFS_STORAGE_ACCESS_KEY \
+	PROOFS_STORAGE_SECRET_KEY
+PROOFS_STORAGE_SECRET_KEYS := \
+	$(PROOFS_STORAGE_SECRET_REQUIRED_KEYS) \
+	PROOFS_GIT_BRANCH
+
 USERDB_SECRET_NAME ?= deces-backend-userdb
 USERDB_SECRET_REQUIRED_KEYS := \
 	DECES_BACKEND_USERDB_JSON
@@ -69,12 +81,13 @@ ELASTICSEARCH_RESTORE_SECRET_KEYS := \
 PROD_SECRET_REQUIRED_KEYS := \
 	$(BACKEND_SECRET_REQUIRED_KEYS) \
 	$(LOG_FORWARDER_SECRET_REQUIRED_KEYS) \
+	$(PROOFS_STORAGE_SECRET_REQUIRED_KEYS) \
 	$(USERDB_SECRET_REQUIRED_KEYS) \
 	$(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS)
 
-export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) $(USERDB_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_RESTORE_SECRET_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
+export $(BACKEND_SECRET_KEYS) $(LOG_FORWARDER_SECRET_REQUIRED_KEYS) $(PROOFS_STORAGE_SECRET_KEYS) $(USERDB_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_S3_SECRET_REQUIRED_KEYS) $(ELASTICSEARCH_RESTORE_SECRET_KEYS) LOG_S3_BUCKET LOG_S3_PREFIX
 
-.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets userdb-seed-secret-preflight userdb-seed-secret elasticsearch-s3-secrets-preflight elasticsearch-s3-secrets prod-runtime-secrets-preflight prod-runtime-secrets prod-restore-preflight prod-restore-secrets prod-secrets-preflight prod-secrets apply-local apply-poc apply-dev apply-prod apply-test port-forward logs status
+.PHONY: help k3d-up k3d-down backend-secrets-preflight backend-secrets log-forwarder-secrets-preflight log-forwarder-secrets proofs-storage-secrets-preflight proofs-storage-secrets userdb-seed-secret-preflight userdb-seed-secret elasticsearch-s3-secrets-preflight elasticsearch-s3-secrets prod-runtime-secrets-preflight prod-runtime-secrets prod-restore-preflight prod-restore-secrets prod-secrets-preflight prod-secrets apply-local apply-poc apply-dev apply-prod apply-test port-forward logs status
 
 help:
 	@echo "matchID k8s — local k3s scaffold"
@@ -83,6 +96,7 @@ help:
 	@echo "  make k3d-down         Tear the k3d cluster down"
 	@echo "  make backend-secrets  Apply $(BACKEND_SECRET_NAME) from root artifacts/env and restart backend"
 	@echo "  make log-forwarder-secrets  Apply $(LOG_FORWARDER_SECRET_NAME) from root artifacts/env"
+	@echo "  make proofs-storage-secrets  Apply $(PROOFS_STORAGE_SECRET_NAME) for proofs restore/backup"
 	@echo "  make userdb-seed-secret  Apply $(USERDB_SECRET_NAME) from DECES_BACKEND_USERDB_JSON"
 	@echo "  make prod-restore-secrets  Apply Elasticsearch restore snapshot/storage secrets"
 	@echo "  make prod-runtime-secrets  Apply prod runtime secrets that restart backend/log forwarder"
@@ -184,6 +198,32 @@ log-forwarder-secrets: log-forwarder-secrets-preflight
 	  kubectl -n "$(NAMESPACE)" rollout restart ds/matchid-log-forwarder; \
 	fi
 
+proofs-storage-secrets-preflight:
+	@missing=0; \
+	for var in $(PROOFS_STORAGE_SECRET_REQUIRED_KEYS); do \
+	  eval "value=\$${$${var}-}"; \
+	  if [ -z "$$value" ]; then \
+	    echo "missing $$var"; \
+	    missing=1; \
+	  fi; \
+	done; \
+	exit $$missing
+
+proofs-storage-secrets: proofs-storage-secrets-preflight
+	@if [ -z "$$KUBECONFIG" ]; then \
+	  echo "ERROR: KUBECONFIG not set for $(NAMESPACE)"; \
+	  exit 1; \
+	fi
+	@tmp="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	for var in $(PROOFS_STORAGE_SECRET_KEYS); do \
+	  eval "value=\$${$${var}-}"; \
+	  printf '%s' "$$value" > "$$tmp/$$var"; \
+	done; \
+	kubectl -n "$(NAMESPACE)" create secret generic "$(PROOFS_STORAGE_SECRET_NAME)" \
+	  $(foreach var,$(PROOFS_STORAGE_SECRET_KEYS),--from-file=$(var)="$$tmp/$(var)") \
+	  --dry-run=client -o yaml | kubectl apply -f -
+
 userdb-seed-secret-preflight:
 	@missing=0; \
 	for var in $(USERDB_SECRET_REQUIRED_KEYS); do \
@@ -271,10 +311,10 @@ prod-restore-secrets: prod-restore-preflight elasticsearch-s3-secrets
 	  --from-file=FORCE_RESTORE="$$tmp/FORCE_RESTORE" \
 	  --dry-run=client -o yaml | kubectl apply -f -
 
-prod-runtime-secrets-preflight: backend-secrets-preflight log-forwarder-secrets-preflight userdb-seed-secret-preflight
+prod-runtime-secrets-preflight: backend-secrets-preflight log-forwarder-secrets-preflight proofs-storage-secrets-preflight userdb-seed-secret-preflight
 
 prod-runtime-secrets: NAMESPACE = matchid-prod
-prod-runtime-secrets: backend-secrets log-forwarder-secrets userdb-seed-secret
+prod-runtime-secrets: backend-secrets log-forwarder-secrets proofs-storage-secrets userdb-seed-secret
 
 prod-secrets-preflight: prod-runtime-secrets-preflight elasticsearch-s3-secrets-preflight
 

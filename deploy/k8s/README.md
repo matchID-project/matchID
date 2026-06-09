@@ -128,10 +128,10 @@ artifact versions. Manual dispatch targets `dev`.
 `.github/workflows/release-prod.yml` owns prod. It keeps prod tag resolution
 and snapshot production, then deploys `overlays/prod/` with
 `KUBE_CONFIG_DATA_PROD`, applies backend/mail/logging/seed/Elasticsearch S3
-secrets, restores the selected snapshot, smokes `/healthcheck` through Traefik,
-cuts the Cloudflare `deces.matchid.io` A record over to `TRAEFIK_LB_IP_PROD`
-in DNS-only mode, and verifies S3/New Relic log delivery before the release job
-passes.
+and proofs storage secrets, restores the selected snapshot, smokes
+`/healthcheck` through Traefik, cuts the Cloudflare `deces.matchid.io` A record
+over to `TRAEFIK_LB_IP_PROD` in DNS-only mode, and verifies S3/New Relic log
+delivery before the release job passes.
 
 Prod DNS cutover uses `CDN_DNS_TOKEN` with Cloudflare `Zone:DNS:Edit` and
 `Zone:Read` on `matchid.io`; `CDN_TOKEN` is kept for cache purge.
@@ -201,9 +201,13 @@ legacy VM monitoring path, and falls back to `STORAGE_ACCESS_KEY`/
   dataprep producer path from CI. The prod consumer side is K8s: monthly
   refreshes restore the produced snapshot into the prod ES StatefulSet instead
   of provisioning a GP1-XS app VM.
-- **Long-running jobs storage** — prod `deces-backend` mounts `/data` from the
-  `deces-backend-data` PVC, so `$JOBS` and `$PROOFS` survive backend pod
-  deletion and node rescheduling for the single-replica prod topology.
+- **Long-running jobs and proofs storage** — prod `deces-backend` mounts
+  `/data` from the `deces-backend-data` PVC, so `$JOBS` and `$PROOFS` survive
+  backend pod deletion and node rescheduling for the single-replica prod
+  topology. The prod backend pod also restores `/data/proofs` from the legacy
+  `PROOFS_BUCKET/main` object-storage path on first boot when the PVC has no
+  update JSONs, then a `backup-proofs` sidecar copies new/changed proofs back
+  to the same bucket path.
 - **Redis persistence** — Redis is an in-cluster StatefulSet with append-only
   persistence. Keep backend at one prod replica unless the queue and `/data`
   semantics are reworked for concurrent workers.

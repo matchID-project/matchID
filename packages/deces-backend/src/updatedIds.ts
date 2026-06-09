@@ -32,8 +32,8 @@ const rawData: any = {};
 try {
     const jsonFiles = walk(`${process.env.PROOFS}`)
     jsonFiles.forEach((jsonFile: string) => {
-      // data/proof/{id} => id=2
-      const id = jsonFile.split("/")[2];
+      // PROOFS can be relative in local Docker or absolute in K8s.
+      const id = path.basename(path.dirname(jsonFile));
       if (!rawData[id]) { rawData[id] = []}
       rawData[id].push(JSON.parse(readFileSync(jsonFile,'utf8')));
     })

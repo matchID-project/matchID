@@ -458,6 +458,10 @@ jobs:
           LOG_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
           LOG_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
           NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
+          PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
+          PROOFS_GIT_BRANCH: main
+          PROOFS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
+          PROOFS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_PWD: ${{ secrets.SMTP_PWD }}
@@ -551,6 +555,23 @@ jobs:
               -o jsonpath='{.items[0].metadata.name}'
           )"
           kubectl -n "$NAMESPACE" exec "$redis_pod" -- redis-cli ping | grep -Fx PONG
+
+      - name: Smoke proofs storage
+        if: needs.release-context.outputs.release_kind == 'app_and_data'
+        run: |
+          set -euo pipefail
+          backend_pod="$(
+            kubectl -n "$NAMESPACE" get pods \
+              -l app.kubernetes.io/name=deces-backend,app.kubernetes.io/part-of=matchid \
+              -o jsonpath='{.items[0].metadata.name}'
+          )"
+          proofs_count="$(
+            kubectl -n "$NAMESPACE" exec "$backend_pod" -c deces-backend -- \
+              sh -c 'find /data/proofs -type f -name "*.json" 2>/dev/null | wc -l'
+          )"
+          proofs_count="$(printf '%s' "$proofs_count" | tr -d '[:space:]')"
+          echo "proofs_json_count=$proofs_count"
+          test "$proofs_count" -gt 0
 
       - name: Smoke backend via Traefik
         id: smoke_backend

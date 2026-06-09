@@ -8,6 +8,70 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: matchid
+      initContainers:
+        - name: restore-proofs
+          image: rclone/rclone:1.68
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /data/proofs
+              marker=/data/proofs/.k8s-restored-from-bucket
+              if [ -f "$marker" ]; then
+                echo "proofs restore already completed: $(cat "$marker")"
+                exit 0
+              fi
+              if [ "${PROOFS_BUCKET#s3:}" != "$PROOFS_BUCKET" ]; then
+                source="${PROOFS_BUCKET%/}/${PROOFS_GIT_BRANCH:-main}"
+              else
+                source="s3:${PROOFS_BUCKET%/}/${PROOFS_GIT_BRANCH:-main}"
+              fi
+              json_count="$(find /data/proofs -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
+              echo "restoring proofs from $source; local json files before restore: $json_count"
+              rclone copy "$source" /data/proofs --checksum --ignore-existing --fast-list
+              restored_count="$(find /data/proofs -type f -name '*.json' 2>/dev/null | wc -l | tr -d ' ')"
+              if [ "$restored_count" = "0" ]; then
+                echo "no proofs JSON restored from $source; leaving restore marker absent for retry" >&2
+                exit 1
+              fi
+              date -u +"%Y-%m-%dT%H:%M:%SZ $source $restored_count json files" > "$marker"
+              echo "restored proofs json files: $restored_count"
+          env:
+            - name: PROOFS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_BUCKET
+            - name: PROOFS_GIT_BRANCH
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_GIT_BRANCH
+            - name: RCLONE_CONFIG_S3_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_S3_PROVIDER
+              value: Scaleway
+            - name: RCLONE_CONFIG_S3_ENV_AUTH
+              value: "false"
+            - name: RCLONE_CONFIG_S3_ENDPOINT
+              value: s3.fr-par.scw.cloud
+            - name: RCLONE_CONFIG_S3_REGION
+              value: fr-par
+            - name: RCLONE_CONFIG_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_STORAGE_ACCESS_KEY
+            - name: RCLONE_CONFIG_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_STORAGE_SECRET_KEY
+          volumeMounts:
+            - name: data
+              mountPath: /data
       containers:
         - name: deces-backend
           env:
@@ -37,6 +101,68 @@ spec:
               mountPath: /run/secrets/deces-backend/userDB.json
               subPath: userDB.json
               readOnly: true
+        - name: backup-proofs
+          image: rclone/rclone:1.68
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              mkdir -p /data/proofs
+              if [ "${PROOFS_BUCKET#s3:}" != "$PROOFS_BUCKET" ]; then
+                target="${PROOFS_BUCKET%/}/${PROOFS_GIT_BRANCH:-main}"
+              else
+                target="s3:${PROOFS_BUCKET%/}/${PROOFS_GIT_BRANCH:-main}"
+              fi
+              while true; do
+                echo "backing up proofs to $target"
+                rclone copy /data/proofs "$target" --checksum --fast-list || echo "proofs backup failed"
+                sleep "${PROOFS_BACKUP_INTERVAL:-300}"
+              done
+          env:
+            - name: PROOFS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_BUCKET
+            - name: PROOFS_GIT_BRANCH
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_GIT_BRANCH
+            - name: PROOFS_BACKUP_INTERVAL
+              value: "300"
+            - name: RCLONE_CONFIG_S3_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_S3_PROVIDER
+              value: Scaleway
+            - name: RCLONE_CONFIG_S3_ENV_AUTH
+              value: "false"
+            - name: RCLONE_CONFIG_S3_ENDPOINT
+              value: s3.fr-par.scw.cloud
+            - name: RCLONE_CONFIG_S3_REGION
+              value: fr-par
+            - name: RCLONE_CONFIG_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_STORAGE_ACCESS_KEY
+            - name: RCLONE_CONFIG_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deces-proofs-storage
+                  key: PROOFS_STORAGE_SECRET_KEY
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
       volumes:
         - name: userdb
           secret:
