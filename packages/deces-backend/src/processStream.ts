@@ -19,6 +19,7 @@ import { format } from '@fast-csv/format';
 import iconv from 'iconv-lite';
 
 import timer from './timer';
+import { buildRedisConnectionOptions } from './redisClient';
 
 const timerRunBulkRequest = timer(runBulkRequest, 'runBulkRequest', 1);
 
@@ -59,21 +60,15 @@ const stopJobReason: StopJobReason[] = [];
 const stopJobError = 'job has been stopped';
 const inputsArray: JobInput[]= []
 const jobQueue = new Queue('jobs',  {
-  connection: {
-    host: 'redis'
-  }
+  connection: buildRedisConnectionOptions()
 });
 
 const chunkEvents = new QueueEvents('chunks', {
-  connection: {
-    host: 'redis'
-  }
+  connection: buildRedisConnectionOptions()
 });
 
 const chunkQueue = new Queue('chunks',  {
-  connection: {
-    host: 'redis'
-  },
+  connection: buildRedisConnectionOptions(),
   defaultJobOptions: {
     removeOnFail: true
   }
@@ -269,9 +264,7 @@ export const processChunk = async (chunk: any[], candidateNumber: number, params
 new Worker('chunks', async (chunkJob: Job) => {
   return await processChunk(chunkJob.data.chunk, chunkJob.data.candidateNumber, {dateFormatA: chunkJob.data.dateFormatA, pruneScore: chunkJob.data.pruneScore, candidateNumber: chunkJob.data.candidateNumber});
 }, {
-  connection: {
-    host: 'redis'
-  },
+  connection: buildRedisConnectionOptions(),
   concurrency: Number(process.env.BACKEND_CHUNK_CONCURRENCY)
 })
 
@@ -280,9 +273,7 @@ const workerJobs = new Worker('jobs', async (job: Job) => {
   const jobFile = inputsArray.splice(jobIndex, 1).pop();
   return await processCsv(job, jobFile);
 }, {
-  connection: {
-    host: 'redis'
-  },
+  connection: buildRedisConnectionOptions(),
   concurrency: Number(process.env.BACKEND_JOB_CONCURRENCY)
 })
 
@@ -757,4 +748,3 @@ export const resultsHeader = [
   {label: 'death.location.latitude', labelFr: 'latitude_décès'},
   {label: 'death.location.longitude', labelFr: 'longitude_décès'}
 ]
-

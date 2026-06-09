@@ -25,6 +25,13 @@ grep -Fq 'name: elasticsearch-restore' "$rendered"
 grep -Fq 'name: SNAPSHOT_NAME' "$rendered"
 grep -Fq 'name: FORCE_RESTORE' "$rendered"
 grep -Fq 'value: .matchid-restore-state' "$rendered"
+grep -Fq 'rename_pattern' "$rendered"
+grep -Fq '_aliases' "$rendered"
+grep -Fq 'wait_for_status=green' "$rendered"
+if grep -Fq 'XDELETE "$ES_URL/$ES_INDEX"' "$rendered"; then
+  echo "restore must not delete the live ES_INDEX before restoring a replacement" >&2
+  exit 1
+fi
 grep -Fq 'name: STORAGE_ACCESS_KEY' "$rendered"
 grep -Fq 'name: STORAGE_SECRET_KEY' "$rendered"
 grep -Fq 'value: fichier-des-personnes-decedees-elasticsearch' "$rendered"

@@ -140,8 +140,11 @@ The prod Elasticsearch StatefulSet keeps data on a Scaleway block storage PVC.
 The restore Job is idempotent: it records the restored `SNAPSHOT_NAME` in
 `.matchid-restore-state`, skips when the PVC already contains the requested
 snapshot, and refuses to replace a different indexed snapshot unless
-`FORCE_RESTORE=true`. Full prod releases set `FORCE_RESTORE=true`; deploy-only
-releases keep the existing index.
+`FORCE_RESTORE=true`. When a restore is forced, it restores the snapshot into a
+versioned index (`deces-<snapshot>`), waits for that index to become `green`,
+then atomically switches the `deces` alias. It does not delete the live `deces`
+index before the replacement is restored. Full prod releases set
+`FORCE_RESTORE=true`; deploy-only releases keep the existing index.
 
 `.github/workflows/dataprep-monthly.yml` owns the monthly INSEE refresh. It runs
 the existing remote dataprep producer, captures the new snapshot metadata, then
@@ -196,6 +199,14 @@ legacy VM monitoring path, and falls back to `STORAGE_ACCESS_KEY`/
   dataprep producer path from CI. The prod consumer side is K8s: monthly
   refreshes restore the produced snapshot into the prod ES StatefulSet instead
   of provisioning a GP1-XS app VM.
+- **Long-running jobs storage** — `deces-backend` still mounts `/data` as
+  `emptyDir`, so `$JOBS` and `$PROOFS` survive neither pod deletion nor node
+  rescheduling. Use a RWX PVC (or move these files to S3) before scaling the
+  backend above one replica or relying on rolling updates for bulk jobs/proofs.
+- **Redis persistence** — BullMQ and OTP now read `REDIS_HOST`/`REDIS_PORT`, so
+  the backend can target a shared Redis service. The current in-cluster Redis is
+  still a single ephemeral Deployment; use managed Redis or a persistent
+  StatefulSet before depending on queue survival across Redis pod replacement.
 
 ## Resource sizing
 

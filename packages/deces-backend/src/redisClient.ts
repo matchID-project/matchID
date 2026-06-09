@@ -4,10 +4,6 @@ import loggerStream from './logger';
 /**
  * Shared Redis client for non-BullMQ usage (OTP store, rate-limit, etc.).
  *
- * BullMQ already manages its own ioredis connections via `new Queue/Worker(...,
- * { connection: { host: 'redis' } })` calls scattered through processStream.ts /
- * job.controller.ts. Those are kept untouched on purpose (P0 focus is OTP).
- *
  * This module owns a single lazy ioredis connection driven by the standard
  * REDIS_HOST / REDIS_PORT env vars that the K8s manifests already inject (see
  * deploy/k8s/base/deces-backend.deployment.yaml). Falls back to host "redis"
@@ -23,9 +19,13 @@ const log = (json: any) => {
   }));
 };
 
-const buildOptions = (): RedisOptions => ({
+export const buildRedisConnectionOptions = (): RedisOptions => ({
   host: process.env.REDIS_HOST || 'redis',
   port: Number(process.env.REDIS_PORT) || 6379,
+});
+
+const buildOptions = (): RedisOptions => ({
+  ...buildRedisConnectionOptions(),
   // Keep retry strategy bounded so a Redis blip cannot wedge the event loop
   // forever, but allow ioredis to queue the first OTP command while the lazy
   // singleton establishes its initial connection.

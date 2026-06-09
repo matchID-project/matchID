@@ -70,6 +70,18 @@ spec:
                 sed -n 's/.*"snapshot_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
               }
 
+              index_count() {
+                curl -fsS "$ES_URL/$1/_count" 2>/dev/null | count_from_json || true
+              }
+
+              index_exists() {
+                curl -fsS "$ES_URL/$1" >/dev/null 2>&1
+              }
+
+              alias_exists() {
+                curl -fsS "$ES_URL/_alias/$ES_INDEX" >/dev/null 2>&1
+              }
+
               marker_snapshot() {
                 curl -fsS "$ES_URL/$RESTORE_MARKER_INDEX/_doc/$ES_INDEX" 2>/dev/null |
                   snapshot_from_json || true
@@ -82,6 +94,26 @@ spec:
                   -d "{\"snapshot_name\":\"$SNAPSHOT_NAME\",\"updated_at\":\"$updated_at\"}" >/dev/null
               }
 
+              switch_alias() {
+                if alias_exists; then
+                  payload="{\"actions\":[{\"remove\":{\"index\":\"*\",\"alias\":\"$ES_INDEX\"}},{\"add\":{\"index\":\"$TARGET_INDEX\",\"alias\":\"$ES_INDEX\"}}]}"
+                elif index_exists "$ES_INDEX"; then
+                  payload="{\"actions\":[{\"remove_index\":{\"index\":\"$ES_INDEX\"}},{\"add\":{\"index\":\"$TARGET_INDEX\",\"alias\":\"$ES_INDEX\"}}]}"
+                else
+                  payload="{\"actions\":[{\"add\":{\"index\":\"$TARGET_INDEX\",\"alias\":\"$ES_INDEX\"}}]}"
+                fi
+                curl -fsS -XPOST "$ES_URL/_aliases" \
+                  -H 'Content-Type: application/json' \
+                  -d "$payload" >/dev/null
+              }
+
+              safe_snapshot="$(
+                printf '%s' "$SNAPSHOT_NAME" |
+                  tr '[:upper:]' '[:lower:]' |
+                  sed 's/[^a-z0-9._-]/-/g'
+              )"
+              TARGET_INDEX="$ES_INDEX-$safe_snapshot"
+
               echo "waiting for elasticsearch"
               timeout=600
               until curl -fsS "$ES_URL/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
@@ -93,9 +125,7 @@ spec:
                 sleep 1
               done
 
-              existing_count="$(
-                curl -fsS "$ES_URL/$ES_INDEX/_count" 2>/dev/null | count_from_json || true
-              )"
+              existing_count="$(index_count "$ES_INDEX")"
               if [ -n "$existing_count" ] && [ "$existing_count" -gt 0 ]; then
                 current_snapshot="$(marker_snapshot)"
                 if [ "${FORCE_RESTORE:-false}" != "true" ]; then
@@ -113,11 +143,7 @@ spec:
                   exit 1
                 fi
 
-                echo "FORCE_RESTORE=true; deleting index $ES_INDEX before restoring $SNAPSHOT_NAME"
-                curl -fsS -XDELETE "$ES_URL/$ES_INDEX" >/dev/null
-              elif [ -n "$existing_count" ]; then
-                echo "index $ES_INDEX exists but is empty; deleting it before restoring $SNAPSHOT_NAME"
-                curl -fsS -XDELETE "$ES_URL/$ES_INDEX" >/dev/null
+                echo "FORCE_RESTORE=true; restoring $SNAPSHOT_NAME into $TARGET_INDEX before alias switch"
               fi
 
               echo "configuring snapshot repository $REPOSITORY_NAME"
@@ -125,17 +151,38 @@ spec:
                 -H 'Content-Type: application/json' \
                 -d "{\"type\":\"s3\",\"settings\":{\"bucket\":\"$REPOSITORY_BUCKET\",\"client\":\"default\",\"region\":\"fr-par\",\"endpoint\":\"s3.fr-par.scw.cloud\",\"path_style_access\":true,\"protocol\":\"https\"}}"
 
-              echo "restoring snapshot $SNAPSHOT_NAME"
-              curl -fsS -XPOST "$ES_URL/_snapshot/$REPOSITORY_NAME/$SNAPSHOT_NAME/_restore?wait_for_completion=true" \
-                -H 'Content-Type: application/json' \
-                -d "{\"indices\":\"$ES_INDEX\",\"ignore_unavailable\":true,\"include_global_state\":false}"
+              target_count="$(index_count "$TARGET_INDEX")"
+              if [ -n "$target_count" ] && [ "$target_count" -gt 0 ]; then
+                echo "target index $TARGET_INDEX already has $target_count documents; reusing it"
+              else
+                if [ -n "$target_count" ]; then
+                  echo "target index $TARGET_INDEX exists but is empty; deleting it before restore"
+                  curl -fsS -XDELETE "$ES_URL/$TARGET_INDEX" >/dev/null
+                fi
+
+                echo "restoring snapshot $SNAPSHOT_NAME into $TARGET_INDEX"
+                curl -fsS -XPOST "$ES_URL/_snapshot/$REPOSITORY_NAME/$SNAPSHOT_NAME/_restore?wait_for_completion=true" \
+                  -H 'Content-Type: application/json' \
+                  -d "{\"indices\":\"$ES_INDEX\",\"ignore_unavailable\":true,\"include_global_state\":false,\"rename_pattern\":\"^$ES_INDEX$\",\"rename_replacement\":\"$TARGET_INDEX\",\"index_settings\":{\"index.number_of_replicas\":0}}"
+              fi
 
               restored_count="$(
-                curl -fsS "$ES_URL/$ES_INDEX/_count" | count_from_json
+                curl -fsS "$ES_URL/$TARGET_INDEX/_count" | count_from_json
               )"
               if [ -z "$restored_count" ] || [ "$restored_count" -le 0 ]; then
-                echo "restore completed but $ES_INDEX count is empty"
+                echo "restore completed but $TARGET_INDEX count is empty"
+                exit 1
+              fi
+              curl -fsS -XPUT "$ES_URL/$TARGET_INDEX/_settings" \
+                -H 'Content-Type: application/json' \
+                -d '{"index":{"number_of_replicas":0}}' >/dev/null
+              curl -fsS "$ES_URL/_cluster/health/$TARGET_INDEX?wait_for_status=green&timeout=600s" >/dev/null
+
+              switch_alias
+              live_count="$(index_count "$ES_INDEX")"
+              if [ -z "$live_count" ] || [ "$live_count" -le 0 ]; then
+                echo "alias switch completed but $ES_INDEX count is empty"
                 exit 1
               fi
               write_marker
-              echo "restored $restored_count documents into $ES_INDEX"
+              echo "restored $restored_count documents into $TARGET_INDEX and switched $ES_INDEX alias"
