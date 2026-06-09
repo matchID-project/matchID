@@ -670,7 +670,7 @@ jobs:
             deploy/deces-backend deploy/deces-ui
           kubectl -n "$NAMESPACE" rollout status ds/matchid-log-forwarder --timeout=5m
 
-      - name: Smoke readiness
+      - name: Smoke backend healthcheck
         run: |
           set -euo pipefail
           resolve_traefik_lb() {
@@ -688,7 +688,7 @@ jobs:
             exit 1
           fi
           curl -fsSk -m 20 -H "Host: $HOSTNAME" \
-            "https://$traefik_lb/deces/api/v1/readiness"
+            "https://$traefik_lb/deces/api/v1/healthcheck"
 
       - name: Cut over Cloudflare DNS
         env:
@@ -697,12 +697,12 @@ jobs:
           CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
         run: |
           set -euo pipefail
-          public_readiness_ok() {
-            curl -fsS -m 20 "https://${HOSTNAME}/deces/api/v1/readiness" >/dev/null 2>&1
+          public_healthcheck_ok() {
+            curl -fsS -m 20 "https://${HOSTNAME}/deces/api/v1/healthcheck" >/dev/null 2>&1
           }
           if [ -z "${CDN_DNS_TOKEN:-}" ]; then
-            if public_readiness_ok; then
-              echo "CDN_DNS_TOKEN is missing, but ${HOSTNAME} already serves readiness; skipping DNS cutover"
+            if public_healthcheck_ok; then
+              echo "CDN_DNS_TOKEN is missing, but ${HOSTNAME} already serves healthcheck; skipping DNS cutover"
               exit 0
             fi
             echo "Missing CDN_DNS_TOKEN secret with Cloudflare Zone:DNS:Edit + Zone:Read on matchid.io" >&2
@@ -737,7 +737,7 @@ jobs:
           done
 
           payload="$(jq -n --arg name "$HOSTNAME" --arg content "$TRAEFIK_LB_IP_PROD" \
-            '{type: "A", name: $name, content: $content, ttl: 1, proxied: true}')"
+            '{type: "A", name: $name, content: $content, ttl: 1, proxied: false}')"
           if [ -n "$a_record_id" ]; then
             dns_response="$(
               curl -fsS -X PUT \
@@ -779,16 +779,16 @@ jobs:
           set -euo pipefail
           kubectl -n "$NAMESPACE" wait --for=condition=Ready --timeout=10m certificate/matchid-prod-tls
 
-      - name: Smoke public readiness
+      - name: Smoke public healthcheck
         run: |
           set -euo pipefail
           for attempt in $(seq 1 30); do
-            if curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/readiness"; then
+            if curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"; then
               exit 0
             fi
             sleep 10
           done
-          curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/readiness"
+          curl -fsS -m 20 "https://$HOSTNAME/deces/api/v1/healthcheck"
 
       - name: Verify prod log sinks
         env:
@@ -814,7 +814,7 @@ jobs:
             exit 1
           fi
           curl -fsSk -m 20 -H "Host: $HOSTNAME" \
-            "https://$traefik_lb/deces/api/v1/readiness" >/dev/null
+            "https://$traefik_lb/deces/api/v1/healthcheck" >/dev/null
           sleep 45
 
           bucket="${LOG_BUCKET%%/*}"
