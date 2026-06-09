@@ -460,7 +460,7 @@ jobs:
           LOG_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
           NEW_RELIC_INGEST_KEY: ${{ secrets.NEW_RELIC_INGEST_KEY }}
           PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
-          PROOFS_GIT_BRANCH: main
+          PROOFS_GIT_BRANCH: master
           PROOFS_STORAGE_ACCESS_KEY: ${{ secrets.TOOLS_STORAGE_ACCESS_KEY }}
           PROOFS_STORAGE_SECRET_KEY: ${{ secrets.TOOLS_STORAGE_SECRET_KEY }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}

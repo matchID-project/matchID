@@ -205,7 +205,7 @@ legacy VM monitoring path, and falls back to `STORAGE_ACCESS_KEY`/
   `/data` from the `deces-backend-data` PVC, so `$JOBS` and `$PROOFS` survive
   backend pod deletion and node rescheduling for the single-replica prod
   topology. The prod backend pod also restores `/data/proofs` from the legacy
-  `PROOFS_BUCKET/main` object-storage path on first boot when the PVC has no
+  `PROOFS_BUCKET/master` object-storage path on first boot when the PVC has no
   update JSONs, then a `backup-proofs` sidecar copies new/changed proofs back
   to the same bucket path.
 - **Redis persistence** — Redis is an in-cluster StatefulSet with append-only

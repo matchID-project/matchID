@@ -14,6 +14,7 @@ make -C deploy/k8s prod-secrets-preflight NAMESPACE=matchid-prod \
   LOG_STORAGE_ACCESS_KEY=storage-key \
   LOG_STORAGE_SECRET_KEY=storage-secret \
   PROOFS_BUCKET=matchid-backups/deces-ui/proofs \
+  PROOFS_GIT_BRANCH=master \
   PROOFS_STORAGE_ACCESS_KEY=proofs-storage-key \
   PROOFS_STORAGE_SECRET_KEY=proofs-storage-secret \
   STORAGE_ACCESS_KEY=es-storage-key \
