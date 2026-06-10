@@ -62,4 +62,4 @@ spec:
         storageClassName: scw-bssd
         resources:
           requests:
-            storage: 80Gi
+            storage: 45Gi
