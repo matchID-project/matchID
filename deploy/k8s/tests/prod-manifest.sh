@@ -35,6 +35,7 @@ fi
 grep -Fq 'name: STORAGE_ACCESS_KEY' "$rendered"
 grep -Fq 'name: STORAGE_SECRET_KEY' "$rendered"
 grep -Fq 'value: fichier-des-personnes-decedees-elasticsearch' "$rendered"
+grep -Fq '\"readonly\":true' "$rendered"
 awk '
   $1 == "kind:" { kind=$2 }
   $1 == "name:" && $2 == "redis" && kind == "StatefulSet" { found=1 }

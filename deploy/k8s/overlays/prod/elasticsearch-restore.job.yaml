@@ -149,7 +149,7 @@ spec:
               echo "configuring snapshot repository $REPOSITORY_NAME"
               curl -fsS -XPUT "$ES_URL/_snapshot/$REPOSITORY_NAME" \
                 -H 'Content-Type: application/json' \
-                -d "{\"type\":\"s3\",\"settings\":{\"bucket\":\"$REPOSITORY_BUCKET\",\"client\":\"default\",\"region\":\"fr-par\",\"endpoint\":\"s3.fr-par.scw.cloud\",\"path_style_access\":true,\"protocol\":\"https\"}}"
+                -d "{\"type\":\"s3\",\"settings\":{\"bucket\":\"$REPOSITORY_BUCKET\",\"client\":\"default\",\"region\":\"fr-par\",\"endpoint\":\"s3.fr-par.scw.cloud\",\"path_style_access\":true,\"protocol\":\"https\",\"readonly\":true}}"
 
               target_count="$(index_count "$TARGET_INDEX")"
               if [ -n "$target_count" ] && [ "$target_count" -gt 0 ]; then
