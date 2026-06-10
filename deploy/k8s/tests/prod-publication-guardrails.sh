@@ -67,6 +67,15 @@ grep -Fq 'public_version_json=' "$release_workflow" ||
 if grep -Eq '^[[:space:]]{2}deploy-prod-k8s:' "$monthly_workflow"; then
   fail "dataprep-monthly must not deploy prod directly"
 fi
+grep -Fq "cron: '3 */4 * * *'" "$monthly_workflow" ||
+  fail "dataprep-monthly must scan every 4 hours"
+grep -Fq 'clean full-check GIT_BRANCH=master FILES_TO_PROCESS="${DATAPREP_FILES_TO_PROCESS_PROD}"' "$monthly_workflow" ||
+  fail "dataprep-monthly full-check must pass the prod file pattern explicitly"
+grep -Fq 'FILES_TO_PROCESS="${DATAPREP_FILES_TO_PROCESS_PROD}" \' "$monthly_workflow" ||
+  fail "dataprep-monthly remote-all must pass the prod file pattern explicitly"
+if grep -Fq 'Deploy deces.matchid.io' "$monthly_workflow" || grep -Fq 'make deploy-remote' "$monthly_workflow"; then
+  fail "dataprep-monthly must not use the legacy VM deploy path"
+fi
 if grep -Fq 'make -C deploy/k8s prod-secrets' "$monthly_workflow"; then
   fail "dataprep-monthly must not apply prod runtime secrets"
 fi

@@ -262,7 +262,7 @@ recipe-run-local: data-tag
 recipe-run: monorepo-elasticsearch recipe-run-local
 
 full-check: datagouv-to-${DATAGOUV_CONNECTOR} check-${DATAGOUV_CONNECTOR}
-	@if [ -s ${BACKUP_METHOD}-check -a -z "${NO_CHECK}"]; then\
+	@if [ -s ${BACKUP_METHOD}-check -a -z "${NO_CHECK}" ]; then\
 		echo recipe has already been runned on full and saved on remote storage;\
 		touch "${RECIPE_RUN_MARKER}" watch-run backup backup-push repository-push no-remote;\
 	fi
