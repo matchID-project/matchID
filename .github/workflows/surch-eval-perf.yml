@@ -151,6 +151,28 @@ jobs:
           test "$RC" -eq 0
           jq -e '.verdict == "pass"' "surch-eval/ci/reports/indexation-${ENGINE}.json"
 
+      - name: "Disk size (${{ matrix.engine }})"
+        run: |
+          # #19 axe disque master plan : taille brute du segment in-engine
+          # APRÈS indexation + refresh (l'index est read-mostly à ce moment).
+          # `du -sb` côté Surch (TMPDIR contient le segment source on-disk).
+          # `_cat/indices?bytes=b` côté ES pour le store size.
+          mkdir -p surch-eval/ci/reports
+          if [ "$ENGINE" = "surch" ]; then
+            SURCH_DATA=$(docker exec surch-eval sh -c 'ls -d /tmp/surch-source-* 2>/dev/null | head -1' || true)
+            if [ -n "$SURCH_DATA" ]; then
+              BYTES=$(docker exec surch-eval du -sb "$SURCH_DATA" | awk '{print $1}')
+            else
+              BYTES=0
+            fi
+            jq -n --argjson b "${BYTES:-0}" '{engine:"surch",disk_bytes:$b,disk_mib:($b/1048576)}' \
+              | tee surch-eval/ci/reports/disk-surch.json
+          else
+            BYTES=$(docker run --rm --network "$NET" curlimages/curl:8.10.1 -s "http://elasticsearch:9200/_cat/indices/deces_bench?bytes=b&h=ss" | awk '{print $1}' | head -1)
+            jq -n --argjson b "${BYTES:-0}" '{engine:"es",disk_bytes:$b,disk_mib:($b/1048576)}' \
+              | tee surch-eval/ci/reports/disk-es.json
+          fi
+
       - name: "Latency probe engine-to-engine (${{ matrix.engine }})"
         run: |
           # Clean engine-to-engine deces latency: replay the real deces-backend
