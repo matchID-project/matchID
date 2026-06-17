@@ -8,3 +8,24 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: matchid
+      containers:
+        - name: redis
+          args:
+            - redis-server
+            - --appendonly
+            - "yes"
+            - --appendfsync
+            - everysec
+            - --dir
+            - /data
+            - --maxmemory
+            - 384mb
+            - --maxmemory-policy
+            - noeviction
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: 100m
+              memory: 512Mi
