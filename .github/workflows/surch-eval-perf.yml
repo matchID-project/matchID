@@ -237,6 +237,13 @@ jobs:
             "$IMG"
           for i in $(seq 1 40); do docker run --rm --network "$NET" curlimages/curl -s http://backend:8080/deces/api/v1/version >/dev/null 2>&1 && break || sleep 2; done
 
+      - name: "Upload report (pre-artillery checkpoint)"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surch-eval-perf-${{ matrix.engine }}-precheck
+          path: surch-eval/ci/reports/
+
       - name: "Artillery ${{ matrix.engine }}"
         run: |
           make -C packages/deces-backend test-perf-v1 DC_NETWORK="$NET" || true
