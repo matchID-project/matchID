@@ -211,7 +211,7 @@ jobs:
           # size, to locate the bool/full ~10ms tail. Surch is still up here.
           docker run --rm --network "$NET" curlimages/curl:8.10.1 -s \
             http://surch:9200/_prometheus_metrics \
-            | grep -E 'surch_bool_|surch_dbg_|surch_search_duration|surch_index_|surch_state_|surch_process_' > surch-eval/ci/reports/fused-metrics-surch.txt || true
+            | grep -E 'surch_bool_|surch_dbg_|surch_search_duration|surch_index_|surch_state_|surch_process_|surch_jemalloc_' > surch-eval/ci/reports/fused-metrics-surch.txt || true
           echo "=== surch_bool_* (stage quantiles us / candidates) ==="
           cat surch-eval/ci/reports/fused-metrics-surch.txt || echo "(no surch_bool_ metrics scraped)"
 
