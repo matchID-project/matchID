@@ -165,12 +165,20 @@ jobs:
             else
               BYTES=0
             fi
-            jq -n --argjson b "${BYTES:-0}" '{engine:"surch",disk_bytes:$b,disk_mib:($b/1048576)}' \
-              | tee surch-eval/ci/reports/disk-surch.json
+            python3 - "${BYTES:-0}" > surch-eval/ci/reports/disk-surch.json <<'PYDISK'
+import json, sys
+b = int(sys.argv[1] or 0)
+print(json.dumps({"engine":"surch","disk_bytes":b,"disk_mib":b/1048576}))
+PYDISK
+            cat surch-eval/ci/reports/disk-surch.json
           else
             BYTES=$(docker run --rm --network "$NET" curlimages/curl:8.10.1 -s "http://elasticsearch:9200/_cat/indices/deces_bench?bytes=b&h=ss" | awk '{print $1}' | head -1)
-            jq -n --argjson b "${BYTES:-0}" '{engine:"es",disk_bytes:$b,disk_mib:($b/1048576)}' \
-              | tee surch-eval/ci/reports/disk-es.json
+            python3 - "${BYTES:-0}" > surch-eval/ci/reports/disk-es.json <<'PYDISK'
+import json, sys
+b = int(sys.argv[1] or 0)
+print(json.dumps({"engine":"es","disk_bytes":b,"disk_mib":b/1048576}))
+PYDISK
+            cat surch-eval/ci/reports/disk-es.json
           fi
 
       - name: "Latency probe engine-to-engine (${{ matrix.engine }})"
@@ -246,7 +254,10 @@ jobs:
 
       - name: "Artillery ${{ matrix.engine }}"
         run: |
-          make -C packages/deces-backend test-perf-v1 DC_NETWORK="$NET" || true
+          # Artillery can hang against a sick backend/engine path; keep this
+          # report-oriented workflow bounded and still upload the precheck/final
+          # artifacts for memory/indexation/latency analysis.
+          timeout 35m make -C packages/deces-backend test-perf-v1 DC_NETWORK="$NET" || echo "Artillery failed or timed out; continuing to upload reports"
           mkdir -p surch-eval/ci/reports/art
           cp -r packages/deces-backend/tests/performance/reports/* surch-eval/ci/reports/art/ 2>/dev/null || true
 
