@@ -152,6 +152,7 @@ jobs:
           jq -e '.verdict == "pass"' "surch-eval/ci/reports/indexation-${ENGINE}.json"
 
       - name: "Disk size (${{ matrix.engine }})"
+        continue-on-error: true
         run: |
           # #19 axe disque master plan : taille brute du segment in-engine
           # APRÈS indexation + refresh (l'index est read-mostly à ce moment).
@@ -165,20 +166,14 @@ jobs:
             else
               BYTES=0
             fi
-            python3 - "${BYTES:-0}" > surch-eval/ci/reports/disk-surch.json <<'PYDISK'
-            import json, sys
-            b = int(sys.argv[1] or 0)
-            print(json.dumps({"engine":"surch","disk_bytes":b,"disk_mib":b/1048576}))
-            PYDISK
-            cat surch-eval/ci/reports/disk-surch.json
+            case "${BYTES:-}" in ''|*[!0-9]*) BYTES=0 ;; esac
+            MIB=$(awk "BEGIN{printf \"%.6f\", ${BYTES}/1048576}")
+            printf '{"engine":"surch","disk_bytes":%s,"disk_mib":%s}\n' "$BYTES" "$MIB" | tee surch-eval/ci/reports/disk-surch.json
           else
             BYTES=$(docker run --rm --network "$NET" curlimages/curl:8.10.1 -s "http://elasticsearch:9200/_cat/indices/deces_bench?bytes=b&h=ss" | awk '{print $1}' | head -1)
-            python3 - "${BYTES:-0}" > surch-eval/ci/reports/disk-es.json <<'PYDISK'
-            import json, sys
-            b = int(sys.argv[1] or 0)
-            print(json.dumps({"engine":"es","disk_bytes":b,"disk_mib":b/1048576}))
-            PYDISK
-            cat surch-eval/ci/reports/disk-es.json
+            case "${BYTES:-}" in ''|*[!0-9]*) BYTES=0 ;; esac
+            MIB=$(awk "BEGIN{printf \"%.6f\", ${BYTES}/1048576}")
+            printf '{"engine":"es","disk_bytes":%s,"disk_mib":%s}\n' "$BYTES" "$MIB" | tee surch-eval/ci/reports/disk-es.json
           fi
 
       - name: "Latency probe engine-to-engine (${{ matrix.engine }})"
