@@ -149,7 +149,10 @@ CLOUD_TAGGED_HOSTS_VPC_FILE=${CLOUD_DIR}/${CLOUD}.tag.vpc.hosts
 CLOUD_TAGGED_HOSTS_FILE=${CLOUD_DIR}/${CLOUD}.tag.hosts
 CLOUD_TAGGED_IDS_INVALID_FILE=${CLOUD_DIR}/${CLOUD}.tag.ids.ko
 CLOUD_TAGGED_HOSTS_INVALID_FILE=${CLOUD_DIR}/${CLOUD}.tag.hosts.ko
+CLOUD_STALE_RUNNING_IDS_FILE=${CLOUD_DIR}/${CLOUD}.stale-running.ids
 CLOUD_TAG=${APP_VERSION}
+SCW_STALE_MAX_AGE_SECONDS ?= 14400
+SCW_STALE_NAME_PREFIX ?= ${CLOUD_GROUP}-${CLOUD_APP}-
 SCW_SERVER_CONF={"name": "${CLOUD_HOSTNAME}", "tags": ["${GIT_BRANCH}","${CLOUD_TAG}"],\
 "image": "${SCW_IMAGE_ID}", "commercial_type": "${SCW_FLAVOR}", "project": "${SCW_PROJECT_ID}",\
 "volumes": { "0": {"size": ${SCW_VOLUME_SIZE}, "volume_type": "${SCW_VOLUME_TYPE}"}}}
@@ -699,6 +702,36 @@ SCW-instance-delete:
 		fi;\
 	else\
 		(echo no ${CLOUD_SERVER_ID_FILE} for deletion);\
+	fi
+
+
+SCW-instance-get-stale-running-ids: ${CLOUD_DIR} SCW-check-api
+	@NOW_EPOCH=$$(date -u +%s); \
+		curl -s ${SCW_API}/servers -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" -H "Content-Type: application/json" \
+		| jq -cr \
+			--arg project "${SCW_PROJECT_ID}" \
+			--arg prefix "${SCW_STALE_NAME_PREFIX}" \
+			--argjson now "$${NOW_EPOCH}" \
+			--argjson max_age "${SCW_STALE_MAX_AGE_SECONDS}" \
+			'.servers[] \
+			| select(.project == $$project) \
+			| select(.state == "running") \
+			| select((.name | ascii_downcase) | startswith($$prefix | ascii_downcase)) \
+			| select(($$now - ((.creation_date // .created_at) | sub("\\.[0-9]+Z$$"; "Z") | fromdateiso8601)) > $$max_age) \
+			| .id' \
+		> ${CLOUD_STALE_RUNNING_IDS_FILE}
+
+SCW-instance-delete-stale-running: SCW-instance-get-stale-running-ids
+	@if [ -s "${CLOUD_STALE_RUNNING_IDS_FILE}" ]; then\
+		for SCW_SERVER_ID in $$(cat ${CLOUD_STALE_RUNNING_IDS_FILE}); do\
+			echo "deleting stale running scaleway server $$SCW_SERVER_ID (prefix ${SCW_STALE_NAME_PREFIX}, older than ${SCW_STALE_MAX_AGE_SECONDS}s)";\
+			printf '%s\n' "$$SCW_SERVER_ID" > ${CLOUD_SERVER_ID_FILE};\
+			rm -f ${CLOUD_UP_FILE} ${CLOUD_HOST_FILE} ${CLOUD_NIC_FILE};\
+			${MAKE} SCW-instance-delete ${MAKEOVERRIDES};\
+			rm -f ${CLOUD_SERVER_ID_FILE} ${CLOUD_UP_FILE} ${CLOUD_HOST_FILE} ${CLOUD_NIC_FILE};\
+		done;\
+	else\
+		echo "no stale running scaleway server for prefix ${SCW_STALE_NAME_PREFIX}";\
 	fi
 
 SCW-instance-delete-invalid: SCW-instance-get-tagged-ids-invalid
