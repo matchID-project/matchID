@@ -70,6 +70,7 @@ RCLONE_OPTS=--s3-acl=public-read
 export SCW_FLAVOR=PRO2-M
 export SCW_VOLUME_TYPE=sbs_volume
 export SCW_VOLUME_SIZE=50000000000
+export SCW_STALE_MAX_AGE_SECONDS ?= 14400
 # Ubuntu 26.04 Resolute Raccoon with Docker, rclone, recode and dataprep Docker base layers.
 export SCW_IMAGE_ID=b60d3767-7daa-4f1a-b908-8604134333c2
 export MONOREPO_TOOLS_PATH=${APP_PATH}/../tools
@@ -460,9 +461,21 @@ remote-clean:
 		${MAKEOVERRIDES}
 	@rm -f ${MONOREPO_TOOLS_PATH}/configured/*.deployed > /dev/null 2>&1
 
+remote-clean-stale:
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} SCW-instance-delete-stale-running\
+		APP=${APP} APP_VERSION=${DATAPREP_VERSION} GIT_BRANCH=${GIT_BRANCH} \
+		CLOUD_APP=deces-dataprep SCW_STALE_NAME_PREFIX=matchID-deces-dataprep- \
+		SCW_STALE_MAX_AGE_SECONDS=${SCW_STALE_MAX_AGE_SECONDS} ${MAKEOVERRIDES}
+
 remote-all:
 	@if [ ! -f "no-remote" ];then\
-		${MAKE} remote-config remote-deploy remote-step1 remote-watch remote-step2 remote-clean ${MAKEOVERRIDES};\
+		set -e; \
+		cleanup() { ${MAKE} remote-clean ${MAKEOVERRIDES} || true; }; \
+		${MAKE} remote-clean-stale ${MAKEOVERRIDES}; \
+		trap cleanup EXIT; \
+		${MAKE} remote-config remote-deploy remote-step1 remote-watch remote-step2 ${MAKEOVERRIDES}; \
+		trap - EXIT; \
+		cleanup;\
 	fi
 
 
