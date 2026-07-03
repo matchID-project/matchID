@@ -26,6 +26,8 @@ spec:
         app.kubernetes.io/component: logging
         app.kubernetes.io/part-of: matchid
     spec:
+      nodeSelector:
+        k8s.scaleway.com/pool-name: burst-rwx
       serviceAccountName: matchid-log-forwarder
       containers:
         - name: fluent-bit
