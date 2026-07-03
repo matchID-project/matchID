@@ -6,8 +6,6 @@ spec:
   replicas: 1
   template:
     spec:
-      nodeSelector:
-        k8s.scaleway.com/pool-name: default
   volumeClaimTemplates:
     - metadata:
         name: data

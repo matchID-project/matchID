@@ -9,5 +9,3 @@ spec:
   replicas: 0
   template:
     spec:
-      nodeSelector:
-        k8s.scaleway.com/pool-name: burst
