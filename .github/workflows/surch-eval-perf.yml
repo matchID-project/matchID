@@ -18,6 +18,10 @@ on:
         description: "Snapshot ES (vide=auto CI ~60k ; esdata_eb84b2eb_74bab91a=full 1.36M)"
         required: false
         default: ""
+      surch_postings_disk:
+        description: "1 = Surch lit les postings depuis le segment disque (C1b flag SURCH_POSTINGS_DISK)"
+        required: false
+        default: "0"
       workers:
         description: "Probe concurrency (4=default ; 2=match 2-vCPU runner, isolates oversubscription tail)"
         required: false
@@ -76,6 +80,7 @@ jobs:
       STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
       STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
       SURCH_TAG: ${{ github.event.inputs.surch_tag || 'latest' }}
+      SURCH_POSTINGS_DISK: ${{ github.event.inputs.surch_postings_disk || '0' }}
       ES_BACKUP_NAME: ${{ github.event.inputs.es_backup_name || (github.event_name == 'schedule' && 'esdata_eb84b2eb_74bab91a' || '') }}
       PROBE_WORKERS: ${{ github.event.inputs.workers || (github.event_name == 'schedule' && '2' || '4') }}
       ENGINE: ${{ matrix.engine }}
@@ -127,7 +132,8 @@ jobs:
         run: |
           set -e
           docker run -d --name surch-eval --network "$NET" --network-alias surch \
-            -e SURCH_PORT=9200 -e SURCH_ELASTIC_PRODUCT_COMPAT=1 ghcr.io/rhanka/surch:${SURCH_TAG}
+            -e SURCH_PORT=9200 -e SURCH_ELASTIC_PRODUCT_COMPAT=1 \
+            -e SURCH_POSTINGS_DISK="${SURCH_POSTINGS_DISK:-0}" ghcr.io/rhanka/surch:${SURCH_TAG}
           for i in $(seq 1 30); do docker run --rm --network "$NET" curlimages/curl -s http://surch:9200/ >/dev/null 2>&1 && break || sleep 2; done
 
       - name: "Indexation timed (${{ matrix.engine }})"
