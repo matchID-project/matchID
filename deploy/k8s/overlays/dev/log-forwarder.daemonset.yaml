@@ -27,8 +27,6 @@ spec:
         app.kubernetes.io/part-of: matchid
     spec:
       serviceAccountName: matchid-log-forwarder
-      nodeSelector:
-        k8s.scaleway.com/pool-name: default
       containers:
         - name: fluent-bit
           image: fluent/fluent-bit:2.2.3
