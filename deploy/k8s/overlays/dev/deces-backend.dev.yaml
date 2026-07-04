@@ -19,3 +19,10 @@ spec:
             - secretRef:
                 name: deces-backend-secrets
                 optional: false
+          resources:
+            requests:
+              cpu: 30m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi

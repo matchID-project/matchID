@@ -7,3 +7,12 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: burst-rwx
+      containers:
+        - name: deces-ui
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
