@@ -7,3 +7,12 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: burst-rwx
+      containers:
+        - name: redis
+          resources:
+            requests:
+              cpu: 15m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 256Mi

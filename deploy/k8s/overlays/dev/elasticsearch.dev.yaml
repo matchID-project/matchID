@@ -8,6 +8,15 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: burst-rwx
+      containers:
+        - name: elasticsearch
+          resources:
+            requests:
+              cpu: 80m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 1Gi
   volumeClaimTemplates:
     - metadata:
         name: data
