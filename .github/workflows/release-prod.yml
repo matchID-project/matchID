@@ -430,7 +430,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-context.outputs.app_ref }}
+          # data_only/rollback must use the current workflow/runtime manifests;
+          # old prod tags can predate Kubernetes scheduling fixes.
+          ref: ${{ needs.release-context.outputs.release_kind == 'app_and_data' && needs.release-context.outputs.app_ref || github.sha }}
 
       - name: Install kubeconfig
         run: |
@@ -509,7 +511,9 @@ jobs:
         env:
           DECES_BACKEND_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_backend_image_version }}
           DECES_UI_IMAGE_VERSION: ${{ needs.release-context.outputs.deces_ui_image_version }}
+          FORCE_RESTORE: ${{ needs.release-context.outputs.force_restore }}
           RELEASE_KIND: ${{ needs.release-context.outputs.release_kind }}
+          SNAPSHOT_NAME: ${{ needs.ensure-prod-snapshot.outputs.snapshot_name }}
         run: |
           set -euo pipefail
           kubectl -n "$NAMESPACE" delete job/elasticsearch-restore --ignore-not-found=true
@@ -529,7 +533,29 @@ jobs:
             kubectl kustomize "$overlay_dir" >/tmp/matchid-prod-k8s-rendered.yaml
             kubectl apply -f /tmp/matchid-prod-k8s-rendered.yaml
           else
-            kubectl -n "$NAMESPACE" apply -f deploy/k8s/overlays/prod/elasticsearch-restore.job.yaml
+            restore_already_current=false
+            if [ "${FORCE_RESTORE:-false}" != "true" ]; then
+              backend_pod="$(
+                kubectl -n "$NAMESPACE" get pod                   -l app.kubernetes.io/name=deces-backend,app.kubernetes.io/part-of=matchid                   -o jsonpath='{.items[0].metadata.name}'
+              )"
+              backend_pod="${backend_pod# }"
+              live_count="$(
+                kubectl -n "$NAMESPACE" exec "$backend_pod" -c deces-backend --                   node -e 'require("http").get("http://elasticsearch:9200/deces/_count", r => { let d = ""; r.on("data", c => d += c); r.on("end", () => { try { console.log(JSON.parse(d).count || 0); } catch (_) { console.log(0); } }); }).on("error", () => console.log(0));'
+              )"
+              live_count="${live_count# }"
+              live_snapshot="$(
+                kubectl -n "$NAMESPACE" exec "$backend_pod" -c deces-backend --                   node -e 'require("http").get("http://elasticsearch:9200/.matchid-restore-state/_doc/deces", r => { let d = ""; r.on("data", c => d += c); r.on("end", () => { try { console.log(JSON.parse(d)._source?.snapshot_name || ""); } catch (_) { console.log(""); } }); }).on("error", () => console.log(""));'
+              )"
+              live_snapshot="${live_snapshot# }"
+              if [ "$live_snapshot" = "$SNAPSHOT_NAME" ] && [ "${live_count:-0}" -gt 0 ]; then
+                restore_already_current=true
+                echo "Elasticsearch snapshot $SNAPSHOT_NAME is already live ($live_count docs); skipping restore job."
+              fi
+            fi
+            echo "RESTORE_ALREADY_CURRENT=$restore_already_current" >> "$GITHUB_ENV"
+            if [ "$restore_already_current" != "true" ]; then
+              kubectl -n "$NAMESPACE" apply -f deploy/k8s/overlays/prod/elasticsearch-restore.job.yaml
+            fi
           fi
 
       - name: Wait for runtime and restore
@@ -539,8 +565,12 @@ jobs:
           set -euo pipefail
           kubectl -n "$NAMESPACE" rollout status statefulset/redis --timeout=10m
           kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=20m
-          kubectl -n "$NAMESPACE" wait --for=condition=complete --timeout=90m job/elasticsearch-restore
-          kubectl -n "$NAMESPACE" logs job/elasticsearch-restore --tail=200
+          if [ "${RESTORE_ALREADY_CURRENT:-false}" != "true" ]; then
+            kubectl -n "$NAMESPACE" wait --for=condition=complete --timeout=90m job/elasticsearch-restore
+            kubectl -n "$NAMESPACE" logs job/elasticsearch-restore --tail=200
+          else
+            echo "Restore job was skipped because the requested snapshot is already live."
+          fi
           if [ "$RELEASE_KIND" = "app_and_data" ]; then
             kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
               deploy/deces-backend deploy/deces-ui
