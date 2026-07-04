@@ -19,6 +19,11 @@ spec:
       restartPolicy: Never
       nodeSelector:
         k8s.scaleway.com/pool-name: matchid
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: matchid
+          effect: NoSchedule
       containers:
         - name: elasticsearch-restore
           image: curlimages/curl:8.8.0

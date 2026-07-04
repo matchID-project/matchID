@@ -29,6 +29,11 @@ spec:
       serviceAccountName: matchid-log-forwarder
       nodeSelector:
         k8s.scaleway.com/pool-name: matchid
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: matchid
+          effect: NoSchedule
       containers:
         - name: fluent-bit
           image: fluent/fluent-bit:2.2.3

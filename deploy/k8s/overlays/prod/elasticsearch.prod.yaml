@@ -8,6 +8,11 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: matchid
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: matchid
+          effect: NoSchedule
       initContainers:
         - name: prepare-s3-keystore
           image: docker.elastic.co/elasticsearch/elasticsearch:8.6.1
