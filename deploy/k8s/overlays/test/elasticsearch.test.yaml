@@ -8,6 +8,11 @@ spec:
     spec:
       nodeSelector:
         k8s.scaleway.com/pool-name: matchid
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: matchid
+          effect: NoSchedule
       containers:
         - name: elasticsearch
           env:
