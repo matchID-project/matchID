@@ -1,8 +1,6 @@
 name: Dataprep Monthly
 
 on:
-  schedule:
-    - cron: '3 */4 * * *'
   workflow_dispatch:
     inputs:
       prod_tag:
