@@ -19,8 +19,8 @@ export DC_BUILD_FRONTEND = ${FRONTEND_PATH}/docker-compose-build.yml
 export DC_RUN_NGINX_FRONTEND = ${FRONTEND_PATH}/docker-compose.yml
 export DC_TEST_FRONTEND = ${FRONTEND_PATH}/docker-compose-test.yml
 export BUILD_DIR=${APP_PATH}/${APP_FRONTEND}-build
-export FILE_FRONTEND_APP_VERSION = $(APP)-$(APP_VERSION)-frontend.tar.gz
-export FILE_FRONTEND_DIST_APP_VERSION = $(APP)-$(APP_VERSION)-frontend-dist.tar.gz
+export FILE_FRONTEND_APP_VERSION := $(APP)-$(APP_VERSION)-frontend.tar.gz
+export FILE_FRONTEND_DIST_APP_VERSION := $(APP)-$(APP_VERSION)-frontend-dist.tar.gz
 export FILE_FRONTEND_DIST_LATEST_VERSION = $(APP)-latest-frontend-dist.tar.gz
 
 package_tag := $(shell sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' ${FRONTEND_PATH}/package.json | head -n 1)

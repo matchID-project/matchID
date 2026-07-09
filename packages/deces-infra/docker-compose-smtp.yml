@@ -5,7 +5,7 @@ networks:
 
 services:
   smtp:
-    image: maildev/maildev
+    image: maildev/maildev:2.0.5
     container_name: deces-smtp-fake
     ports:
       - ${MAILDEV_UI_PORT:-1080}:1080

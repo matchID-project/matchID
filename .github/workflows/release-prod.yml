@@ -272,48 +272,18 @@ jobs:
             if [[ "${value}" == *@* ]]; then value="${value%%@*}"; fi
             printf '%s' "${value}"
           }
-          BASTION_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
-          BASTION_USER_RESOLVED=ubuntu
-          NGINX_HOST_RESOLVED="$(sanitize_host "${NGINX_HOST}")"
-          NGINX_USER_RESOLVED="$(sanitize_user "${NGINX_USER}")"
-          if [ -z "${BASTION_HOST_RESOLVED}" ]; then BASTION_HOST_RESOLVED="$(sanitize_host "${BASTION_HOST}")"; fi
-          if [ -z "${BASTION_USER_RESOLVED}" ]; then BASTION_USER_RESOLVED="$(sanitize_user "${BASTION_USER}")"; fi
-          if [ -z "${NGINX_HOST_RESOLVED}" ]; then NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"; fi
-          if [ -z "${NGINX_USER_RESOLVED}" ]; then NGINX_USER_RESOLVED=ubuntu; fi
-          if ! getent hosts "${BASTION_HOST_RESOLVED}" >/dev/null 2>&1; then
-            BASTION_HOST_RESOLVED=163.172.185.238
-          fi
-          NGINX_HOST_RESOLVED="${BASTION_HOST_RESOLVED}"
-          NGINX_USER_RESOLVED="${BASTION_USER_RESOLVED}"
-          test -n "${BASTION_HOST_RESOLVED}"
-          test -n "${BASTION_USER_RESOLVED}"
-          test -n "${NGINX_HOST_RESOLVED}"
-          test -n "${NGINX_USER_RESOLVED}"
+          # Dataprep Scaleway workers expose a public IP; connect directly.
+          # Keep the key and host-key policy here, but do not configure a bastion/ProxyJump.
           printf '%s\n' \
-            "Host bastion" \
-            "  HostName ${BASTION_HOST_RESOLVED}" \
-            "  User ${BASTION_USER_RESOLVED}" \
+            "Host *" \
             "  IdentityFile ${HOME}/.ssh/id_rsa_matchID" \
             "  IdentitiesOnly yes" \
             "  StrictHostKeyChecking no" \
             "  UserKnownHostsFile /dev/null" \
-            "Host * !bastion" \
-            "  ProxyJump bastion" \
-            "  StrictHostKeyChecking no" \
-            "  UserKnownHostsFile /dev/null" \
+            "  ProxyJump none" \
             > "${HOME}/.ssh/config"
-          {
-            echo "BASTION_HOST_RESOLVED=${BASTION_HOST_RESOLVED}"
-            echo "BASTION_USER_RESOLVED=${BASTION_USER_RESOLVED}"
-            echo "NGINX_HOST_RESOLVED=${NGINX_HOST_RESOLVED}"
-            echo "NGINX_USER_RESOLVED=${NGINX_USER_RESOLVED}"
-          } >> "${GITHUB_ENV}"
           chmod 600 "${HOME}/.ssh/config"
         env:
-          NGINX_HOST: ${{ secrets.NGINX_HOST }}
-          NGINX_USER: ${{ secrets.NGINX_USER || 'ubuntu' }}
-          BASTION_HOST: ${{ secrets.BASTION_HOST || secrets.NGINX_HOST }}
-          BASTION_USER: ${{ secrets.BASTION_USER || 'ubuntu' }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Check dataprep full snapshot
@@ -336,7 +306,7 @@ jobs:
             REMOTE_APP_REPOSITORY=matchID REMOTE_APP_BRANCH="${APP_REF}" REMOTE_APP_PATH=matchID/matchID REMOTE_APP_MAKE_PATH=matchID/matchID/packages/deces-dataprep \
             DATAPREP_BACKEND_MAKEOVERRIDES="APP_VERSION=${DATAPREP_BACKEND_IMAGE_VERSION}" \
             SSHKEY_PRIVATE="${HOME}/.ssh/id_rsa_matchID" \
-            CLOUD_SSHOPTS="-J${BASTION_USER_RESOLVED}@${BASTION_HOST_RESOLVED}"
+            CLOUD_SSHOPTS="-o ProxyJump=none"
         env:
           APP_REF: ${{ needs.release-context.outputs.app_ref }}
           DATAPREP_BACKEND_IMAGE_VERSION: ${{ needs.ensure-matchid-backend-image-prod.outputs.image_version }}

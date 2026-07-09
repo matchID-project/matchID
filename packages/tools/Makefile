@@ -46,7 +46,7 @@ export DC_PREFIX := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]')
 export DC_NETWORK := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]')
 export DC_IMAGE_NAME = ${DC_PREFIX}
 export DC_BUILD_ARGS = --pull --no-cache
-export DC := docker-compose
+export DC ?= docker compose
 
 # performance test confs
 export PERF=${APP_PATH}/performance
@@ -304,17 +304,13 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 		sudo yum-config-manager \
 			--add-repo \
 			https://download.docker.com/linux/$$RPM_FLAVOR/docker-ce.repo;\
-		sudo yum install -y iptables docker-ce docker-ce-cli containerd.io;\
+		sudo yum install -y iptables docker-ce docker-ce-cli containerd.io docker-compose-plugin;\
 		sudo gpasswd -a $$USER docker;\
 		sudo systemctl start docker;\
 	fi;
 endif
+	@docker compose version >/dev/null 2>&1 || { echo "docker compose plugin is required; install docker-compose-plugin" >&2; exit 1; }
 	@(if (id -Gn ${USER} | grep -vc docker); then sudo usermod -aG docker ${USER} ;fi) > /dev/null
-ifeq ("$(wildcard /usr/bin/docker-compose ${HOME}/.local/bin/docker-compose /usr/local/bin/docker-compose)","")
-	@echo installing docker-compose compatibility wrapper
-	@printf '%s\n' '#!/bin/sh' 'exec docker compose "$$@"' | sudo tee /usr/local/bin/docker-compose > /dev/null
-	@sudo chmod +x /usr/local/bin/docker-compose
-endif
 	@touch ${CONFIG_DOCKER_FILE}
 
 docker-build:
@@ -450,14 +446,22 @@ ${CLOUD}-instance-wait-ssh: ${CLOUD_FIRST_USER_FILE} ${CLOUD_HOST_FILE}
 		(ssh-keygen -R $$HOST > /dev/null 2>&1) || true;\
 		timeout=${SSH_TIMEOUT} ; ret=1 ;\
 		until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do\
-			((ssh ${SSHOPTS} $$SSHUSER@$$HOST sleep 1) );\
+			SSH_WAIT_LOG=$$(mktemp); \
+			((ssh ${SSHOPTS} $$SSHUSER@$$HOST sleep 1 >$$SSH_WAIT_LOG 2>&1) );\
 			ret=$$? ; \
 			if [ "$$ret" -ne "0" ] ; then\
+				cat $$SSH_WAIT_LOG; \
+				if grep -q "Permission denied (publickey)" $$SSH_WAIT_LOG; then\
+					echo "ssh authentication failed for $$SSHUSER@$$HOST: instance is reachable but rejected the configured key ${SSHKEY_PRIVATE}"; \
+					rm -f $$SSH_WAIT_LOG; \
+					exit $$ret; \
+				fi; \
 				echo -en "\rwaiting for ssh service on ${CLOUD} instance - $$timeout" ; \
 				if [ ! -z "${VERBOSE}" ];then\
 					echo 'cmd: ssh ${SSHOPTS} '"$$SSHUSER@$$HOST"; \
 				fi;\
 			fi ;\
+			rm -f $$SSH_WAIT_LOG; \
 			((timeout--)); sleep 1 ; \
 		done ; echo ;\
 		exit $$ret;\
