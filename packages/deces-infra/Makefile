@@ -27,16 +27,12 @@ export ES_DATA ?= ${DATA_DIR}/esdata
 export ES_NODES ?= 1
 export ES_MEM ?= 512m
 export ES_MMAP_DISABLED ?= false
-ES_UID ?= $(shell id -u)
-ES_UID := $(ES_UID)
-export ES_UID
+export ES_UID ?= $(shell id -u)
 export ES_GID ?= 0
 export ES_JAVA_OPTS=$(strip -Xms${ES_MEM} -Xmx${ES_MEM} $(if $(filter true,$(ES_MMAP_DISABLED)),-Dnode.store.allow_mmap=false))
 export ES_VERSION = 8.6.1
 export ES_BACKUP_BASENAME := esdata
-ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
-ES_MEM_KUBE := $(ES_MEM_KUBE)
-export ES_MEM_KUBE
+export ES_MEM_KUBE?=$(shell echo -n ${ES_MEM} | sed 's/\s*m/Mi/')
 export REDIS_DATA ?= ${DATA_DIR}/redisdata
 export REDIS_TIMEOUT ?= 30
 export MAILDEV_UI_PORT ?= 1080

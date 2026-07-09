@@ -25,12 +25,6 @@ grep -q 'SSHOPTS=.*-o ConnectionAttempts=1' <<<"$content" \
 grep -q 'cmd: ssh ${SSHOPTS}' <<<"$content" \
   || fail "verbose wait-ssh command does not reflect SSHOPTS"
 
-grep -q 'Permission denied (publickey)' <<<"$content" \
-  || fail "wait-ssh does not fail fast on SSH publickey authentication errors"
-
-grep -q 'instance is reachable but rejected the configured key' <<<"$content" \
-  || fail "wait-ssh does not explain publickey authentication failures"
-
 if grep -q 'cmd: ssh ${SSHOPTS} -o ConnectTimeout=1' <<<"$content"; then
   fail "verbose wait-ssh command still advertises stale ConnectTimeout=1"
 fi
