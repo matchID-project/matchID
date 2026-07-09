@@ -493,6 +493,7 @@ remote-base-image-smoke: config remote-config remote-deploy
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v docker"
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker version"
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker compose version"
+	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker-compose version"
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v rclone"
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="command -v recode"
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect python:3.9-slim-bullseye"

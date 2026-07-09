@@ -665,6 +665,7 @@ deces-ui-base-image-smoke: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="command -v docker"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker version"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker compose version"
+	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker-compose version"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="command -v rclone"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${BACKEND_NODE_IMAGE}"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${FRONTEND_NGINX_IMAGE}"

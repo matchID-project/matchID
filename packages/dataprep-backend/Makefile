@@ -115,7 +115,7 @@ id                  := $(shell openssl rand -base64 8)
 vm_max_count		:= $(shell sysctl -n vm.max_map_count 2>/dev/null | awk '$$1 >= 262144 {print "true"}')
 
 PG := 'postgres'
-DC ?= docker compose
+DC := 'docker-compose'
 include /etc/os-release
 
 
@@ -186,7 +186,7 @@ elasticsearch-docker-check:
 	fi;
 
 elasticsearch-stop:
-	@echo docker compose down matchID elasticsearch
+	@echo docker-compose down matchID elasticsearch
 	@(${DC} -f ${DC_FILE}-elasticsearch.yml down > /dev/null 2>&1 || true)
 	@(${DC} -f ${DC_FILE}-elasticsearch-huge.yml down > /dev/null 2>&1 || true)
 
@@ -328,7 +328,7 @@ vm_max:
 elasticsearch-dev: elasticsearch
 
 elasticsearch-cluster: network vm_max
-	@echo docker compose up matchID elasticsearch with ${ES_NODES} nodes
+	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
 	@cat ${DC_FILE}-elasticsearch.yml > ${DC_FILE}-elasticsearch-huge.yml
 	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod g+rw ${ES_DATA}/node1/.; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. || true; fi)
 	@(i=$(ES_NODES); while [ $${i} -gt 1 ]; \
@@ -342,7 +342,7 @@ elasticsearch-cluster: network vm_max
 	@timeout=${TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} ${DC_PREFIX}-elasticsearch curl -s --fail -XGET localhost:9200/_cat/indices > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
 
 elasticsearch-start: network vm_max
-	@echo docker compose up matchID elasticsearch with ${ES_NODES} nodes
+	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
 	@(if [ ! -d ${ES_DATA}/node1 ]; then mkdir -p ${ES_DATA}/node1 ; chmod g+rw ${ES_DATA}/node1/.; chown $(shell id -u):$(shell id -g) ${ES_DATA}/node1/. || true; fi)
 	${DC} -f ${DC_FILE}-elasticsearch.yml up -d
 
@@ -350,7 +350,7 @@ elasticsearch: elasticsearch-start
 	@timeout=${TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (docker exec -i ${USE_TTY} ${DC_PREFIX}-elasticsearch curl -s --fail -XGET localhost:9200/ > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo -en "\rwaiting for elasticsearch API to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; echo ; exit $$ret
 
 elasticsearch2:
-	@echo docker compose up matchID elasticsearch with ${ES_NODES} nodes
+	@echo docker-compose up matchID elasticsearch with ${ES_NODES} nodes
 	@cat ${DC_FILE}-elasticsearch.yml | head -8 > ${DC_FILE}-elasticsearch-huge-remote.yml
 	@(i=$$(( $(ES_NODES) * $(ES_SWARM_NODE_NUMBER) ));j=$$(( $(ES_NODES) * $(ES_SWARM_NODE_NUMBER) - $(ES_NODES))); while [ $${i} -gt $${j} ]; \
 		do \
@@ -552,7 +552,7 @@ stop: services-stop network-stop
 	@echo all components stopped
 
 start: network services
-	@sleep 2 && ${DC} logs
+	@sleep 2 && docker-compose logs
 
 up: start
 
@@ -585,11 +585,13 @@ package: docker-save-all
 	if [ ! -f "$$PACKAGE" ];then\
 		curl -s -O https://downloads.rclone.org/rclone-current-linux-amd64.rpm;\
 		curl -s -O https://downloads.rclone.org/rclone-current-linux-amd64.deb;\
+		curl -s -L "https://github.com/docker/compose/releases/download/1.27.4/docker-compose-$$(uname -s)-$$(uname -m)" -o docker-compose;\
 		cd ${APP_PATH}/..;\
 		DC_DIR=`echo ${DC_DIR} | sed "s|${APP_PATH}|$${APP_PATH##*/}|"`;\
 		echo $$DD;\
 		tar cvzf $${APP_PATH##*/}/$$PACKAGE \
 			$${APP_PATH##*/}/rclone-current-linux*\
+			$${APP_PATH##*/}/docker-compose\
 			`cd ${APP_PATH};git ls-files | sed "s/^/$${APP_PATH##*/}\//"` \
 			$${APP_PATH##*/}/.git\
 			$$DC_DIR/postgres:latest.tar.gz\
@@ -626,7 +628,10 @@ depackage:
 			sudo yum localinstall -y rclone-current-linux-amd64.rpm;\
 		fi;\
 	fi
-	@docker compose version >/dev/null 2>&1 || { echo "docker compose plugin is required; install docker-compose-plugin" >&2; exit 1; }
+	@if [ -z "$(wildcard /usr/bin/docker-compose /usr/local/bin/docker-compose)" ];then\
+		mkdir -p ${HOME}/.local/bin && cp docker-compose ${HOME}/.local/bin/docker-compose;\
+		chmod +x ${HOME}/.local/bin/docker-compose;\
+	fi;
 	@make config
 	@ls ${DC_DIR}/*.tar.gz | xargs -L 1 sudo -u $$USER docker load -i;
 	@echo you can now start all service using 'make up';
