@@ -35,9 +35,13 @@ export API_SSL?=1
 export APP_URL?=http$([ "$API_SSL" == 1 ] && echo "s" || echo "")://${APP_DNS}
 export API_EMAIL?=contact@matchid.io
 export BACKEND_TOKEN_USER?=matchid.project@gmail.com
-export BACKEND_TOKEN_KEY?=$(shell openssl rand -base64 16)
-export BACKEND_TOKEN_PASSWORD?=$(shell openssl rand -base64 16)
-export NPM_REGISTRY = $(shell echo $$NPM_REGISTRY )
+BACKEND_TOKEN_KEY?=$(shell openssl rand -base64 16)
+BACKEND_TOKEN_KEY:=$(BACKEND_TOKEN_KEY)
+export BACKEND_TOKEN_KEY
+BACKEND_TOKEN_PASSWORD?=$(shell openssl rand -base64 16)
+BACKEND_TOKEN_PASSWORD:=$(BACKEND_TOKEN_PASSWORD)
+export BACKEND_TOKEN_PASSWORD
+export NPM_REGISTRY
 export NPM_VERBOSE ?= 1
 export REDIS_DATA=${DATA_DIR}/redisdata
 export BULK_TIMEOUT = 600
@@ -54,7 +58,9 @@ export SMTP_PORT?=1025
 export MAILDEV_UI_PORT?=1080
 export BACKEND_TEST_SCRIPT?=test
 export SMTP_USER?=${API_EMAIL}
-export SMTP_PWD?=$(shell echo $$RANDOM )
+SMTP_PWD?=$(shell echo $$RANDOM )
+SMTP_PWD:=$(SMTP_PWD)
+export SMTP_PWD
 
 # Backupdir
 export BACKUP_DIR = ${APP_PATH}/backup

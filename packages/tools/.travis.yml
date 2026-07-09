@@ -6,25 +6,18 @@ language: minimal
 services:
   - docker
 
-env:
-  - DOCKER_COMPOSE_VERSION=1.19.0
-
 addons:
   apt:
     packages:
       - docker-ce
 
 before_install:
-  - sudo rm -rf /usr/local/bin/docker-compose
-  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
-  - chmod +x docker-compose
-  - sudo mv docker-compose /usr/local/bin/
   - sudo apt-get -q update
-  - sudo apt-get install -qy make apt-transport-https ca-certificates curl software-properties-common jq
+  - sudo apt-get install -qy make apt-transport-https ca-certificates curl software-properties-common jq docker-compose-plugin
 
 before_script:
   - uname -a
-  - type -a docker-compose && docker-compose version
+  - docker compose version
   - docker version
   - echo "$SSHENC" | base64 -d | gpg -d --passphrase $SSHPWD --batch > /tmp/id_rsa_matchID
   - eval "$(ssh-agent -s)"
@@ -48,4 +41,3 @@ script:
         make remote-config-test GIT_BRANCH="$TRAVIS_BRANCH" remote_http_proxy=$REMOTE_HTTP_PROXY remote_https_proxy=$REMOTE_HTTP_PROXY;
       fi;
     fi
-

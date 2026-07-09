@@ -15,8 +15,8 @@ export OS_TYPE := $(shell cat /etc/os-release | grep -E '^NAME=' | sed 's/^.*deb
 export PORT=8083
 
 #make binary and options
-export MAKEBIN = $(shell which make || echo make)
-export MAKE = ${MAKEBIN} --no-print-directory -s
+export MAKEBIN := $(shell which make || echo make)
+export MAKE := ${MAKEBIN} --no-print-directory -s
 
 #base paths
 export APP = deces
@@ -57,19 +57,31 @@ export MAILDEV_UI_PORT ?= 37343
 export BACKEND_TIMEOUT ?= 180
 export ES_MEM ?= 512m
 export ES_TIMEOUT ?= 120
-export ES_VERSION ?= $(shell awk -F= '/^export ES_VERSION[[:space:]]*=/ { gsub(/[[:space:]]/, "", $$2); print $$2; exit }' ${INFRA_PATH}/Makefile)
-export BACKEND_NODE_IMAGE ?= $(shell awk 'toupper($$1) == "FROM" && $$2 ~ /^node:/ { print $$2; exit }' ${BACKEND_PATH}/Dockerfile)
-export FRONTEND_NGINX_IMAGE ?= $(shell awk 'toupper($$1) == "FROM" && $$2 ~ /^nginx:/ { print $$2; exit }' ${FRONTEND_PATH}/nginx/Dockerfile)
-export REDIS_IMAGE ?= $(shell awk '$$1 == "image:" && $$2 ~ /^redis:/ { print $$2; exit }' ${INFRA_PATH}/docker-compose-redis.yml)
+ES_VERSION ?= $(shell awk -F= '/^export ES_VERSION[[:space:]]*=/ { gsub(/[[:space:]]/, "", $$2); print $$2; exit }' ${INFRA_PATH}/Makefile)
+ES_VERSION := $(ES_VERSION)
+export ES_VERSION
+BACKEND_NODE_IMAGE ?= $(shell awk 'toupper($$1) == "FROM" && $$2 ~ /^node:/ { print $$2; exit }' ${BACKEND_PATH}/Dockerfile)
+BACKEND_NODE_IMAGE := $(BACKEND_NODE_IMAGE)
+export BACKEND_NODE_IMAGE
+FRONTEND_NGINX_IMAGE ?= $(shell awk 'toupper($$1) == "FROM" && $$2 ~ /^nginx:/ { print $$2; exit }' ${FRONTEND_PATH}/nginx/Dockerfile)
+FRONTEND_NGINX_IMAGE := $(FRONTEND_NGINX_IMAGE)
+export FRONTEND_NGINX_IMAGE
+REDIS_IMAGE ?= $(shell awk '$$1 == "image:" && $$2 ~ /^redis:/ { print $$2; exit }' ${INFRA_PATH}/docker-compose-redis.yml)
+REDIS_IMAGE := $(REDIS_IMAGE)
+export REDIS_IMAGE
 export ELASTICSEARCH_IMAGE ?= docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
 
 export DC_NETWORK := $(shell echo ${APP_GROUP} | tr '[:upper:]' '[:lower:]')
 export DC_BUILD_ARGS = --pull --no-cache
 export DC := docker compose
-export GIT ?= $(shell which git || echo git)
+GIT ?= $(shell which git || echo git)
+GIT := $(GIT)
+export GIT
 export ALLOW_MAKE_GIT_COMMIT ?= false
 export GIT_ORIGIN=origin
-export GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
+GIT_BRANCH ?= $(or ${GITHUB_HEAD_REF},$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/detached-head/'))
+GIT_BRANCH := $(GIT_BRANCH)
+export GIT_BRANCH
 export GIT_BRANCH_MAIN ?= main
 export RELEASE_TAG_PREFIX ?= v
 export DEPLOY_TARGET ?=
@@ -95,7 +107,8 @@ export DATAGOUV_CATALOG_URL = https://www.data.gouv.fr/api/1/datasets/${DATASET}
 export DATAGOUV_RESOURCES_HOST = https://static.data.gouv.fr
 export DATAGOUV_RESOURCES_PATH = resources/${DATASET}
 export DATAGOUV_RESOURCES_URL = ${DATAGOUV_RESOURCES_HOST}/${DATAGOUV_RESOURCES_PATH}
-export DATAGOUV_RESOURCES_PROXY = $(shell echo ${http_proxy} | sed 's|^$$|${DATAGOUV_RESOURCES_HOST}|;')
+DATAGOUV_RESOURCES_PROXY := $(shell echo ${http_proxy} | sed 's|^$$|${DATAGOUV_RESOURCES_HOST}|;')
+export DATAGOUV_RESOURCES_PROXY
 export DATAGOUV_RESOURCES_REWRITE_PATH := $(shell echo ${DATAGOUV_RESOURCES_HOST}/${DATAGOUV_RESOURCES_PATH} | sed 's|^${DATAGOUV_RESOURCES_PROXY}||')
 
 # data configuration
@@ -138,8 +151,12 @@ tag                 := $(shell printf '%s' "$(git_ref_raw)" | sed 's/-.*//' | se
 lastcommit          := $(shell touch .lastcommit && cat .lastcommit)
 date                := $(shell date -I)
 
-export APP_VERSION ?= $(shell env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${FRONTEND_PATH} version 2>/dev/null | awk '{print $$NF}')
-export DECES_BACKEND_APP_VERSION ?= $(shell env -u APP_VERSION -u DECES_BACKEND_APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${BACKEND_PATH} version 2>/dev/null | awk '{print $$NF}')
+APP_VERSION ?= $(shell env -u APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${FRONTEND_PATH} version 2>/dev/null | awk '{print $$NF}')
+APP_VERSION := $(APP_VERSION)
+export APP_VERSION
+DECES_BACKEND_APP_VERSION ?= $(shell env -u APP_VERSION -u DECES_BACKEND_APP_VERSION -u MAKEFLAGS -u MFLAGS ${MAKEBIN} --no-print-directory -s -C ${BACKEND_PATH} version 2>/dev/null | awk '{print $$NF}')
+DECES_BACKEND_APP_VERSION := $(DECES_BACKEND_APP_VERSION)
+export DECES_BACKEND_APP_VERSION
 
 ifeq (${DEPLOY_TARGET},prod)
 export APP_DNS_TARGET ?= ${APP_DNS}
@@ -648,7 +665,6 @@ deces-ui-base-image-smoke: deploy-remote-instance
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="command -v docker"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker version"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker compose version"
-	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker-compose version"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="command -v rclone"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${BACKEND_NODE_IMAGE}"
 	@${MAKE} -C ${TOOLS_PATH} remote-cmd REMOTE_CMD="docker image inspect ${FRONTEND_NGINX_IMAGE}"
