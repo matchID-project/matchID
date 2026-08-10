@@ -713,12 +713,7 @@ SCW-instance-get-stale-running-ids: ${CLOUD_DIR} SCW-check-api
 			--arg prefix "${SCW_STALE_NAME_PREFIX}" \
 			--argjson now "$${NOW_EPOCH}" \
 			--argjson max_age "${SCW_STALE_MAX_AGE_SECONDS}" \
-			'.servers[] \
-			| select(.project == $$project) \
-			| select(.state == "running") \
-			| select((.name | ascii_downcase) | startswith($$prefix | ascii_downcase)) \
-			| select(($$now - ((.creation_date // .created_at) | sub("\\.[0-9]+Z$$"; "Z") | fromdateiso8601)) > $$max_age) \
-			| .id' \
+			'.servers[] | select(.project == $$project) | select(.state == "running") | select((.name | ascii_downcase) | startswith($$prefix | ascii_downcase)) | select(($$now - ((.creation_date // .created_at) | sub("\\.[0-9]+Z$$"; "Z") | fromdateiso8601)) > $$max_age) | .id' \
 		> ${CLOUD_STALE_RUNNING_IDS_FILE}
 
 SCW-instance-delete-stale-running: SCW-instance-get-stale-running-ids
