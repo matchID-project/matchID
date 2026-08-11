@@ -115,7 +115,7 @@ id                  := $(shell openssl rand -base64 8)
 vm_max_count		:= $(shell sysctl -n vm.max_map_count 2>/dev/null | awk '$$1 >= 262144 {print "true"}')
 
 PG := 'postgres'
-DC := 'docker-compose'
+DC ?= docker compose
 include /etc/os-release
 
 
@@ -552,7 +552,7 @@ stop: services-stop network-stop
 	@echo all components stopped
 
 start: network services
-	@sleep 2 && docker-compose logs
+	@sleep 2 && ${DC} logs
 
 up: start
 
