@@ -37,6 +37,8 @@ grep -Fq 'name: STORAGE_SECRET_KEY' "$rendered"
 grep -Fq 'value: fichier-des-personnes-decedees-elasticsearch' "$rendered"
 grep -Fq '\"readonly\":true' "$rendered"
 grep -Fq 'storage: 45Gi' "$rendered"
+grep -Fq 'ELASTICSEARCH_PVC_STORAGE: 60Gi' "$repo_root/.github/workflows/release-prod.yml"
+grep -Fq 'name: Ensure prod Elasticsearch PVC capacity' "$repo_root/.github/workflows/release-prod.yml"
 awk '
   $1 == "kind:" { kind=$2 }
   $1 == "name:" && $2 == "redis" && kind == "StatefulSet" { found=1 }
