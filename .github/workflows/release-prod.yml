@@ -398,7 +398,15 @@ jobs:
       KUBE_CONFIG_DATA_PROD: ${{ secrets.KUBE_CONFIG_DATA_PROD }}
       TRAEFIK_LB_IP_PROD: ${{ secrets.TRAEFIK_LB_IP_PROD }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout current manifests for data-only release
+        if: needs.release-context.outputs.release_kind == 'data_only'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Checkout application release
+        if: needs.release-context.outputs.release_kind != 'data_only'
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.release-context.outputs.app_ref }}
 
