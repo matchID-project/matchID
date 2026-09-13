@@ -662,6 +662,22 @@ jobs:
         run: |
           set -euo pipefail
           kubectl -n "$NAMESPACE" wait --for=condition=Ready --timeout=10m certificate/matchid-prod-tls
+          pem="/tmp/matchid-prod-tls.crt"
+          for attempt in $(seq 1 60); do
+            kubectl -n "$NAMESPACE" get secret matchid-prod-tls -o jsonpath='{.data.tls\.crt}' \
+              | base64 --decode > "$pem"
+            if openssl x509 -checkhost "$HOSTNAME" -noout -in "$pem" \
+              && openssl x509 -checkend 604800 -noout -in "$pem"; then
+              openssl x509 -noout -subject -issuer -dates -in "$pem"
+              break
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              echo "Production TLS certificate is expired or expires within seven days" >&2
+              openssl x509 -noout -subject -issuer -dates -in "$pem" >&2 || true
+              exit 1
+            fi
+            sleep 10
+          done
 
       - name: Smoke public endpoints
         id: smoke_public

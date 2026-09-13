@@ -1,0 +1,115 @@
+name: Reconcile prod TLS
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: reconcile-prod-tls
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    permissions:
+      contents: read
+    env:
+      NAMESPACE: matchid-prod
+      CERTIFICATE: matchid-prod-tls
+      TLS_SECRET: matchid-prod-tls
+      HOSTNAME: deces.matchid.io
+      KUBE_CONFIG_DATA_PLATFORM: ${{ secrets.KUBE_CONFIG_DATA_PLATFORM }}
+      EXPECTED_TRAEFIK_LB_IP: 51.159.11.157
+      # Declarative owner: rhanka/k8s-ops, merged PR #61.
+      K8S_OPS_REVISION: ad7fc7de0fb4a75fbb2111b1f0056bb3a889adc5
+    steps:
+      - name: Install platform kubeconfig
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "This production workflow may only run from main" >&2
+            exit 1
+          fi
+          if [ -z "${KUBE_CONFIG_DATA_PLATFORM:-}" ]; then
+            echo "Missing production environment KUBE_CONFIG_DATA_PLATFORM secret" >&2
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBE_CONFIG_DATA_PLATFORM" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl version --client=true
+          if [ "$(kubectl auth can-i patch resourcequotas -n "$NAMESPACE")" != "yes" ]; then
+            echo "Platform kubeconfig cannot reconcile the platform-owned ResourceQuota" >&2
+            exit 1
+          fi
+
+      - name: Verify production cluster identity
+        run: |
+          set -euo pipefail
+          cluster_lb="$(kubectl -n traefik get service traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+          mapfile -t dns_ips < <(getent ahostsv4 "$HOSTNAME" | awk '$2 == "STREAM" {print $1}' | sort -u)
+          if [ "$cluster_lb" != "$EXPECTED_TRAEFIK_LB_IP" ]; then
+            echo "Kubeconfig targets Traefik LB $cluster_lb, expected $EXPECTED_TRAEFIK_LB_IP" >&2
+            exit 1
+          fi
+          if [ "${#dns_ips[@]}" -ne 1 ] || [ "${dns_ips[0]:-}" != "$EXPECTED_TRAEFIK_LB_IP" ]; then
+            echo "Public DNS does not resolve exclusively to expected prod LB $EXPECTED_TRAEFIK_LB_IP" >&2
+            printf 'Resolved IP: %s\n' "${dns_ips[@]:-none}" >&2
+            exit 1
+          fi
+          echo "Kubeconfig, Traefik and public DNS all target $EXPECTED_TRAEFIK_LB_IP"
+
+      - name: Reconcile certificate renewal headroom
+        run: |
+          set -euo pipefail
+          echo "Applying Secret quota from k8s-ops revision $K8S_OPS_REVISION"
+          kubectl -n "$NAMESPACE" patch resourcequota tenant-quota \
+            --type=merge \
+            --patch '{"spec":{"hard":{"secrets":"16"}}}'
+          test "$(kubectl -n "$NAMESPACE" get resourcequota tenant-quota -o jsonpath='{.spec.hard.secrets}')" = "16"
+          kubectl -n "$NAMESPACE" get resourcequota tenant-quota
+
+      - name: Wait for a fresh certificate
+        run: |
+          set -euo pipefail
+          pem="$RUNNER_TEMP/prod-tls.crt"
+          for attempt in $(seq 1 90); do
+            revision="$(kubectl -n "$NAMESPACE" get certificate "$CERTIFICATE" -o jsonpath='{.status.revision}' 2>/dev/null || true)"
+            not_after="$(kubectl -n "$NAMESPACE" get certificate "$CERTIFICATE" -o jsonpath='{.status.notAfter}' 2>/dev/null || true)"
+            if [ "${revision:-0}" -ge 2 ] 2>/dev/null; then
+              kubectl -n "$NAMESPACE" get secret "$TLS_SECRET" -o jsonpath='{.data.tls\.crt}' \
+                | base64 --decode > "$pem"
+              if openssl x509 -checkhost "$HOSTNAME" -noout -in "$pem" \
+                && openssl x509 -checkend 604800 -noout -in "$pem"; then
+                echo "Certificate revision $revision is valid beyond seven days (notAfter=$not_after)"
+                openssl x509 -noout -subject -issuer -dates -in "$pem"
+                exit 0
+              fi
+            fi
+            echo "Waiting for renewed certificate (attempt=$attempt revision=${revision:-none} notAfter=${not_after:-none})"
+            sleep 10
+          done
+          kubectl -n "$NAMESPACE" get certificate,certificaterequest,order,challenge
+          exit 1
+
+      - name: Verify strict public HTTPS
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 20 "https://$HOSTNAME/deces/api/v1/readiness"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              break
+            fi
+            sleep 10
+          done
+          curl -fsS --max-time 20 "https://$HOSTNAME/deces/api/v1/readiness"
+
+      - name: Diagnostics on failure
+        if: failure() || cancelled()
+        run: |
+          kubectl -n "$NAMESPACE" get resourcequota tenant-quota || true
+          kubectl -n "$NAMESPACE" get certificate,certificaterequest,order,challenge || true
+          kubectl -n "$NAMESPACE" describe certificate "$CERTIFICATE" || true
