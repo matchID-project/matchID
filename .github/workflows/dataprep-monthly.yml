@@ -31,7 +31,12 @@ jobs:
     env:
       APP_DNS: deces.matchid.io
       PROD_REPOSITORY_BUCKET: fichier-des-personnes-decedees-elasticsearch
+      DATAPREP_SCW_ZONE_PROD: fr-par-2
       DATAPREP_SCW_FLAVOR_PROD: PRO2-L
+      # Zone-local image behind the ubuntu_jammy Marketplace label, verified by
+      # a PRO2-L + 50 GB SBS CLI probe in fr-par-2 on 2026-09-13.
+      DATAPREP_SCW_IMAGE_PROD: 5ca6e466-66bf-4416-a894-913175ceede3
+      DATAPREP_SCW_SECURITY_GROUP_PROD: matchid-dataprep-fr-par-2
       DATAPREP_SCW_VOLUME_SIZE_PROD: 50000000000
       DATAPREP_SCW_VOLUME_TYPE_PROD: sbs_volume
       DATAPREP_CHUNK_SIZE_PROD: 75000
@@ -214,11 +219,80 @@ jobs:
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
 
+      - name: Prepare Scaleway dataprep zone
+        id: scw_zone
+        env:
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+          SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
+        run: |
+          set -euo pipefail
+          SCW_API="https://api.scaleway.com/instance/v1/zones/${DATAPREP_SCW_ZONE_PROD}"
+
+          IMAGE_JSON=$(curl -fsSL \
+            -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+            "${SCW_API}/images/${DATAPREP_SCW_IMAGE_PROD}")
+          jq -e --arg image_id "${DATAPREP_SCW_IMAGE_PROD}" \
+            '.image.id == $image_id and .image.arch == "x86_64" and .image.state == "available"' \
+            <<<"${IMAGE_JSON}" >/dev/null
+
+          SECURITY_GROUPS_JSON=$(curl -fsSL \
+            -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+            --get \
+            --data-urlencode "project=${SCW_PROJECT_ID}" \
+            --data-urlencode "name=${DATAPREP_SCW_SECURITY_GROUP_PROD}" \
+            "${SCW_API}/security_groups")
+          SECURITY_GROUP_ID=$(jq -r --arg name "${DATAPREP_SCW_SECURITY_GROUP_PROD}" \
+            '[.security_groups[] | select(.name == $name and .state == "available")][0].id // empty' \
+            <<<"${SECURITY_GROUPS_JSON}")
+
+          if [ -z "${SECURITY_GROUP_ID}" ]; then
+            SECURITY_GROUP_PAYLOAD=$(jq -cn \
+              --arg name "${DATAPREP_SCW_SECURITY_GROUP_PROD}" \
+              --arg project "${SCW_PROJECT_ID}" \
+              '{name:$name,description:"Ephemeral MatchID monthly dataprep workers",project:$project,stateful:true,inbound_default_policy:"drop",outbound_default_policy:"accept"}')
+            SECURITY_GROUP_JSON=$(curl -fsSL -X POST \
+              -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "${SECURITY_GROUP_PAYLOAD}" \
+              "${SCW_API}/security_groups")
+            SECURITY_GROUP_ID=$(jq -r '.security_group.id // empty' <<<"${SECURITY_GROUP_JSON}")
+          fi
+
+          test -n "${SECURITY_GROUP_ID}"
+          SECURITY_GROUP_JSON=$(curl -fsSL \
+            -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+            "${SCW_API}/security_groups/${SECURITY_GROUP_ID}")
+          jq -e \
+            '.security_group.state == "available" and .security_group.stateful == true and .security_group.inbound_default_policy == "drop" and .security_group.outbound_default_policy == "accept"' \
+            <<<"${SECURITY_GROUP_JSON}" >/dev/null
+
+          RULES_JSON=$(curl -fsSL \
+            -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+            "${SCW_API}/security_groups/${SECURITY_GROUP_ID}/rules")
+          if ! jq -e \
+            '.rules[] | select(.direction == "inbound" and .action == "accept" and .protocol == "TCP" and .ip_range == "0.0.0.0/0" and .dest_port_from == 22 and .dest_port_to == null)' \
+            <<<"${RULES_JSON}" >/dev/null; then
+            RULE_PAYLOAD=$(jq -cn \
+              '{direction:"inbound",action:"accept",protocol:"TCP",ip_range:"0.0.0.0/0",dest_port_from:22}')
+            curl -fsSL -X POST \
+              -H "X-Auth-Token: ${SCW_SECRET_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "${RULE_PAYLOAD}" \
+              "${SCW_API}/security_groups/${SECURITY_GROUP_ID}/rules" >/dev/null
+          fi
+
+          SERVER_OPTS=$(jq -cn \
+            --arg security_group "${SECURITY_GROUP_ID}" \
+            '{security_group:$security_group,dynamic_ip_required:true}')
+          echo "server_opts=${SERVER_OPTS}" >> "${GITHUB_OUTPUT}"
+          echo "Scaleway dataprep target: ${DATAPREP_SCW_ZONE_PROD} / ${DATAPREP_SCW_FLAVOR_PROD} / ${SECURITY_GROUP_ID}"
+
       - name: Run dataprep full remote-all
         run: |
           make -C packages/deces-dataprep remote-all \
             GIT_BRANCH=master \
             REPOSITORY_BUCKET="${PROD_REPOSITORY_BUCKET}" \
+            SCW_ZONE="${DATAPREP_SCW_ZONE_PROD}" SCW_IMAGE_ID="${DATAPREP_SCW_IMAGE_PROD}" SCW_IP='public_ips[0].address' \
             SCW_FLAVOR="${DATAPREP_SCW_FLAVOR_PROD}" SCW_VOLUME_SIZE="${DATAPREP_SCW_VOLUME_SIZE_PROD}" SCW_VOLUME_TYPE="${DATAPREP_SCW_VOLUME_TYPE_PROD}" \
             CHUNK_SIZE="${DATAPREP_CHUNK_SIZE_PROD}" ES_THREADS="${DATAPREP_ES_THREADS_PROD}" RECIPE_THREADS="${DATAPREP_RECIPE_THREADS_PROD}" ES_MEM="${DATAPREP_ES_MEM_PROD}" RECIPE_QUEUE="${DATAPREP_RECIPE_QUEUE_PROD}" \
             SLACK_TITLE="deces-dataprep - monthly" SLACK_WEBHOOK="${SLACK_WEBHOOK}" \
@@ -235,7 +309,7 @@ jobs:
           remote_no_proxy: localhost
           SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
           SCW_SECRET_TOKEN: ${{ secrets.SCW_SECRET_TOKEN }}
-          SCW_SERVER_OPTS: ${{ secrets.SCW_SERVER_OPTS }}
+          SCW_SERVER_OPTS: ${{ steps.scw_zone.outputs.server_opts }}
           STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
           STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
