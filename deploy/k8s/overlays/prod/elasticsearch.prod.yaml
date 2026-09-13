@@ -67,4 +67,6 @@ spec:
         storageClassName: scw-bssd
         resources:
           requests:
+            # Bootstrap size for new StatefulSets. release-prod expands the
+            # bound production claim to 60Gi before restoring a snapshot.
             storage: 45Gi

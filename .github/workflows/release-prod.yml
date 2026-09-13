@@ -391,6 +391,7 @@ jobs:
       traefik_version_json: ${{ steps.smoke_backend.outputs.traefik_version_json }}
     env:
       APP_DNS: deces.matchid.io
+      ELASTICSEARCH_PVC_STORAGE: 60Gi
       HOSTNAME: deces.matchid.io
       NAMESPACE: matchid-prod
       OVERLAY: prod
@@ -415,6 +416,63 @@ jobs:
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
           kubectl version --client=true
           kubectl get ns "$NAMESPACE"
+
+      - name: Ensure prod Elasticsearch PVC capacity
+        run: |
+          set -euo pipefail
+          pvc=data-elasticsearch-0
+          requested=
+          for attempt in 1 2 3; do
+            requested="$(
+              kubectl -n "$NAMESPACE" get pvc "$pvc" \
+                -o jsonpath='{.spec.resources.requests.storage}' 2>/dev/null || true
+            )"
+            if [ -n "$requested" ]; then
+              break
+            fi
+            sleep 2
+          done
+          if [[ ! "$requested" =~ ^([0-9]+)Gi$ ]]; then
+            echo "Unsupported current PVC size: $requested" >&2
+            exit 1
+          fi
+          requested_gi="${BASH_REMATCH[1]}"
+          if [[ ! "$ELASTICSEARCH_PVC_STORAGE" =~ ^([0-9]+)Gi$ ]]; then
+            echo "Unsupported target PVC size: $ELASTICSEARCH_PVC_STORAGE" >&2
+            exit 1
+          fi
+          target_gi="${BASH_REMATCH[1]}"
+          if (( requested_gi < target_gi )); then
+            kubectl -n "$NAMESPACE" patch pvc "$pvc" --type=merge \
+              --patch "{\"spec\":{\"resources\":{\"requests\":{\"storage\":\"$ELASTICSEARCH_PVC_STORAGE\"}}}}"
+          else
+            echo "$pvc already requests $requested"
+          fi
+
+          for attempt in $(seq 1 120); do
+            capacity="$(
+              kubectl -n "$NAMESPACE" get pvc "$pvc" \
+                -o jsonpath='{.status.capacity.storage}' 2>/dev/null || true
+            )"
+            if [[ "$capacity" =~ ^([0-9]+)Gi$ ]] && (( BASH_REMATCH[1] >= target_gi )); then
+              echo "$pvc capacity is $capacity"
+              break
+            fi
+            if (( attempt % 6 == 0 )); then
+              condition="$(
+                kubectl -n "$NAMESPACE" get pvc "$pvc" \
+                  -o jsonpath='{range .status.conditions[*]}{.type}: {.message}; {end}' \
+                  2>/dev/null || true
+              )"
+              echo "Waiting for $pvc capacity expansion: ${capacity:-unknown}; ${condition:-no condition} ($attempt/120)"
+            fi
+            if (( attempt == 120 )); then
+              echo "$pvc did not reach $ELASTICSEARCH_PVC_STORAGE; current capacity is ${capacity:-unknown}" >&2
+              kubectl -n "$NAMESPACE" describe pvc "$pvc" >&2 || true
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Apply prod runtime secrets
         if: needs.release-context.outputs.release_kind == 'app_and_data'
