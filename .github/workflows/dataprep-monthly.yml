@@ -366,7 +366,8 @@ jobs:
     name: Dispatch release-prod data_only
     needs: dataprep-monthly
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # release-prod permits up to 120 minutes for restore and smoke checks.
+    timeout-minutes: 125
     permissions:
       actions: write
       contents: read
