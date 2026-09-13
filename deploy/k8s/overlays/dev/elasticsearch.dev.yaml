@@ -14,6 +14,8 @@ spec:
           env:
             - name: ES_JAVA_OPTS
               value: "-Xms256m -Xmx256m"
+            - name: xpack.ml.enabled
+              value: "false"
           resources:
             requests:
               cpu: 80m
