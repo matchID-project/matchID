@@ -147,6 +147,7 @@ jobs:
           kubectl kustomize "$overlay_dir" >/tmp/matchid-k8s-rendered.yaml
           kubectl -n "$NAMESPACE" delete deploy/redis --ignore-not-found=true
           kubectl apply -f /tmp/matchid-k8s-rendered.yaml
+          bash deploy/k8s/scripts/recover-stuck-statefulset.sh "$NAMESPACE" elasticsearch
 
       - name: Wait for runtime
         run: |
