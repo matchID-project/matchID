@@ -3,10 +3,11 @@ kind: StatefulSet
 metadata:
   name: redis
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   template:
     spec:
-      nodeSelector:
-        k8s.scaleway.com/pool-name: general
       containers:
         - name: redis
           resources:
@@ -16,3 +17,15 @@ spec:
             limits:
               cpu: 100m
               memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+        labels:
+          app.kubernetes.io/part-of: matchid
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: block-standard
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: 2Gi

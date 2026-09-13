@@ -4,25 +4,30 @@ metadata:
   name: elasticsearch
 spec:
   replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   template:
     spec:
-      nodeSelector:
-        k8s.scaleway.com/pool-name: general
       containers:
         - name: elasticsearch
+          env:
+            - name: ES_JAVA_OPTS
+              value: "-Xms256m -Xmx256m"
           resources:
             requests:
               cpu: 80m
-              memory: 512Mi
+              memory: 256Mi
             limits:
               cpu: 1500m
-              memory: 1Gi
+              memory: 512Mi
   volumeClaimTemplates:
     - metadata:
         name: data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: scw-bssd
+        storageClassName: block-standard
+        volumeMode: Filesystem
         resources:
           requests:
             storage: 5Gi
