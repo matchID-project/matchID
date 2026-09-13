@@ -13,7 +13,7 @@ spec:
         - name: elasticsearch
           env:
             - name: ES_JAVA_OPTS
-              value: "-Xms256m -Xmx256m -XX:MaxDirectMemorySize=64m -XX:-AlwaysPreTouch"
+              value: "-Xms256m -Xmx256m -XX:MaxDirectMemorySize=64m -XX:-AlwaysPreTouch -XX:ActiveProcessorCount=1"
             - name: xpack.ml.enabled
               value: "false"
             - name: node.roles
