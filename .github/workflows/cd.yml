@@ -614,7 +614,7 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
           kubectl version --client=true
-          kubectl get ns "$NAMESPACE"
+          kubectl -n "$NAMESPACE" get serviceaccount default >/dev/null
 
       - name: Apply backend secrets
         env:
