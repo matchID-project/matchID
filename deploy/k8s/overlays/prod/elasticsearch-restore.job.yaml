@@ -119,7 +119,60 @@ spec:
               )"
               TARGET_INDEX="$ES_INDEX-$safe_snapshot"
 
-              echo "waiting for elasticsearch"
+              echo "waiting for elasticsearch API"
+              timeout=600
+              until curl -fsS "$ES_URL" >/dev/null; do
+                timeout=$((timeout - 1))
+                if [ "$timeout" -le 0 ]; then
+                  echo "elasticsearch API did not become ready"
+                  exit 1
+                fi
+                sleep 1
+              done
+
+              alias_response=/tmp/matchid-current-alias
+              alias_status="$(
+                curl -sS -o "$alias_response" -w '%{http_code}' "$ES_URL/_cat/aliases/$ES_INDEX?h=index" || true
+              )"
+              case "$alias_status" in
+                200)
+                  alias_count="$(
+                    sed '/^[[:space:]]*$/d' "$alias_response" |
+                      wc -l |
+                      tr -d '[:space:]'
+                  )"
+                  case "$alias_count" in
+                    0)
+                      current_index=
+                      ;;
+                    1)
+                      current_index="$(
+                        sed -n '1p' "$alias_response" |
+                          tr -d '[:space:]'
+                      )"
+                      test -n "$current_index"
+                      ;;
+                    *)
+                      echo "expected at most one index behind alias $ES_INDEX, found $alias_count" >&2
+                      exit 1
+                      ;;
+                  esac
+                  ;;
+                404)
+                  current_index=
+                  ;;
+                *)
+                  echo "unable to resolve alias $ES_INDEX (HTTP $alias_status)" >&2
+                  exit 1
+                  ;;
+              esac
+
+              if [ "$TARGET_INDEX" != "$current_index" ] && index_exists "$TARGET_INDEX"; then
+                echo "deleting incomplete target index $TARGET_INDEX before restore"
+                curl -fsS -XDELETE "$ES_URL/$TARGET_INDEX" >/dev/null
+              fi
+
+              echo "waiting for elasticsearch health"
               timeout=600
               until curl -fsS "$ES_URL/_cluster/health?wait_for_status=yellow&timeout=1s" >/dev/null; do
                 timeout=$((timeout - 1))
@@ -150,6 +203,21 @@ spec:
 
                 echo "FORCE_RESTORE=true; restoring $SNAPSHOT_NAME into $TARGET_INDEX before alias switch"
               fi
+
+              managed_indices="$(
+                curl -fsS "$ES_URL/_cat/indices/${ES_INDEX}-esdata_*?h=index"
+              )"
+              if [ -z "$current_index" ] && [ -n "$managed_indices" ]; then
+                echo "refusing stale-index cleanup without a resolved live alias" >&2
+                exit 1
+              fi
+              for candidate in $managed_indices; do
+                if [ "$candidate" = "$current_index" ] || [ "$candidate" = "$TARGET_INDEX" ]; then
+                  continue
+                fi
+                echo "deleting stale rollback index $candidate before restore"
+                curl -fsS -XDELETE "$ES_URL/$candidate" >/dev/null
+              done
 
               echo "configuring snapshot repository $REPOSITORY_NAME"
               curl -fsS -XPUT "$ES_URL/_snapshot/$REPOSITORY_NAME" \
