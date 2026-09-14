@@ -46,7 +46,7 @@ export DC_PREFIX := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]')
 export DC_NETWORK := $(shell echo ${APP} | tr '[:upper:]' '[:lower:]')
 export DC_IMAGE_NAME = ${DC_PREFIX}
 export DC_BUILD_ARGS = --pull --no-cache
-export DC := docker-compose
+export DC ?= docker compose
 
 # performance test confs
 export PERF=${APP_PATH}/performance
@@ -310,11 +310,7 @@ ifeq ("$(wildcard /usr/bin/docker /usr/local/bin/docker)","")
 	fi;
 endif
 	@(if (id -Gn ${USER} | grep -vc docker); then sudo usermod -aG docker ${USER} ;fi) > /dev/null
-ifeq ("$(wildcard /usr/bin/docker-compose ${HOME}/.local/bin/docker-compose /usr/local/bin/docker-compose)","")
-	@echo installing docker-compose compatibility wrapper
-	@printf '%s\n' '#!/bin/sh' 'exec docker compose "$$@"' | sudo tee /usr/local/bin/docker-compose > /dev/null
-	@sudo chmod +x /usr/local/bin/docker-compose
-endif
+	@docker compose version >/dev/null 2>&1 || { echo "docker compose plugin required (install docker-compose-plugin)" >&2; exit 1; }
 	@touch ${CONFIG_DOCKER_FILE}
 
 docker-build:
