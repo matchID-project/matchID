@@ -1,0 +1,17 @@
+# TEMPORARY WORKAROUND: data.gouv resources replaced by INSEE's own release.
+#
+# Used when a data.gouv resource of fichier-des-personnes-decedees is broken
+# while INSEE serves the right month on https://www.insee.fr/fr/information/4190491
+# (CSV, converted by insee-csv-to-txt.awk). See `datagouv-insee-overrides` in the
+# Makefile. This file is deliberately outside tagfiles.version: adding or
+# removing an entry must not change DATAPREP_VERSION.
+#
+# Remove an entry once data.gouv serves the right file; the converted file
+# already in storage is then kept as is (same name, same records).
+#
+# <file in storage, without .gz> <INSEE archive>
+
+# 2026-10-05: the data.gouv resource titled deces-2026-m09.txt serves
+# deces-2025-m09.txt (same sha1 8eb03b35, deaths of September 2025).
+# Reported in https://www.data.gouv.fr/fr/datasets/fichier-des-personnes-decedees/discussions/?discussion_id=6ac496085fc76144658f417d
+deces-2026-m09.txt Deces_2026_M09.zip

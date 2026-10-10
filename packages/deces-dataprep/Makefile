@@ -135,7 +135,50 @@ monorepo-elasticsearch-stop:
 frontend-config: dataprep-frontend-check
 	@ln -sfn ${MONOREPO_TOOLS_PATH} ${FRONTEND_PATH}/${GIT_TOOLS}
 
-datagouv-to-storage: config
+# TEMPORARY WORKAROUND, see insee-overrides.list: months data.gouv serves wrong
+# are rebuilt from INSEE's release and stored under the data.gouv file name,
+# so the data.gouv sync and FILES_TO_PROCESS pick them up as usual. Skipped once
+# the file is in storage, which keeps it idempotent on the remote worker too.
+export INSEE_OVERRIDES_LIST ?= ${APP_PATH}/insee-overrides.list
+export INSEE_FILES_URL ?= https://www.insee.fr/fr/statistiques/fichier/4190491
+INSEE_OVERRIDES_DIR = ${DATA_DIR}/insee-overrides
+
+datagouv-insee-overrides: config
+	@mkdir -p ${INSEE_OVERRIDES_DIR};\
+	grep -Ev '^[[:space:]]*(#|$$)' ${INSEE_OVERRIDES_LIST} | while read -r file archive; do\
+		dir=${INSEE_OVERRIDES_DIR};\
+		rm -f $$dir/$$file.catalog;\
+		${MAKE} -C ${MONOREPO_TOOLS_PATH} get-catalog CATALOG=$$dir/$$file.catalog\
+			DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
+			FILES_PATTERN=$$file.gz || exit 1;\
+		if [ -s $$dir/$$file.catalog ]; then\
+			echo "INSEE override: $$file.gz already in storage, skipping";\
+			continue;\
+		fi;\
+		echo "INSEE override: rebuilding $$file from ${INSEE_FILES_URL}/$$archive";\
+		month=$$(echo $$file | sed -n 's/^deces-\([0-9]\{4\}\)-m\([0-9]\{2\}\)\.txt$$/\1\2/p');\
+		if [ -z "$$month" ]; then echo "error: $$file is not a deces-YYYY-mMM.txt file"; exit 1; fi;\
+		curl -fsSL "${INSEE_FILES_URL}/$$archive" -o $$dir/$$archive || exit 1;\
+		unzip -p $$dir/$$archive '*.csv' > $$dir/$$file.csv || exit 1;\
+		LC_ALL=C awk -f ${APP_PATH}/insee-csv-to-txt.awk $$dir/$$file.csv > $$dir/$$file || exit 1;\
+		records=$$(($$(grep -c '' $$dir/$$file.csv) - 1));\
+		lines=$$(wc -l < $$dir/$$file);\
+		if [ "$$records" -le 0 ] || [ "$$records" -ne "$$lines" ]; then\
+			echo "error: $$archive has $$records records, converted $$lines"; exit 1;\
+		fi;\
+		top=$$(tail -n +2 $$dir/$$file.csv | cut -d';' -f7 | tr -d '"' | cut -c1-6 | sort | uniq -c | sort -rn | awk 'NR==1{print $$2}');\
+		if [ "$$top" != "$$month" ]; then\
+			echo "error: $$archive mostly holds deaths of $$top, expected $$month"; exit 1;\
+		fi;\
+		iconv -f UTF-8 -t ISO-8859-1 $$dir/$$file > $$dir/$$file.latin1 || exit 1;\
+		mv $$dir/$$file.latin1 $$dir/$$file && gzip -f $$dir/$$file || exit 1;\
+		${MAKE} -C ${MONOREPO_TOOLS_PATH} storage-push FILE=$$dir/$$file.gz\
+			DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
+			RCLONE_OPTS='${RCLONE_OPTS}' || exit 1;\
+		echo "INSEE override: stored $$file.gz ($$records records, deaths mostly of $$month)";\
+	done
+
+datagouv-to-storage: config datagouv-insee-overrides
 	@${MAKE} -C ${MONOREPO_TOOLS_PATH} datagouv-to-storage \
 		DATAGOUV_DATASET=${DATAGOUV_DATASET} STORAGE_BUCKET=${STORAGE_BUCKET}\
 		FILES_PATTERN='${FILES_TO_SYNC}' FILES_PATTERN_FORCE='${FILES_TO_SYNC_FORCE}' &&\
