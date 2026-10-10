@@ -69,6 +69,8 @@ if grep -Eq '^[[:space:]]{2}deploy-prod-k8s:' "$monthly_workflow"; then
 fi
 grep -Fq "cron: '3 */4 * * *'" "$monthly_workflow" ||
   fail "dataprep-monthly must scan every 4 hours"
+grep -Fq "if: needs.dataprep-monthly.outputs.force_restore == 'true'" "$monthly_workflow" ||
+  fail "dataprep-monthly must dispatch release-prod only for a snapshot prod does not serve yet"
 grep -Fq 'SNAPSHOT_NAME=$(make artifact-version-dataprep-snapshot FILES_TO_PROCESS="${DATAPREP_FILES_TO_PROCESS_PROD}"' "$monthly_workflow" ||
   fail "dataprep-monthly metadata must use the prod file pattern explicitly"
 if grep -Fq 'Deploy deces.matchid.io' "$monthly_workflow" || grep -Fq 'make deploy-remote' "$monthly_workflow"; then
