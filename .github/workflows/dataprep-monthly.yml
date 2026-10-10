@@ -1,6 +1,10 @@
 name: Dataprep Monthly
 
 on:
+  # Polls data.gouv every 4 hours. A run with no new data only checks the
+  # snapshot catalog: remote-all is skipped and no release is dispatched.
+  schedule:
+    - cron: '3 */4 * * *'
   workflow_dispatch:
     inputs:
       prod_tag:
@@ -365,6 +369,9 @@ jobs:
   dispatch-release-prod:
     name: Dispatch release-prod data_only
     needs: dataprep-monthly
+    # Publish only a snapshot prod has not served yet; otherwise every scheduled
+    # poll would cut a new prod tag and redeploy the same data.
+    if: needs.dataprep-monthly.outputs.force_restore == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
