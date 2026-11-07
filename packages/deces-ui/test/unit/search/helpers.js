@@ -164,3 +164,13 @@ export const fakeChartModule = () => {
   FakeChart.defaults = { font: {} };
   return { default: FakeChart };
 };
+
+// Collect the errors thrown by DOM event listeners (reported by jsdom on
+// window) instead of letting Vitest fail the run: Vitest only reports them
+// when no user "error" listener is registered.
+export const collectWindowErrors = () => {
+  const errors = [];
+  const listener = (event) => { errors.push(event.error); event.preventDefault(); };
+  window.addEventListener('error', listener);
+  return { errors, stop: () => window.removeEventListener('error', listener) };
+};
