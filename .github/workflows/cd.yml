@@ -93,6 +93,11 @@ jobs:
     name: ensure-matchid-backend-image
     needs: changes
     runs-on: ubuntu-latest
+    env:
+      # docker-compose-local.yml mounts the dataprep recipe project; compose v2
+      # rejects the empty volume spec when these are unset (same as ci.yml).
+      DATAPREP_PROJECT_NAME: deces-dataprep
+      DATAPREP_PROJECT_SOURCE_PATH: ${{ github.workspace }}/packages/deces-dataprep/projects/deces-dataprep
     permissions:
       contents: read
     outputs:
