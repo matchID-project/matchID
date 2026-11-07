@@ -51,10 +51,10 @@
                           class="rf-input {isValid(key) ? "" : "rf-color--rm rf-input--error"}"
                           bind:value={$searchInput[key].value}
                           title={$searchInput[key].title}
-                          on:input={handleInput(key)}
-                          on:change={handleSubmit()}
-                          on:blur={focusInput(key,false)}
-                          on:focus={focusInput(key,true)}
+                          on:input={() => handleInput(key)}
+                          use:submitOnMount
+                          on:blur={() => focusInput(key,false)}
+                          on:focus={() => focusInput(key,true)}
                           disabled={$searchInput[key].disabled}
                           list={$searchInput[key].datalist ? `${key}-datalist` : null || null}
                         />
@@ -116,8 +116,11 @@
 
   $: inputsKeys = Object.keys($searchInput);
 
-  $: if (isMounted) { handleSubmit($resultsPerPage) };
-  $: if (isMounted || $accessToken) { handleSubmit($sortInput) };
+  // Resubmit when the page size or the sort changes. handleSubmit() takes no
+  // argument: the store referenced in each block is its trigger, while the
+  // stores read inside handleSubmit() are deliberately not dependencies.
+  $: if (isMounted) { $resultsPerPage; handleSubmit() };
+  $: if (isMounted || $accessToken) { $sortInput; handleSubmit() };
 
   let isActive;
 
@@ -166,6 +169,19 @@
     }
     ga.all.search(searchString($searchInput));
   }
+
+  // SR-036 (pinned bug, kept as is): the field markup used to carry
+  // `on:change={handleSubmit()}`. That expression has no reactive dependency,
+  // so Svelte 3 evaluated `handleSubmit()` once when each field was mounted and
+  // registered the returned Promise as the change listener: a search is sent per
+  // mounted field and a later change event never submits. This action keeps that
+  // exact behaviour without relying on how the compiler treats call expressions
+  // in event handlers (Svelte 5 evaluates them lazily, at event time).
+  const submitOnMount = (node) => {
+    const listener = handleSubmit();
+    node.addEventListener('change', listener);
+    return { destroy: () => node.removeEventListener('change', listener) };
+  };
 
   const startDate = new Date().getTime();
 

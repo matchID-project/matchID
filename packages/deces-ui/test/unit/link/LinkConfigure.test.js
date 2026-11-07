@@ -294,7 +294,10 @@ describe('LinkConfigure / LinkFields / LinkField', () => {
     expect(nom.querySelector('span.rf-fi-alert-line')).not.toBeNull();
     expect(nom.classList.contains('rf-input-group--valid')).toBe(false);
     const sexe = fieldGroup('Sexe');
-    await fireEvent.dragOver(sexe);
+    const over = createEvent.dragOver(sexe);
+    await fireEvent(sexe, over);
+    // the field accepts the drop: its dragover default action is cancelled
+    expect(over.defaultPrevented).toBe(true);
     expect(sexe.classList.contains('hovering')).toBe(true);
     expect(sexe.classList.contains('rf-background--hovering')).toBe(true);
     await fireEvent.dragLeave(sexe);

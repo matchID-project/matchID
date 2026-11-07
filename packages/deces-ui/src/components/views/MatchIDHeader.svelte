@@ -81,14 +81,14 @@
                                                 aria-label="recherche {item.title}"
                                                 on:click|preventDefault={() => goToPage('search',item.mode)}
                                             >
-                                                <tr>
-                                                    <td class="rf-td--vcenter rf-padding-right-1N">
+                                                <span class="menu-entry">
+                                                    <span class="menu-entry__cell rf-padding-right-1N">
                                                         <Icon class="rf-fi" icon={item.icon}/>
-                                                    </td>
-                                                    <td class="rf-td--vcenter">
+                                                    </span>
+                                                    <span class="menu-entry__cell">
                                                         {item.title}
-                                                    </td>
-                                                </tr>
+                                                    </span>
+                                                </span>
                                             </a>
                                         </li>
                                     {/each}
@@ -115,14 +115,14 @@
                                                     }
                                                 }}
                                             >
-                                                <tr>
-                                                    <td class="rf-td--vcenter rf-padding-right-1N">
+                                                <span class="menu-entry">
+                                                    <span class="menu-entry__cell rf-padding-right-1N">
                                                         <Icon icon={item.icon}/>
-                                                    </td>
-                                                    <td class="rf-td--vcenter">
+                                                    </span>
+                                                    <span class="menu-entry__cell">
                                                         {item.title}
-                                                    </td>
-                                                </tr>
+                                                    </span>
+                                                </span>
                                             </a>
                                         </li>
                                     {/each}
@@ -314,14 +314,14 @@
                                                 aria-label="recherche {item.title}"
                                                 on:click|preventDefault={() => goToPage('search',item.mode)}
                                             >
-                                                <tr>
-                                                    <td class="rf-td--vcenter rf-padding-right-1N">
+                                                <span class="menu-entry">
+                                                    <span class="menu-entry__cell rf-padding-right-1N">
                                                         <Icon class="rf-fi" icon={item.icon}/>
-                                                    </td>
-                                                    <td class="rf-td--vcenter">
+                                                    </span>
+                                                    <span class="menu-entry__cell">
                                                         {item.title}
-                                                    </td>
-                                                </tr>
+                                                    </span>
+                                                </span>
                                             </a>
                                         </li>
                                     {/each}
@@ -348,14 +348,14 @@
                                                     }
                                                 }}
                                             >
-                                                <tr>
-                                                    <td class="rf-td--vcenter rf-padding-right-1N">
+                                                <span class="menu-entry">
+                                                    <span class="menu-entry__cell rf-padding-right-1N">
                                                         <Icon icon={item.icon}/>
-                                                    </td>
-                                                    <td class="rf-td--vcenter">
+                                                    </span>
+                                                    <span class="menu-entry__cell">
                                                         {item.title}
-                                                    </td>
-                                                </tr>
+                                                    </span>
+                                                </span>
                                             </a>
                                         </li>
                                     {/each}
@@ -602,3 +602,18 @@
     }
 
 </script>
+
+<style>
+    /* The menu entries used to be a bare <tr><td> inside the <a>, which the
+       browser laid out through an anonymous table box. Keep the exact same
+       layout with valid markup: a <tr>/<td> element cannot be a child of <a>. */
+    .menu-entry {
+        display: table-row;
+    }
+    /* padding: the user agent style of <td> (rf-padding-right-1N is !important) */
+    .menu-entry__cell {
+        display: table-cell;
+        vertical-align: middle;
+        padding: 1px;
+    }
+</style>

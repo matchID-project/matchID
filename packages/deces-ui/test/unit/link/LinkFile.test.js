@@ -58,8 +58,10 @@ describe('LinkFile dropzone', () => {
 
   it('LK-029 highlights the dropzone on dragover and removes it on dragleave / drop', async () => {
     const zone = renderDropzone();
-    expect(zone.getAttribute('ondragover')).toBe('return false');
-    await fireEvent.dragOver(zone);
+    // the zone accepts the drop: its dragover default action is cancelled
+    const over = createEvent.dragOver(zone);
+    await fireEvent(zone, over);
+    expect(over.defaultPrevented).toBe(true);
     expect(zone.classList.contains('hovering')).toBe(true);
     await fireEvent.dragLeave(zone);
     expect(zone.classList.contains('hovering')).toBe(false);

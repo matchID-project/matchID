@@ -329,7 +329,11 @@
       return flat(array, depth);
     };
 
-    $: updateValidationThreshold($linkOptions.check.autoCheckThreshold);
+    // Re-run the auto validation when the threshold option changes.
+    // updateValidationThreshold() takes no argument: `$linkOptions` is the
+    // trigger, while the stores it reads and writes (linkValidations included)
+    // are deliberately not dependencies.
+    $: { $linkOptions.check.autoCheckThreshold; updateValidationThreshold(); }
 
     const updateValidationThreshold = () => {
         const headerMapping = {};

@@ -3,8 +3,7 @@
     class:rf-fi-alert-line={error}
     class:rf-fi-checkbox-line={$linkFile}
     class:rf-fi-play-line={!error && !$linkFile}
-    ondragover="return false"
-    on:dragover={() => {hovering = true}}
+    on:dragover={(event) => {event.preventDefault(); hovering = true}}
     on:dragleave={() => hovering = false}
     class:hovering={((hovering === true) || $linkFile) && !error}
     class:rf-text--error={error}

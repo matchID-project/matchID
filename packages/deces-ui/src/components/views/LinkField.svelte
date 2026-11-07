@@ -4,10 +4,9 @@
     class:rf-input-group--valid={field && field.mapTo && !field.warning}
     class:rf-input-group--error={field && field.warning}
     class:hovering={hovering === true}
-    on:dragover={() => {hovering = true}}
+    on:dragover={(event) => {event.preventDefault(); hovering = true}}
     on:dragleave={() => {hovering = false}}
     on:drop|preventDefault={drop}
-    ondragover="return false"
     on:click|preventDefault={reset}
 >
     <label
