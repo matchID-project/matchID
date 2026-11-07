@@ -1,5 +1,6 @@
 {#if searchTrigger($searchInput) && ($wasSearched || (['agg','geo'].includes($displayMode))) && !(($searchResults.length === 1) && ($searchResults[0].error))}
     <table class="rf-table rf-table--narrow rf-text--xs rf-color--black rf-margin-bottom-0" style="width: 100%!important;">
+    <tbody>
         <tr>
             <td class="rf-hide--mobile rf-td--vcenter rf-text--left" style="width: 20px;">
                 {#if $totalResults > 1 && $displayMode !== 'agg' }
@@ -96,6 +97,7 @@
                 </div>
             </td>
         </tr>
+    </tbody>
     </table>
     {#if (!($displayMode === 'geo') && $sortInputDisplay)}
         <div class="rf-container-fluid">

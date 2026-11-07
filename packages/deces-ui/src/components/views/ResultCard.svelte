@@ -291,8 +291,10 @@
                                             </strong>
                                         </p>
                                         <table class="rf-table rf-table--narrow rf-table--striped">
-                                            <col style="width:50%"/>
-                                            <col style="width:50%"/>
+                                            <colgroup>
+                                                <col style="width:50%"/>
+                                                <col style="width:50%"/>
+                                            </colgroup>
                                             <thead>
                                                 <tr>
                                                     <th>Modification</th>

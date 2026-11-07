@@ -10,6 +10,7 @@
                         class="rf-table rf-table--narrow rf-text--sm"
                         style="border-right: .25em solid;"
                     >
+                    <tbody>
                         <tr style="height: {theadHeight}px">
                             <th class="is-active">
                                 score
@@ -88,11 +89,13 @@
                                 </td>
                             </tr>
                         {/if}
+                    </tbody>
                     </table>
                 </div>
                 <div class="rf-col-10 rf-padding-left-1N">
                     <div style="overflow-x: auto">
                         <table class="rf-table rf-table--narrow rf-text--sm">
+                        <tbody>
                             <tr id="table-content">
                                 {#each header.filter(x => (x!=='score') && (x!=='check')) as col, index}
                                     {#if $linkOptions.check.displayUnmappedColumns || (index < mappedColumns)}
@@ -136,6 +139,7 @@
                                     {/each}
                                 </tr>
                             {/if}
+                        </tbody>
                         </table>
                     </div>
                 </div>
