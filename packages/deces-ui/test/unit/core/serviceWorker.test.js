@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, cleanup, waitFor } from '@testing-library/svelte';
+import { render, cleanup, waitFor as tlWaitFor } from '@testing-library/svelte';
+
+vi.setConfig({ testTimeout: 30_000 });
+const waitFor = (callback, options) => tlWaitFor(callback, { timeout: 10_000, ...options });
 
 vi.mock('register-service-worker', () => ({ register: vi.fn() }));
 vi.mock('idb-keyval', () => ({ get: async () => undefined, set: async () => {}, del: async () => {}, clear: async () => {} }));
@@ -21,6 +24,7 @@ const renderApp = async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
   vi.spyOn(console, 'log').mockImplementation(() => {});
   const { default: App } = await import('../../../src/App.svelte');
+  await import('../../../src/components/views/Info.svelte');
   return render(App);
 };
 

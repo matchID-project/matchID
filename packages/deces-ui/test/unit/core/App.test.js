@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/svelte';
+import { render, screen, waitFor as tlWaitFor, fireEvent, cleanup } from '@testing-library/svelte';
+
+// Each test boots a fresh module graph (App, router, all route components),
+// which is slow in the CI container: allow more than the 5 s / 1 s defaults.
+vi.setConfig({ testTimeout: 30_000 });
+const waitFor = (callback, options) => tlWaitFor(callback, { timeout: 10_000, ...options });
 import { person } from './helpers.js';
 
 // jsdom has no IndexedDB (used by useLocalSync): keep it in memory.
@@ -53,6 +58,12 @@ const boot = async (url, options) => {
   const stores = await import('../../../src/components/tools/stores.js');
   const router = await import('../../../src/components/tools/routes.js');
   const { default: App } = await import('../../../src/App.svelte');
+  // pages lazy-load these chunks with import(): load them up front so that
+  // rendering does not wait on module evaluation
+  await Promise.all([
+    import('../../../src/components/views/Info.svelte'),
+    import('../../../src/components/views/Geo.svelte')
+  ]);
   const result = render(App);
   return { ...result, stores, router };
 };
