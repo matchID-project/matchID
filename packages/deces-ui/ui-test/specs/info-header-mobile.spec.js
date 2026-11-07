@@ -85,7 +85,9 @@ test.describe('header (mobile)', () => {
     await expect(searchSubmenu(page).getByRole('link', { name: /^(Simple|Complet|Tableur|Statistiques|Géographique)$/ })).toHaveCount(5);
     await table().dispatchEvent('click');
     await expect(page).toHaveURL(/[?&]view=table(&|$)/);
-    await expect(page.locator('table.rf-table')).toBeVisible();
+    // ResultsHeader renders another (non-striped) table.rf-table
+    await expect(page.locator('table.rf-table.rf-table--striped')).toBeVisible();
+    await expect(page.locator('table.rf-table.rf-table--striped')).toContainText('DUPONT');
   });
 
   test('IN-046 / IN-047 mobile "Appariement" and "À propos" links navigate and close the popin', async ({ page }) => {

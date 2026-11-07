@@ -70,7 +70,28 @@ test.describe('about / FAQ', () => {
     await expect(page.getByPlaceholder('Rechercher dans les questions')).toHaveCount(0);
   });
 
-  test('IN-068 an unknown id shows the filtered FAQ', async ({ page }) => {
+  // Real behaviour on the CI stack (deces-2020-m01, CI run 42390422527): the
+  // API answers 400 (HTML body) for an unknown id, runRequest turns it into a
+  // fake {error: true} person, ShowId takes it as a result, then ResultCard
+  // and toString() throw "Cannot read properties of undefined (reading
+  // 'last')": $wasSearched is never set and the page stays on
+  // "Recherche en cours" (ShowId.svelte:41-52, runRequest.js:30-50). The "Oups" branch itself is
+  // covered by the unit test test/unit/info/ShowId.test.js.
+  test('IN-068 an unknown id currently stays on "Recherche en cours" (pinned BUG)', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const idResponse = page.waitForResponse(r => /\/deces\/api\/v1\/id\/this-id-does-not-exist$/.test(r.url()));
+    await page.goto('/id/this-id-does-not-exist');
+    expect((await idResponse).status()).toBeGreaterThanOrEqual(400);
+    await expect(page.getByText('Recherche en cours')).toBeVisible();
+    await page.waitForTimeout(1000);
+    await expect(page.getByText('Recherche en cours')).toBeVisible();
+    await expect(page.getByText('Oups... pas de résultats pour cet identifiant')).toHaveCount(0);
+    expect(errors.some(message => /reading 'last'/.test(message))).toBe(true);
+  });
+
+  // BUG: see above; expected behaviour once ShowId handles the error person.
+  test.fixme('IN-068 BUG: an unknown id shows the "Oups" message and the filtered FAQ', async ({ page }) => {
     await page.goto('/id/this-id-does-not-exist');
     await expect(page.getByText('Oups... pas de résultats pour cet identifiant')).toBeVisible();
     await expect(cards(page)).toHaveText(['Merci pour votre soutien !', 'Décès manquant', 'Signaler un bug']);

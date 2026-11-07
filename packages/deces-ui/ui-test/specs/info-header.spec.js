@@ -17,6 +17,8 @@ const searchMenu = (page) => page.locator('#rf-recherche');
 const userMenu = (page) => page.locator('#rf-admin');
 const searchButton = (page) => desktopNav(page).getByRole('button', { name: 'Recherche' });
 const userButton = (page) => desktopNav(page).locator('button[aria-controls="rf-admin"]');
+// the results table (ResultsHeader renders another, non-striped table.rf-table)
+const resultsTable = (page) => page.locator('table.rf-table.rf-table--striped');
 const item = (locator) => locator.locator('xpath=ancestor::li[1]');
 
 // The dropdowns open on mouseenter AND toggle on click, so a Playwright
@@ -108,7 +110,7 @@ test.describe('header (desktop)', () => {
     await expect(item(table)).toHaveClass(/rf-inactive/);
     await table.click();
     await expect(page).not.toHaveURL(/view=/);
-    await expect(page.locator('table.rf-table')).toHaveCount(0);
+    await expect(resultsTable(page)).toHaveCount(0);
   });
 
   test('IN-018 .. IN-022 display modes after a search: table, agg, geo, card-expand, card', async ({ page }) => {
@@ -116,14 +118,16 @@ test.describe('header (desktop)', () => {
     const pick = async (name) => {
       await openSearchMenu(page);
       await searchMenu(page).getByRole('link', { name, exact: true }).click();
+      // the pointer is still over the menu item after the click: leave it
+      await page.mouse.move(5, 700);
       await expect(searchMenu(page)).toBeHidden();
     };
 
     await test.step('IN-020 Tableur renders the results table', async () => {
       await pick('Tableur');
       await expect(page).toHaveURL(/[?&]view=table(&|$)/);
-      await expect(page.locator('table.rf-table')).toBeVisible();
-      await expect(page.locator('table.rf-table')).toContainText('DUPONT');
+      await expect(resultsTable(page)).toBeVisible();
+      await expect(resultsTable(page)).toContainText('DUPONT');
     });
 
     await test.step('IN-021 Statistiques renders the aggregations', async () => {
