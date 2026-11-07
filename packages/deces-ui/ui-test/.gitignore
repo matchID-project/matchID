@@ -1,3 +1,5 @@
 node_modules
 *.png
 yarn*
+test-results
+playwright-report

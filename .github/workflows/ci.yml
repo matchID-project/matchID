@@ -315,6 +315,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Run deces-ui unit tests
+        run: make -C packages/deces-ui frontend-unit-test
       - name: Config
         run: make version config GIT_BRANCH=${GIT_BRANCH}
         env:
@@ -345,6 +347,15 @@ jobs:
           PROOFS_BUCKET: ${{ secrets.PROOFS_BUCKET }}
           BACKEND_TOKEN_KEY: ${{ secrets.BACKEND_TOKEN_KEY }}
           BACKEND_TOKEN_PASSWORD: ${{ secrets.BACKEND_TOKEN_PASSWORD }}
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deces-ui-playwright-report
+          path: |
+            packages/deces-ui/ui-test/playwright-report
+            packages/deces-ui/ui-test/test-results
+          if-no-files-found: ignore
 
   deces-dataprep-locally:
     name: deces-dataprep locally

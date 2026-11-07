@@ -142,6 +142,9 @@
     resize();
   });
 
+  // fallback when the Fullscreen API is not available
+  const noop = () => {};
+
   const toggleFullScreen = () => {
       if (isFull) {
           exitFullscreen();

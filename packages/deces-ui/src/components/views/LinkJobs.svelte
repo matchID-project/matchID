@@ -151,7 +151,9 @@
     }
 
     const deleteJob = async (job, idx) => {
-      const res = await axios.delete(`__BACKEND_PROXY_PATH__/search/csv/${job.id}`, headers)
+      const res = await axios.delete(`__BACKEND_PROXY_PATH__/search/csv/${job.id}`, {
+        headers: { Authorization: `Bearer ${$accessToken}` }
+      })
       if (res.data && res.data.msg.includes('cancelled')) {
         jobs[idx].status = 'arrêté'
       }

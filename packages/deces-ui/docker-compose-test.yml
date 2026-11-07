@@ -8,7 +8,7 @@ services:
       - ${FRONTEND}/ui-test/:/ui-test
       - ui-test-node-modules:/ui-test/node_modules
     command: >
-      bash -c "mkdir -p /ui-test/node_modules && chown -R pwuser:pwuser /ui-test/node_modules && yarn install && su pwuser -c 'yarn test'"
+      bash -c "npm ci --ignore-scripts && npx playwright test"
     environment:
       - PORT=${PORT}
       - TEST_HOST=${TEST_HOST}
