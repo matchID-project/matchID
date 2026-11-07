@@ -1,4 +1,4 @@
-<Modal title="Connexion" bind:show={showLogin}>
+<Modal title="Connexion" bind:show={showLogin} callback={openOnAuthRoute}>
     {#if !$accessToken}
         <form transition:slide>
             <div class="rf-input-group" class:rf-input-group--error={authError}>
@@ -126,9 +126,17 @@ $: isAdmin = (id === '__BACKEND_TOKEN_USER__')
 
 $: $admin = $accessToken && ($user === '__BACKEND_TOKEN_USER__') && $user;
 
-$: if (!mounting && !$user && $route && $route.path && routes[$route.path].auth) {
-    showLogin = true;
-}
+// Open the modal for an anonymous user on a route that needs a login.
+// Svelte 3 also re-ran this when the modal closed itself (its show binding
+// re-ran the statement): the Modal callback keeps that behaviour (frozen bug
+// LK-172, the modal re-opens at once on such a route).
+const openOnAuthRoute = () => {
+    if (!mounting && !$user && $route && $route.path && routes[$route.path].auth) {
+        showLogin = true;
+    }
+};
+
+$: mounting, $user, $route, openOnAuthRoute();
 
 const closeLogin = () =>  {
     if (!mounting && !$user && $route && $route.path && routes[$route.path].auth) {
