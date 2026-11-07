@@ -313,7 +313,7 @@ ${WIKIDATA_LINKS}:
 				OPTIONAL { ?person wdt:P18 ?img. }\
 				OPTIONAL { ?sitelink schema:isPartOf <https://fr.wikipedia.org/>;\
 				  schema:about ?person;}\
-				service wikibase:label { bd:serviceParam wikibase:language '[AUTO_LANGUAGE],fr'. }\
+				OPTIONAL { ?person schema:description ?personDescription. FILTER(LANG(?personDescription) = 'fr') }\
 			}" |\
 			jq -ce '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
 			> "$$TMP_WIKIDATA_JSON"; then \
