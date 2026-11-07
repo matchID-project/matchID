@@ -98,7 +98,8 @@ Le projet est composé de plusieurs parties :
 - Frontend (Svelte) : `src/`
 - Backend (Typescript) : `deces-backend/`
 - Configuration Nginx : `nginx/`
-- Tests (playwright) : `ui-test/`
+- Unit tests (vitest + @testing-library/svelte, jsdom): `test/unit/`
+- End-to-end tests (@playwright/test): `ui-test/`
 
 ## Commandes de développement
 
@@ -114,8 +115,11 @@ make dev
 # Construction des images Docker
 make build
 
-# Tests
-make test
+# Unit tests (no stack needed)
+npm test                  # or, in the Dockerfile Node image: make frontend-unit-test
+
+# End-to-end tests (needs the local stack started by make deploy-local)
+make frontend-test
 
 ```
 
