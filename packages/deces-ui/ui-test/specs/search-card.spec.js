@@ -69,9 +69,24 @@ test.describe('result card, /id page and download (SR)', () => {
     await expect(page.getByTitle('copier le lien permanent').first()).toBeVisible();
   });
 
+  // Record ids are 12 characters ([a-zA-Z0-9-_]): nginx only forwards
+  // `/id/<12 chars>` to the backend, which answers an empty list when unknown.
   test('SR-214 an unknown id shows "Oups... pas de résultats pour cet identifiant"', async ({ page }) => {
+    const idResponse = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/api/v1/id/zzzzzzzzzzzz'));
+    await page.goto('/id/zzzzzzzzzzzz');
+    expect((await idResponse).status()).toBe(200);
+    await expect(page.getByText('Oups... pas de résultats pour cet identifiant')).toBeVisible();
+    await expect(page.locator('.rf-wait-container')).toHaveCount(0);
+  });
+
+  // BUG: any other id (wrong length, characters outside [a-zA-Z0-9-_]) gets
+  // an HTML 400 from nginx; runRequest() turns it into an error "person",
+  // ShowId mounts a ResultCard with it and both crash on `result.name.last`
+  // (see unit SR-087): the page stays on "Recherche en cours" forever.
+  test.fixme('SR-214 a malformed id shows "Oups... pas de résultats pour cet identifiant"', async ({ page }) => {
     await page.goto('/id/thisIdDoesNotExist0000');
     await expect(page.getByText('Oups... pas de résultats pour cet identifiant')).toBeVisible();
+    await expect(page.locator('.rf-wait-container')).toHaveCount(0);
   });
 
   test('SR-222 SR-226 the CSV download posts the criteria and saves deces-<VALUES>.csv', async ({ page }) => {

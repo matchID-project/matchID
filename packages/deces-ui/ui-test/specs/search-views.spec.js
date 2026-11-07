@@ -122,11 +122,18 @@ test.describe('geo and statistics views (SR)', () => {
 
     test('SR-206 a tile expands to the full width', async ({ page }) => {
       await page.goto(aggSearch);
+      // On load the aggregations may be refreshed more than once (each refresh
+      // empties then refills the tiles): wait for the last tile and the end of
+      // the requests before measuring, and re-measure on re-render.
+      await expect(page.locator('h4.rf-tile__title', { hasText: /^\s*Prénom\s*$/ })).toBeVisible();
+      await page.waitForLoadState('networkidle');
       const tile = page.locator('.rf-tile', { has: page.locator('h4', { hasText: /^\s*Sexe\s*$/ }) });
-      await expect(tile).toBeVisible();
-      const before = (await tile.boundingBox()).width;
+      const width = async () => { const box = await tile.boundingBox(); return box ? box.width : 0; };
+      await expect.poll(width).toBeGreaterThan(0);
+      const before = await width();
       await tile.locator('.rf-tile__icon').click();
-      await expect.poll(async () => (await tile.boundingBox()).width).toBeGreaterThan(before * 1.5);
+      await expect.poll(width).toBeGreaterThan(before * 1.5);
+      await expect(tile.locator('canvas')).toHaveAttribute('style', /max-height: 500px/);
     });
   });
 });
