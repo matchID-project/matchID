@@ -8,7 +8,7 @@ vi.mock('../../../src/components/views/LinkSampleTable.svelte', async () =>
 vi.mock('../../../src/components/views/GedcomTree.svelte', async () =>
   ({ default: (await import('./stubs/index.js')).stubComponent('GedcomTree') }));
 
-const { stubProps } = await import('./stubs/index.js');
+const { stubProps, stubText } = await import('./stubs/index.js');
 const { default: LinkConfigure } = await import('../../../src/components/views/LinkConfigure.svelte');
 const { default: LinkField } = await import('../../../src/components/views/LinkField.svelte');
 const { user, linkStep, linkMapping, linkOptions, linkSourceHeaderTypes } = await import('../../../src/components/tools/stores.js');
@@ -238,7 +238,7 @@ describe('LinkConfigure / LinkFields / LinkField', () => {
     const tree = { '@i1@': { name: 'Jean /Dupont/' } };
     linkOptions.update(o => ({ ...o, csv: { sep: '\t', type: 'gedcom', gedcom: tree } }));
     await flush();
-    expect(screen.getAllByTestId('stub').map(e => e.textContent)).toContain('GedcomTree');
+    expect(stubText()).toContain('GedcomTree');
     expect(stubProps.find(p => p.name === 'GedcomTree').props.gedcom).toBe(tree);
   });
 

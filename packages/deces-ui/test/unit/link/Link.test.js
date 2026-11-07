@@ -13,6 +13,7 @@ vi.mock('../../../src/components/views/LinkCheck.svelte', async () =>
   ({ default: (await import('./stubs/index.js')).stubComponent('LinkCheck') }));
 
 const { idbData, idbKeyvalMock } = await import('./idb-mock.js');
+const { stubSelector } = await import('./stubs/index.js');
 const { default: Link } = await import('../../../src/components/views/Link.svelte');
 const { default: LinkStep } = await import('../../../src/components/views/LinkStep.svelte');
 const stores = await import('../../../src/components/tools/stores.js');
@@ -407,7 +408,7 @@ describe('Link page (Link.svelte, LinkStep.svelte)', () => {
 
   it('LK-023 renders the step bodies in the right column: 2 LinkConfigure, 3 LinkJob, 4 LinkCheck', async () => {
     const { container } = await renderLink();
-    const body = () => container.querySelector('.rf-col-md-8 [data-testid="stub"]')?.textContent;
+    const body = () => container.querySelector(`.rf-col-md-8 ${stubSelector}`)?.textContent.trim();
     expect(body()).toBeUndefined();
     linkStep.set(2);
     await flush();
