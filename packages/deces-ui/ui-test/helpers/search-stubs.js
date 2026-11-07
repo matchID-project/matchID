@@ -10,12 +10,12 @@ const transparentPng = Buffer.from(
 
 /**
  * Stub the third parties used by the search pages so that the specs do not
- * depend on external services: map tiles (cartocdn, osm), Wikimedia images
+ * depend on external services: map tiles (IGN Géoplateforme, osm), Wikimedia images
  * and the data.gouv.fr catalog of INSEE source files.
  * @param {import('@playwright/test').Page} page
  */
 async function stubThirdParties(page) {
-  await page.route(/basemaps\.cartocdn\.com|tile\.osm\.org|tile\.openstreetmap\.org/, route =>
+  await page.route(/data\.geopf\.fr\/wmts|tile\.osm\.org|tile\.openstreetmap\.org/, route =>
     route.fulfill({ status: 200, contentType: 'image/png', body: transparentPng }));
   await page.route(/upload\.wikimedia\.org/, route =>
     route.fulfill({ status: 200, contentType: 'image/png', body: transparentPng }));

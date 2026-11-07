@@ -1,4 +1,14 @@
 export default {
+    // IGN Géoplateforme, Plan IGN v2 (open licence Etalab 2.0, no key, world
+    // coverage at small scales). Rendered in greyscale (className) so that the
+    // blue/red markers stay readable, like the former CARTO Positron basemap,
+    // which now serves "API key required" watermarked tiles.
+    'ign.plan.grey': {
+        attribution: '<a href="https://www.ign.fr">IGN</a>-<a href="https://geoservices.ign.fr">Géoplateforme</a>',
+        description: 'IGN Plan v2 (greyscale)',
+        url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+        className: 'tiles-greyscale',
+    },
     'osm.mapnik': {
         attribution: '<a href="https://www.mapnik.org">Mapnik</a>',
         description: 'OSM Mapnik',

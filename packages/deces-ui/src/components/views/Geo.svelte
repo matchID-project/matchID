@@ -1,6 +1,6 @@
 <div class="map-container">
     <Map>
-        <TileLayer tileServer='cartodb.positron'/>
+        <TileLayer tileServer='ign.plan.grey'/>
     </Map>
 </div>
 
