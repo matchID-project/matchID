@@ -53,7 +53,7 @@ export const mockFetch = (table = {}) => vi.spyOn(globalThis, 'fetch').mockImple
 // The charts and maps read the DSFR colour from a CSS custom property at
 // init; jsdom has no stylesheet, so set it inline.
 export const setDsfrColors = () => {
-  for (const [name, color] of [['--bf500', '#000091'], ['--success', '#008941'], ['--warning', '#b34000']]) {
+  for (const [name, color] of [['--bf500', '#000091'], ['--success', '#008941'], ['--warning', '#b34000'], ['--rm500', '#e1000f']]) {
     document.body.style.setProperty(name, color);
   }
 };
