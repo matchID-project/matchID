@@ -7,11 +7,14 @@
             <div class="rf-col-xl-{options[section].items[key].size ? options[section].items[key].size : options[section].defaultSize } rf-col-lg-{options[section].items[key].size ? options[section].items[key].size : options[section].defaultSize} rf-col-md-6 rf-col-sm-6 rf-col-xs-6 rf-padding-1N">
                 {#if options[section].items[key].checkbox}
                     <div class="rf-checkbox-group">
+                        <!-- not bind:checked: Svelte 5 writes false into an undefined
+                             option on render (Svelte 3 did not) -->
                         <input
                             class="rf-input"
                             type="checkbox"
                             id={key}
-                            bind:checked={$linkOptions[section][key]}
+                            checked={$linkOptions[section][key]}
+                            on:change={(e) => { $linkOptions[section][key] = e.target.checked; }}
                         />
                         <label
                             class="rf-label"

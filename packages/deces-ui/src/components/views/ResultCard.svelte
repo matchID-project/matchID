@@ -530,10 +530,14 @@
                                                 }/>
                                             {/if}
                                             <div class="rf-checkbox-group">
+                                                <!-- not bind:checked: Svelte 5 writes false into an undefined
+                                                     review.silent on render (Svelte 3 did not), which enabled
+                                                     "Transmettre les validations" without any change -->
                                                 <input
                                                     class="rf-input"
                                                     type="checkbox"
-                                                    bind:checked={modifications[modificationsCurrent || 0].review.silent}
+                                                    checked={modifications[modificationsCurrent || 0].review.silent}
+                                                    on:change={(e) => { modifications[modificationsCurrent || 0].review.silent = e.target.checked; }}
                                                     id={`silent-${modificationsCurrent}`}
                                                     name={`silent-${modificationsCurrent}`}/>
                                                 <label class="rf-label" for={`silent-${modificationsCurrent}`}>
