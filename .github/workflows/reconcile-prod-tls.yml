@@ -20,7 +20,6 @@ jobs:
       TLS_SECRET: matchid-prod-tls
       HOSTNAME: deces.matchid.io
       KUBE_CONFIG_DATA_PLATFORM: ${{ secrets.KUBE_CONFIG_DATA_PLATFORM }}
-      EXPECTED_TRAEFIK_LB_IP: 51.159.11.157
       # Declarative owner: rhanka/k8s-ops, merged PR #61.
       K8S_OPS_REVISION: ad7fc7de0fb4a75fbb2111b1f0056bb3a889adc5
     steps:
@@ -47,18 +46,21 @@ jobs:
       - name: Verify production cluster identity
         run: |
           set -euo pipefail
-          cluster_lb="$(kubectl -n traefik get service traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+          # No load balancer: Traefik binds hostPort 80/443 on the Kapsule node.
+          node="$(kubectl -n traefik get pod -l app.kubernetes.io/name=traefik-direct \
+            --field-selector=status.phase=Running -o jsonpath='{.items[0].spec.nodeName}')"
+          ingress_ip="$(kubectl get node "$node" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}' | tr ' ' '\n' | grep -E '^[0-9.]+$' | head -n 1)"
           mapfile -t dns_ips < <(getent ahostsv4 "$HOSTNAME" | awk '$2 == "STREAM" {print $1}' | sort -u)
-          if [ "$cluster_lb" != "$EXPECTED_TRAEFIK_LB_IP" ]; then
-            echo "Kubeconfig targets Traefik LB $cluster_lb, expected $EXPECTED_TRAEFIK_LB_IP" >&2
+          if [ -z "$ingress_ip" ]; then
+            echo "Kubeconfig has no running Traefik ingress node with a public IPv4" >&2
             exit 1
           fi
-          if [ "${#dns_ips[@]}" -ne 1 ] || [ "${dns_ips[0]:-}" != "$EXPECTED_TRAEFIK_LB_IP" ]; then
-            echo "Public DNS does not resolve exclusively to expected prod LB $EXPECTED_TRAEFIK_LB_IP" >&2
+          if [ "${#dns_ips[@]}" -ne 1 ] || [ "${dns_ips[0]:-}" != "$ingress_ip" ]; then
+            echo "Public DNS does not resolve exclusively to the ingress node $ingress_ip (run Reconcile prod DNS)" >&2
             printf 'Resolved IP: %s\n' "${dns_ips[@]:-none}" >&2
             exit 1
           fi
-          echo "Kubeconfig, Traefik and public DNS all target $EXPECTED_TRAEFIK_LB_IP"
+          echo "Kubeconfig, Traefik ingress node and public DNS all target $ingress_ip"
 
       - name: Reconcile certificate renewal headroom
         run: |

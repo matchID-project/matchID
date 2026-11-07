@@ -136,6 +136,15 @@ delivery before the release job passes.
 Prod DNS cutover uses `CDN_DNS_TOKEN` with Cloudflare `Zone:DNS:Edit` and
 `Zone:Read` on `matchid.io`; `CDN_TOKEN` is kept for cache purge.
 
+Prod ingress has no Scaleway load balancer. Traefik (`traefik-direct`, namespace
+`traefik`) binds hostPort 80/443 on the Kapsule node; the Kapsule security
+group accepts inbound TCP 80/443. `TRAEFIK_LB_IP_PROD` therefore holds the
+**node public IP**. Kapsule autohealing can replace the node and change that
+IP: `.github/workflows/reconcile-prod-dns.yml` runs every 15 minutes, finds the
+node that runs the ingress pod, smokes it directly and repoints the A record
+(DNS only, TTL 60) when it differs. Cloudflare stays in DNS-only mode for this
+host (no 100 MB proxy upload limit on bulk files).
+
 The prod Elasticsearch StatefulSet keeps data on a Scaleway block storage PVC.
 The restore Job is idempotent: it records the restored `SNAPSHOT_NAME` in
 `.matchid-restore-state`, skips when the PVC already contains the requested
