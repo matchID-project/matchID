@@ -54,11 +54,13 @@ export const searchResponse = (persons, { total = persons.length, size = 20, scr
   jsonResponse({ response: { total, size, page: 1, scrollId, persons } });
 
 // Route every fetch() to a handler `(url, init) => Response | undefined`;
-// unknown URLs (data.gouv catalog, departments geojson...) get an empty JSON.
+// unknown URLs get an empty JSON (an empty geojson for the static .json files
+// fetched by the aggregations and the choropleth).
 export const mockFetch = (handler = () => undefined) =>
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
     const response = await handler(`${url}`, init);
-    return response || jsonResponse({});
+    if (response) return response;
+    return `${url}`.endsWith('.json') ? jsonResponse({ type: 'FeatureCollection', features: [] }) : jsonResponse({});
   });
 
 // Reset the search state shared through the svelte stores.
@@ -136,4 +138,29 @@ export const iconMarkup = (icons, name) => {
   const div = document.createElement('div');
   div.innerHTML = icons[name];
   return div.innerHTML;
+};
+
+// DSFR colour tokens read through getComputedStyle by the charts/heatmap.
+export const setThemeColors = () => {
+  document.body.style.setProperty('--bf500', '#000091');
+  document.body.style.setProperty('--rm500', '#e1000f');
+};
+
+// Minimal chart.js stand-in: jsdom has no canvas. Use with
+// vi.mock('chart.js/auto', () => fakeChartModule()) (inside the factory, after
+// `await import('./helpers.js')`).
+export const fakeChartModule = () => {
+  class FakeChart {
+    constructor(ctx, config) {
+      this.config = config;
+      this.data = config.data;
+      FakeChart.instances.push(this);
+    }
+    update() { this.updated = (this.updated || 0) + 1; }
+    destroy() {}
+  }
+  FakeChart.instances = [];
+  FakeChart.register = () => {};
+  FakeChart.defaults = { font: {} };
+  return { default: FakeChart };
 };
