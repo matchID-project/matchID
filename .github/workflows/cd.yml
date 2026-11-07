@@ -702,6 +702,11 @@ jobs:
           kubectl kustomize "$overlay_dir" >/tmp/matchid-k8s-rendered.yaml
           kubectl -n "$NAMESPACE" delete deploy/redis --ignore-not-found=true
           kubectl apply -f /tmp/matchid-k8s-rendered.yaml
+          # dev.deces.matchid.io is routed by the platform Ingress keda/deces-s2z
+          # (KEDA scale-to-zero). Remove the legacy tenant Ingress, which bypasses
+          # the KEDA interceptor, if it is still live.
+          kubectl -n "$NAMESPACE" delete ingress/deces --ignore-not-found=true ||
+            echo "::warning::Could not delete legacy Ingress $NAMESPACE/deces; ask the poc-k8s operator to remove it"
           bash deploy/k8s/scripts/recover-stuck-statefulset.sh "$NAMESPACE" elasticsearch
 
       - name: Wait for runtime

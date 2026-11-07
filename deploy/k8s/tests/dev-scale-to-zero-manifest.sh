@@ -32,6 +32,12 @@ for deployment in deces-backend deces-ui; do
   fi
 done
 
+# The public route belongs to the platform Ingress keda/deces-s2z.
+if grep -q "^kind: Ingress$" "$rendered"; then
+  echo "The dev overlay must not render an Ingress (platform scale-to-zero route)" >&2
+  exit 1
+fi
+
 # Stateful dependencies are not HTTP-wakeable and stay always on.
 grep -Fxq 'StatefulSet/elasticsearch replicas' <<< "$with_replicas"
 grep -Fxq 'StatefulSet/redis replicas' <<< "$with_replicas"

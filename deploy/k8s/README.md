@@ -129,6 +129,10 @@ overlay and both dev deploy jobs:
 
 - the overlay removes `spec.replicas` from both Deployments: KEDA owns the
   replica count, and a CI that sets it is reverted to 0 seconds later;
+- the overlay renders no Ingress, and both deploy jobs delete the legacy
+  tenant Ingress `matchid-dev/deces` if still live: on the same host its
+  longer `/deces/api/v1` rule wins in Traefik and bypasses the interceptor, so
+  KEDA would not see that traffic and would scale a busy backend to zero;
 - `deploy/k8s/scripts/smoke-scale-to-zero.sh` checks the applied image tags,
   waits for the rollout, then smokes `/deces/api/v1/readiness` and `/` through
   the public host with retries, which wakes the pods. A pod port-forward or a
