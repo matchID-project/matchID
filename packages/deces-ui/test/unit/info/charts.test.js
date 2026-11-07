@@ -20,6 +20,9 @@ const { charts, registered, resetCharts, default: FakeChart } = await import('./
 const { setDsfrColors } = await import('./helpers.js');
 
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
+// Compare style attributes declaration by declaration: Svelte 3 and Svelte 5
+// serialise them differently (spaces, trailing semicolon).
+const cssText = (style) => { const e = document.createElement('div'); e.setAttribute('style', style); return e.style.cssText; };
 const chartData = (values) => ({ labels: values.map((_, i) => `l${i}`), datasets: [{ label: 's', data: values }] });
 
 beforeEach(() => {
@@ -73,7 +76,7 @@ describe('Chart (chart.js wrapper)', () => {
     expect(charts).toHaveLength(1);
     expect(charts[0].ctx).toEqual({ kind: '2d' });
     expect(charts[0].config).toEqual({ type: 'bar', data, options });
-    expect(container.querySelector('canvas').getAttribute('style')).toBe('max-height: 250px');
+    expect(container.querySelector('canvas').style.cssText).toBe(cssText('max-height: 250px'));
   });
 
   it('IN-142 no chart is created without data', () => {
@@ -134,7 +137,7 @@ describe('Chart (chart.js wrapper)', () => {
   // the canvas keeps "max-height: 250px" (same fallback rule in Svelte 5).
   it('IN-147 a wrapper without style falls back to the Chart default max-height', () => {
     const { container } = render(Line, { data: chartData([1]) });
-    expect(container.querySelector('canvas').getAttribute('style')).toBe('max-height: 250px');
+    expect(container.querySelector('canvas').style.cssText).toBe(cssText('max-height: 250px'));
   });
 });
 

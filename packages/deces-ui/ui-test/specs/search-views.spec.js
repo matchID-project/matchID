@@ -40,12 +40,28 @@ test.describe('geo and statistics views (SR)', () => {
     });
 
     test('SR-237 the marker size grows with the zoom', async ({ page }) => {
+      // The marker size (Map.svelte `scale`) grows with the zoom but shrinks
+      // with the number of results, and the geo view searches twice: the
+      // default page first, then up to the max page size. Take the reference
+      // width once the markers of the larger search are drawn, otherwise they
+      // can replace the first ones after the zoom (the width then drops).
+      const markers = page.locator('.leaflet-birth-pane path.leaflet-interactive');
+      const geoSearchResponse = page.waitForResponse(response => {
+        const request = response.request();
+        return request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/api/v1/search')
+          && (request.postDataJSON()?.size || 0) > 20;
+      });
       await page.goto(geoSearch);
-      const marker = page.locator('.leaflet-birth-pane path.leaflet-interactive').first();
-      await expect(marker).toBeAttached();
-      const before = Number(await marker.getAttribute('stroke-width'));
+      const { response } = await (await geoSearchResponse).json();
+      const births = response.persons.filter(p => p.birth?.location?.latitude && p.birth?.location?.longitude).length;
+      await expect(markers).toHaveCount(births);
+      const widths = () => markers.evaluateAll(paths => paths.map(p => Number(p.getAttribute('stroke-width'))));
+      const before = await widths();
+      // one scale for the whole layer: every marker has the same width
+      expect(new Set(before).size).toBe(1);
       await page.locator('.leaflet-control-zoom-in').click();
-      await expect.poll(async () => Number(await page.locator('.leaflet-birth-pane path.leaflet-interactive').first().getAttribute('stroke-width'))).toBeGreaterThan(before);
+      await expect.poll(async () => Math.min(...await widths())).toBeGreaterThan(before[0]);
+      await expect(markers).toHaveCount(births);
     });
 
     test('SR-238 SR-239 SR-240 hovering a marker previews the card, a click expands it', async ({ page }) => {

@@ -15,6 +15,8 @@ const adminUser = 'admin@example.org'; // __BACKEND_TOKEN_USER__ in vitest.confi
 const email = () => document.querySelector('input#email');
 const code = () => document.querySelector('input#token');
 const modal = () => document.querySelector('.modal');
+// the close icon of Modal.svelte (style="position:absolute;top:26px;right:26px")
+const closeIcon = () => [...modal().querySelectorAll('div[style]')].find(d => d.style.top === '26px' && d.style.right === '26px');
 const text = () => document.body.textContent.replace(/\s+/g, ' ');
 const tokenInfos = { access_token: 'jwt-1', created_at: '1700000000', expiration_date: '1700003600', renewal_limit_date: '1700086400' };
 
@@ -189,7 +191,7 @@ describe('Login modal (Login.svelte)', () => {
     route.set({ path: '/edits', query: {} });
     await renderLogin();
     await waitFor(() => expect(modal()).not.toBeNull());
-    await fireEvent.click(modal().querySelector('div[style*="top: 26px"]'));
+    await fireEvent.click(closeIcon());
     await flush();
     expect(modal()).not.toBeNull();
     expect(get(route).path).toBe('/edits');
@@ -203,7 +205,7 @@ describe('Login modal (Login.svelte)', () => {
     route.set({ path: '/edits', query: {} });
     await renderLogin();
     await waitFor(() => expect(modal()).not.toBeNull());
-    await fireEvent.click(modal().querySelector('div[style*="top: 26px"]'));
+    await fireEvent.click(closeIcon());
     await waitFor(() => expect(modal() === null || get(route).path !== '/edits').toBe(true), { timeout: 1500 });
   });
 
@@ -304,14 +306,14 @@ describe('Login modal (Login.svelte)', () => {
 
   it('LK-178 the modal close icon hides the Login modal', async () => {
     stubFetch();
-    const { component } = render(Login, { showLogin: true });
+    const { rerender } = render(Login, { showLogin: true });
     expect(modal()).not.toBeNull();
-    await fireEvent.click(modal().querySelector('div[style*="top: 26px"]'));
+    await fireEvent.click(closeIcon());
     await waitFor(() => expect(modal()).toBeNull(), { timeout: 3000 }); // fade + slide outros
-    component.$set({ showLogin: true });
+    await rerender({ showLogin: true });
     await flush();
     expect(modal()).not.toBeNull();
-    await fireEvent.keyDown(modal().querySelector('div[style*="top: 26px"]'), { key: 'Escape' });
+    await fireEvent.keyDown(closeIcon(), { key: 'Escape' });
     await waitFor(() => expect(modal()).toBeNull(), { timeout: 3000 }); // fade + slide outros
   });
 });

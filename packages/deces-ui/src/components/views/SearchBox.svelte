@@ -48,7 +48,7 @@
                           name={$searchInput[key].path}
                           autoComplete="off"
                           placeholder={$searchInput[key].placeholder}
-                          class="rf-input {isValid(key) ? "" : "rf-color--rm rf-input--error"}"
+                          class="rf-input {inputsValid[key] ? "" : "rf-color--rm rf-input--error"}"
                           bind:value={$searchInput[key].value}
                           title={$searchInput[key].title}
                           on:input={() => handleInput(key)}
@@ -115,6 +115,9 @@
   let inputsKeys;
 
   $: inputsKeys = Object.keys($searchInput);
+  // isValid() reads $searchInput: Svelte 3 re-ran it for every input whenever
+  // `inputsKeys` was reassigned, Svelte 5 only when the key itself changes.
+  $: inputsValid = Object.fromEntries(inputsKeys.map(key => [key, isValid(key)]));
 
   // Resubmit when the page size or the sort changes. handleSubmit() takes no
   // argument: the store referenced in each block is its trigger, while the

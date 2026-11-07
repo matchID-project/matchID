@@ -57,6 +57,10 @@ afterEach(() => {
   searchInput.set(initialSearchInput);
 });
 
+// Compare style attributes declaration by declaration: Svelte 3 and Svelte 5
+// serialise them differently (spaces, trailing semicolon).
+const cssText = (style) => { const e = document.createElement('div'); e.setAttribute('style', style); return e.style.cssText; };
+
 describe('Iframe', () => {
   it('IN-163 iframe titled "documentation de l\'api" with src/style props in an overflow-hidden wrapper', () => {
     const { container } = render(Iframe, { src: 'https://example.org/doc', style: 'height: 10px;' });
@@ -69,7 +73,7 @@ describe('Iframe', () => {
 
   it('IN-163 default style crops the embedded page (margin-top -330px, 2200px high)', () => {
     const { container } = render(Iframe);
-    expect(container.querySelector('iframe').getAttribute('style')).toBe('margin-top:-330px;width: 100%;height: 2200px;border-width: 0px;');
+    expect(container.querySelector('iframe').style.cssText).toBe(cssText('margin-top:-330px;width: 100%;height: 2200px;border-width: 0px;'));
   });
 });
 

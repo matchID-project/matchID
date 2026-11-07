@@ -44,11 +44,11 @@ describe('Results', () => {
     stores.wasSearched.set('x');
     stores.searchResults.set([person()]);
     const { container } = render(Results);
-    expect(container.innerHTML).toBe('');
+    expect(container.innerHTML.replace(/<!---->/g, '')).toBe(''); // Svelte 5 keeps empty <!----> block anchors
     stores.searchInput.update(v => { v.birthDate.value = '19'; v.lastName.value = 'dupont'; return v; });
     await Promise.resolve();
     // an invalid mask value (incomplete date) also disables the trigger
-    expect(container.innerHTML).toBe('');
+    expect(container.innerHTML.replace(/<!---->/g, '')).toBe(''); // Svelte 5 keeps empty <!----> block anchors
   });
 
   it('SR-052 shows "Oups... pas de résultats pour votre recherche" and the filtered Info when nothing matches', async () => {

@@ -99,7 +99,10 @@
     $: progressBarUpload.set(progressUpload/100);
     $: progressBarJob.set(progressJob/100);
     $: progressQueue = queuePredictor ? Math.round(100*(queuePredictor.initialSize - queuePredictor.size)/queuePredictor.initialSize) : 0;
-    $: progressBarQueue.set(progressQueue/100);
+    // The queue estimate is NaN with the real backend payload (pinned bug
+    // LK-094). Svelte 5 sets <progress>.value as a property, which throws on a
+    // non-finite number: keep the bar at 0 instead of breaking the update.
+    $: progressBarQueue.set(Number.isFinite(progressQueue) ? progressQueue/100 : 0);
     $: progressBarDownload.set(progressDownload/100);
 
     $: if (progressJob) {

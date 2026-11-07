@@ -6,7 +6,9 @@ const { apiPath, uniqueEmail, loginByApi, seedSession } = require('../helpers/li
 
 const modal = (page) => page.locator('.modal');
 const modalTitle = (page) => modal(page).locator('h4');
-const closeModal = (page) => modal(page).locator('div[style*="right: 26px"]').click();
+// the close icon (style="position:absolute;top:26px;right:26px"): Svelte 3 serialised
+// the style attribute with spaces, Svelte 5 keeps it as written
+const closeModal = (page) => modal(page).locator('div[style*="right: 26px"], div[style*="right:26px"]').first().click();
 const adminEntry = async (page, title) => {
   await page.locator('button[aria-controls="rf-admin"]').hover();
   return page.locator(`#rf-admin a[title="${title}"]`);

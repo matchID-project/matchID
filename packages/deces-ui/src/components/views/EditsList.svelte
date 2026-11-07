@@ -112,7 +112,7 @@
 
 <script>
     import { onMount } from 'svelte';
-    import { scrollTo } from 'svelte-scrolling'
+    import { scrollTo } from '../tools/scrollTo.js';
     import ResultCard from './ResultCard.svelte';
     import Icon from './Icon.svelte';
     import StatsTile from './StatsTile.svelte';

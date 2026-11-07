@@ -38,11 +38,11 @@ describe('Modal', () => {
   });
 
   it('SR-277 closing propagates to the parent through bind:show', async () => {
-    const { container, component } = render(APIKey, { showAPIKey: true });
+    const { container, rerender } = render(APIKey, { showAPIKey: true });
     await fireEvent.click(closeIcon(container));
     await waitFor(() => expect(container.querySelector('.modal')).toBeNull());
     // reopening only re-renders if the parent's value was set back to false
-    component.$set({ showAPIKey: true });
+    await rerender({ showAPIKey: true });
     await waitFor(() => expect(container.querySelector('.modal')).not.toBeNull());
   });
 
@@ -84,12 +84,12 @@ describe('RadioButtons', () => {
   });
 
   it('SR-232 the value is two-way bound to the checked radio', async () => {
-    const { component } = render(RadioButtons, { ...props, value: 'good' });
+    const { rerender } = render(RadioButtons, { ...props, value: 'good' });
     expect(screen.getByLabelText('Bonne').checked).toBe(true);
     await fireEvent.click(screen.getByLabelText('Mauvaise'));
     expect(screen.getByLabelText('Mauvaise').checked).toBe(true);
     expect(screen.getByLabelText('Bonne').checked).toBe(false);
-    component.$set({ value: 'good' });
+    await rerender({ value: 'good' });
     await waitFor(() => expect(screen.getByLabelText('Bonne').checked).toBe(true));
   });
 

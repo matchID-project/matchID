@@ -3,7 +3,7 @@ import { render, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 
 const scroll = vi.hoisted(() => ({ scrollTo: vi.fn() }));
-vi.mock('svelte-scrolling', () => scroll);
+vi.mock('../../../src/components/tools/scrollTo.js', () => scroll);
 // ResultCard belongs to the search zone: replace it with a placeholder that
 // records its props (the toggle callback in particular).
 vi.mock('../../../src/components/views/ResultCard.svelte', async () =>

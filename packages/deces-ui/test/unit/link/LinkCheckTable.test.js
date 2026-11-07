@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
-import { flush as flushSvelte } from 'svelte/internal';
+import { flushSync as flushSvelte } from 'svelte';
 
 vi.mock('idb-keyval', async () => (await import('./idb-mock.js')).idbKeyvalMock);
 
