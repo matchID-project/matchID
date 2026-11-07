@@ -13,11 +13,12 @@
     onMount(() => {
 		L.Map.addInitHook(function() {
 			const map = this;
-			const {url, attribution} = tileServers[tileServer];
+			const {url, attribution, className} = tileServers[tileServer];
 			L.tileLayer(url, {
 				attribution,
 				maxZoom: 18,
-				id: tileServer
+				id: tileServer,
+				...(className ? { className } : {})
 			}).addTo(map);
 		});
     });
@@ -25,5 +26,7 @@
 </script>
 
 <style>
-
+	:global(.leaflet-layer.tiles-greyscale) {
+		filter: grayscale(1);
+	}
 </style>

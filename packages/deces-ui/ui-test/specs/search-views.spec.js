@@ -18,12 +18,12 @@ test.describe('geo and statistics views (SR)', () => {
   test.describe('geo view', () => {
     test('SR-064 SR-234 SR-235 SR-248 the map loads with its tile layer and requests up to the max page size', async ({ page }) => {
       const searches = recordApiRequests(page);
-      const tile = page.waitForRequest(/basemaps\.cartocdn\.com\/light_all\//);
+      const tile = page.waitForRequest(/data\.geopf\.fr\/wmts\?.*LAYER=GEOGRAPHICALGRIDSYSTEMS\.PLANIGNV2/);
       await page.goto(geoSearch);
       await expect(page.locator('.map-container .leaflet-container')).toBeVisible();
       await tile;
       await expect(page.locator('.leaflet-top.leaflet-right .leaflet-control-zoom')).toBeVisible();
-      await expect(page.locator('.leaflet-control-attribution')).toContainText('ESRI');
+      await expect(page.locator('.leaflet-control-attribution')).toContainText('IGN');
       await expect.poll(() => searches.some(body => body.size > 20)).toBe(true);
     });
 

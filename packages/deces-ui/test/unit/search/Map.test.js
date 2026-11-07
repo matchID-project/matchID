@@ -216,8 +216,8 @@ describe('TileLayer and Geo', () => {
   it('SR-248 adds the tile layer of the configured server (attribution, maxZoom 18) to the map', () => {
     const tileLayer = vi.spyOn(L, 'tileLayer');
     render(Geo);
-    const call = tileLayer.mock.calls.find(([url]) => url === tileServers['cartodb.positron'].url);
-    expect(call[1]).toEqual({ attribution: tileServers['cartodb.positron'].attribution, maxZoom: 18, id: 'cartodb.positron' });
+    const call = tileLayer.mock.calls.find(([url]) => url === tileServers['ign.plan.grey'].url);
+    expect(call[1]).toEqual({ attribution: tileServers['ign.plan.grey'].attribution, maxZoom: 18, id: 'ign.plan.grey', className: 'tiles-greyscale' });
     const layer = tileLayer.mock.results[tileLayer.mock.calls.indexOf(call)].value;
     expect(maps.at(-1).hasLayer(layer)).toBe(true);
   });
@@ -231,10 +231,10 @@ describe('TileLayer and Geo', () => {
     first.unmount();
     const tileLayer = vi.spyOn(L, 'tileLayer');
     render(Geo);
-    expect(tileLayer.mock.calls.filter(([url]) => url === tileServers['cartodb.positron'].url)).toHaveLength(1);
+    expect(tileLayer.mock.calls.filter(([url]) => url === tileServers['ign.plan.grey'].url)).toHaveLength(1);
   });
 
-  it('SR-249 Geo uses cartodb.positron; TileLayer defaults to osm.mapnik', () => {
+  it('SR-249 Geo uses ign.plan.grey; TileLayer defaults to osm.mapnik', () => {
     const tileLayer = vi.spyOn(L, 'tileLayer');
     render(TileLayer);
     L.map(document.createElement('div'), { center: [47, 2.3], zoom: 6 });
