@@ -60,7 +60,7 @@
 
 <script>
   import { onMount } from 'svelte';
-  import { scrollTo } from 'svelte-scrolling'
+  import { scrollTo } from '../tools/scrollTo.js';
   import { slide } from 'svelte/transition';
   import { version, themeDnum, route } from '../tools/stores.js';
   import Icon from './Icon.svelte';

@@ -255,7 +255,7 @@ describe('Info (FAQ / about)', () => {
       expect(callout(container, 'signaler-un-bug')).toBeNull();
     });
 
-    // BUG: in Firefox, the delayed smooth scroll calls the svelte-scrolling
+    // BUG: in Firefox, the delayed smooth scroll calls the tools/scrollTo.js
     // `scrollTo` action as a plain function with one argument, which throws
     // "scrollTo require a options" inside the timeout (Info.svelte:500-504).
     it.fails('IN-078 BUG: Firefox delayed scroll after opening a section does not throw', async () => {

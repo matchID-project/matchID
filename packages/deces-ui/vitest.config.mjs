@@ -60,12 +60,6 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['test/unit/**/*.test.js'],
     setupFiles: ['test/unit/setup.js'],
-    restoreMocks: true,
-    server: {
-      deps: {
-        // ships extensionless ESM imports that only a bundler can resolve
-        inline: ["svelte-scrolling"]
-      }
-    }
+    restoreMocks: true
   }
 });

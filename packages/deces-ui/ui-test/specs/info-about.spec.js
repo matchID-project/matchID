@@ -163,12 +163,12 @@ test.describe('about / FAQ', () => {
     await expect(page.locator('.rf-callout')).toHaveCount(0);
   });
 
-  // BUG (Firefox only): the delayed smooth scroll calls the svelte-scrolling
+  // BUG (Firefox only): the delayed smooth scroll calls the tools/scrollTo.js
   // action as a function and throws "scrollTo require a options"
   // (Info.svelte:500-504). The CI project is Chromium only.
   test('IN-078 BUG: opening a section in Firefox scrolls to it without a page error', async ({ page, browserName }) => {
     test.skip(browserName !== 'firefox', 'Firefox-only code path; the CI project runs Chromium');
-    test.fail(true, 'BUG: svelte-scrolling scrollTo misuse throws in the timeout');
+    test.fail(true, 'BUG: scrollTo action misuse throws in the timeout');
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto('/about');

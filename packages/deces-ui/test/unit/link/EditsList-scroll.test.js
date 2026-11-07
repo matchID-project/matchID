@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/svelte';
 
-// Real svelte-scrolling here (EditsList.test.js mocks it).
+// Real scrollTo action here (EditsList.test.js mocks it).
 vi.mock('../../../src/components/views/ResultCard.svelte', async () =>
   ({ default: (await import('./stubs/index.js')).stubComponent('ResultCard') }));
 
@@ -13,7 +13,7 @@ const { resetLinkStores, stubFetch } = await import('./helpers.js');
 describe('/edits scroll to the expanded record', () => {
   afterEach(() => vi.useRealTimers());
 
-  // BUG: EditsList calls `scrollTo({ref, duration})` from svelte-scrolling,
+  // BUG: EditsList calls `scrollTo({ref, duration})` (tools/scrollTo.js),
   // but that export is the `use:scrollTo` ACTION (node, options): called with
   // one argument it throws "scrollTo require a options" 400 ms after the
   // click, so the expanded record is never scrolled into view.
