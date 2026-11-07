@@ -29,6 +29,7 @@ export APP_VERSION ?= ${package_tag}-${version_hash}
 
 # Test configuration variables
 export TEST_HOST=nginx
+# Playwright image tag; must match the @playwright/test version pinned in ui-test/package.json
 export PLAYWRIGHT_VERSION ?= 1.60.0
 export MITM_URL=/mitm/mitm.html
 export THEME_DNUM=0
@@ -120,8 +121,13 @@ frontend:
 	${DC} -f ${DC_RUN_NGINX_FRONTEND} up -d
 	@timeout=${NGINX_TIMEOUT} ; ret=1 ; until [ "$$timeout" -le 0 -o "$$ret" -eq "0"  ] ; do (curl -s --fail -XGET localhost:${PORT} > /dev/null) ; ret=$$? ; if [ "$$ret" -ne "0" ] ; then echo "waiting for nginx to start $$timeout" ; fi ; ((timeout--)); sleep 1 ; done ; exit $$ret
 
-frontend-test: smtp
-	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} ${DC} -f ${DC_TEST_FRONTEND} run ui-test sh -c "yarn install && node runAllTests.js"
+frontend-test-check-version:
+	@grep -q '"@playwright/test": "${PLAYWRIGHT_VERSION}"' ${FRONTEND_PATH}/ui-test/package.json \
+		|| { echo "ui-test/package.json must pin @playwright/test ${PLAYWRIGHT_VERSION} (Playwright image tag)"; exit 1; }
+
+frontend-test: frontend-test-check-version smtp
+	PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION} ${DC} -f ${DC_TEST_FRONTEND} run ui-test sh -c "npm ci --ignore-scripts && npx playwright test"
+
 
 clean-frontend: rollup-clean build-dir-clean frontend-clean-dist frontend-clean-dist-archive
 
