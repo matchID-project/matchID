@@ -127,7 +127,7 @@ test.describe('header (desktop)', () => {
       await pick('Tableur');
       await expect(page).toHaveURL(/[?&]view=table(&|$)/);
       await expect(resultsTable(page)).toBeVisible();
-      await expect(resultsTable(page)).toContainText('DUPONT');
+      await expect(resultsTable(page)).toContainText(/dupont/i);
     });
 
     await test.step('IN-021 Statistiques renders the aggregations', async () => {

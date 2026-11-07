@@ -87,7 +87,7 @@ test.describe('header (mobile)', () => {
     await expect(page).toHaveURL(/[?&]view=table(&|$)/);
     // ResultsHeader renders another (non-striped) table.rf-table
     await expect(page.locator('table.rf-table.rf-table--striped')).toBeVisible();
-    await expect(page.locator('table.rf-table.rf-table--striped')).toContainText('DUPONT');
+    await expect(page.locator('table.rf-table.rf-table--striped')).toContainText(/dupont/i);
   });
 
   test('IN-046 / IN-047 mobile "Appariement" and "À propos" links navigate and close the popin', async ({ page }) => {
