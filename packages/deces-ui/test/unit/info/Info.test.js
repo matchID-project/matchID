@@ -52,6 +52,10 @@ const SECTION_TITLES = [
   'Statistiques de consultation'
 ];
 
+// closing a section waits for its slide outro (requestAnimationFrame based,
+// slower when the whole suite runs in parallel)
+const OUTRO = { timeout: 5000 };
+
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const sectionIds = (container) => [...container.querySelectorAll('.rf-card')].map(card => card.closest('[id]').id);
 const card = (container, id) => container.querySelector(`[id="${id}"] .rf-card`);
@@ -195,10 +199,10 @@ describe('Info (FAQ / about)', () => {
       await open(container, 'qui-sommes-nous');
       expect(callout(container, 'qui-sommes-nous').textContent).toContain('Le projet matchID a été initié');
       await open(container, 'code-open-source');
-      await waitFor(() => expect(callout(container, 'qui-sommes-nous')).toBeNull());
+      await waitFor(() => expect(callout(container, 'qui-sommes-nous')).toBeNull(), OUTRO);
       expect(container.querySelectorAll('.rf-callout')).toHaveLength(1);
       await fireEvent.click(card(container, 'code-open-source'));
-      await waitFor(() => expect(container.querySelectorAll('.rf-callout')).toHaveLength(0));
+      await waitFor(() => expect(container.querySelectorAll('.rf-callout')).toHaveLength(0), OUTRO);
     });
 
     it('IN-073 the open card spans the full width and shows the left-arrow style', async () => {
