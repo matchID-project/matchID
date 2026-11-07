@@ -1,0 +1,98 @@
+name: Reconcile prod DNS
+
+# deces.matchid.io is served without a Scaleway load balancer: Traefik binds
+# hostPort 80/443 on the Kapsule node and Cloudflare (DNS only) points at the
+# node public IP. Kapsule autohealing can replace the node and its IP, so this
+# workflow keeps the A record on the IP of the node that runs the ingress pod.
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only report, never write DNS
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: reconcile-prod-dns
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+    env:
+      HOSTNAME: deces.matchid.io
+      INGRESS_NAMESPACE: traefik
+      INGRESS_SELECTOR: app.kubernetes.io/name=traefik-direct
+      KUBE_CONFIG_DATA_PLATFORM: ${{ secrets.KUBE_CONFIG_DATA_PLATFORM }}
+      CDN_DNS_TOKEN: ${{ secrets.CDN_DNS_TOKEN }}
+      CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+    steps:
+      - name: Install platform kubeconfig
+        run: |
+          set -euo pipefail
+          test -n "${KUBE_CONFIG_DATA_PLATFORM:-}" || { echo "Missing KUBE_CONFIG_DATA_PLATFORM" >&2; exit 1; }
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBE_CONFIG_DATA_PLATFORM" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: Resolve ingress node public IP
+        id: node
+        run: |
+          set -euo pipefail
+          node="$(kubectl -n "$INGRESS_NAMESPACE" get pod -l "$INGRESS_SELECTOR" \
+            --field-selector=status.phase=Running -o jsonpath='{.items[0].spec.nodeName}')"
+          test -n "$node" || { echo "No running ingress pod ($INGRESS_SELECTOR)" >&2; exit 1; }
+          ip="$(kubectl get node "$node" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}' | tr ' ' '\n' | grep -E '^[0-9.]+$' | head -n 1)"
+          test -n "$ip" || { echo "Node $node has no IPv4 ExternalIP" >&2; exit 1; }
+          echo "Ingress pod runs on $node ($ip)"
+          echo "ip=$ip" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke the ingress node directly
+        env:
+          NODE_IP: ${{ steps.node.outputs.ip }}
+        run: |
+          set -euo pipefail
+          curl -fsS -m 20 --resolve "$HOSTNAME:443:$NODE_IP" "https://$HOSTNAME/deces/api/v1/healthcheck" >/dev/null
+          echo "https://$HOSTNAME answers on $NODE_IP"
+
+      - name: Reconcile Cloudflare A record
+        env:
+          NODE_IP: ${{ steps.node.outputs.ip }}
+        run: |
+          set -euo pipefail
+          mapfile -t dns_ips < <(getent ahostsv4 "$HOSTNAME" | awk '$2 == "STREAM" {print $1}' | sort -u)
+          if [ "${#dns_ips[@]}" -eq 1 ] && [ "${dns_ips[0]}" = "$NODE_IP" ]; then
+            echo "DNS already targets $NODE_IP"
+            exit 0
+          fi
+          echo "DNS resolves to ${dns_ips[*]:-none}, expected $NODE_IP"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "dry_run: not updating DNS"
+            exit 0
+          fi
+          test -n "${CDN_DNS_TOKEN:-}" || { echo "Missing CDN_DNS_TOKEN (Zone:DNS:Edit on matchid.io)" >&2; exit 1; }
+          test -n "${CDN_ZONE_ID:-}" || { echo "Missing CDN_ZONE_ID" >&2; exit 1; }
+          api="https://api.cloudflare.com/client/v4/zones/${CDN_ZONE_ID}/dns_records"
+          auth=(-H "Authorization: Bearer ${CDN_DNS_TOKEN}" -H "Content-Type: application/json")
+          records="$(curl -fsS "${auth[@]}" "${api}?type=A&name=${HOSTNAME}")"
+          test "$(printf '%s' "$records" | jq -r '.success')" = "true"
+          record_id="$(printf '%s' "$records" | jq -r '.result[0].id // ""')"
+          payload="$(jq -n --arg name "$HOSTNAME" --arg content "$NODE_IP" \
+            '{type: "A", name: $name, content: $content, ttl: 60, proxied: false}')"
+          if [ -n "$record_id" ]; then
+            response="$(curl -fsS -X PUT "${auth[@]}" --data "$payload" "${api}/${record_id}")"
+          else
+            response="$(curl -fsS -X POST "${auth[@]}" --data "$payload" "${api}")"
+          fi
+          test "$(printf '%s' "$response" | jq -r '.success')" = "true"
+          echo "A $HOSTNAME -> $NODE_IP (DNS only, ttl 60)"
