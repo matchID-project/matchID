@@ -200,6 +200,7 @@ jobs:
       - deces-dataprep-locally
     if: >-
       ${{
+        !cancelled() &&
         (
           needs.deces-dataprep-locally.result == 'success' ||
           needs.deces-dataprep-locally.result == 'skipped'
@@ -241,6 +242,7 @@ jobs:
       - deces-backend-tests
     if: >-
       ${{
+        !cancelled() &&
         (
           needs.deces-dataprep-locally.result == 'success' ||
           needs.deces-dataprep-locally.result == 'skipped'
@@ -291,6 +293,7 @@ jobs:
       - deces-backend-tests
     if: >-
       ${{
+        !cancelled() &&
         (
           needs.deces-dataprep-locally.result == 'success' ||
           needs.deces-dataprep-locally.result == 'skipped'
@@ -349,6 +352,7 @@ jobs:
       - dataprep-backend-test
     if: >-
       ${{
+        !cancelled() &&
         (
           needs.dataprep-backend-test.result == 'success' ||
           needs.dataprep-backend-test.result == 'skipped'

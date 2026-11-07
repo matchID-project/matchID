@@ -1,15 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('bullmq', () => ({
-  Queue: vi.fn(() => ({
-    add: vi.fn(),
-    getJobs: vi.fn(),
-    getJob: vi.fn(),
-  })),
+  Queue: vi.fn(function () {
+    return {
+      add: vi.fn(),
+      getJobs: vi.fn(),
+      getJob: vi.fn(),
+    };
+  }),
   QueueEvents: vi.fn(),
-  Worker: vi.fn(() => ({
-    on: vi.fn(),
-  })),
+  Worker: vi.fn(function () {
+    return {
+      on: vi.fn(),
+    };
+  }),
   Job: {
     fromId: vi.fn(),
   },

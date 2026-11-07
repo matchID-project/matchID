@@ -22,6 +22,8 @@ describe('webhook.ts - sendWebhook', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    // vitest >= 3: restoreAllMocks no longer resets vi.fn() module mocks.
+    (sanitizeUrl as any).mockReset();
   });
 
   it('should return false when url is undefined', async () => {
