@@ -98,6 +98,7 @@ jobs:
     if: >-
       ${{
         needs.changes.outputs.artifact_matchid_backend == 'true' ||
+        needs.changes.outputs.artifact_matchid_frontend == 'true' ||
         needs.changes.outputs.integration_stack == 'true'
       }}
     runs-on: ubuntu-latest
