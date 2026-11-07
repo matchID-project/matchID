@@ -5,14 +5,14 @@
 			<div
 				class="rf-container-fuild"
 				on:drop|preventDefault={event => dropTop(event, status[0], undefined, -1)}
-				ondragover="return false"
+				on:dragover={(event) => event.preventDefault()}
 			>
 				<div class="rf-grid-row bordered rf-text--xs">
 					{#if items.filter(x => isActive(x)).length === 0}
 						<div
 							class="rf-col-12 rf-text--center rf-padding-top-3N rf-padding-bottom-3N"
 							on:drop|preventDefault={event => drop(event, status[0], undefined, -1)}
-							ondragover="return false"
+							on:dragover={(event) => event.preventDefault()}
 							on:dragenter={() => hovering = -1}
 							on:dragleave={() => hovering = false}
 							class:hovering={hovering === -1}
@@ -54,14 +54,14 @@
 			<div
 				class="rf-container-fuild"
 				on:drop|preventDefault={event => dropTop(event, undefined, undefined, -1)}
-				ondragover="return false"
+				on:dragover={(event) => event.preventDefault()}
 			>
 				<div class="rf-grid-row bordered rf-text--xs">
 					{#if items.filter(x => !isActive(x)).length === 0}
 						<div
 							class="rf-col-12 rf-text--center rf-padding-top-3N rf-padding-bottom-3N"
 							on:drop|preventDefault={event => drop(event, undefined, undefined, -1)}
-							ondragover="return false"
+							on:dragover={(event) => event.preventDefault()}
 							on:dragenter={() => hovering = -1}
 							on:dragleave={() => hovering = false}
 							class:hovering={hovering === -1}

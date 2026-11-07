@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, createEvent } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import DraggableList from '../../../src/components/views/DraggableList.svelte';
 import SortInput from '../../../src/components/views/SortInput.svelte';
@@ -48,6 +48,26 @@ describe('DraggableList (sort keys, used by SortInput)', () => {
     expect(placeholder.classList.contains('hovering')).toBe(true);
     await fireEvent.dragLeave(placeholder);
     expect(placeholder.classList.contains('hovering')).toBe(false);
+  });
+
+  it('LK-203 both zones and their empty placeholders accept a drop (dragover default prevented)', async () => {
+    const { container } = renderList({ items: [{ label: 'a', order: 'asc' }] });
+    const targets = [
+      zone(container, 0).querySelector('.rf-container-fuild'),
+      zone(container, 1).querySelector('.rf-container-fuild'),
+      zone(container, 1).querySelector('.rf-text--center')
+    ];
+    for (const target of targets) {
+      const over = createEvent.dragOver(target);
+      await fireEvent(target, over);
+      expect(over.defaultPrevented).toBe(true);
+    }
+    // an item itself does not cancel dragover: the event bubbles to its zone
+    const item = zone(container, 0).querySelector('div[draggable="true"]');
+    const over = createEvent.dragOver(item);
+    item.addEventListener('dragover', (e) => expect(e.defaultPrevented).toBe(false), { once: true });
+    await fireEvent(item, over);
+    expect(over.defaultPrevented).toBe(true);
   });
 
   const dragPayload = async (container, zoneIndex, itemIndex) => {
