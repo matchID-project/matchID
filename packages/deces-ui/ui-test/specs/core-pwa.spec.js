@@ -1,14 +1,31 @@
 // @ts-check
-const { test, expect } = require('@playwright/test');
-const { origin, apiPath, waitForServiceWorker } = require('../helpers/core-search');
+const { test: base, expect } = require('@playwright/test');
+const { apiPath, waitForServiceWorker } = require('../helpers/core-search');
+const { startLoopbackForwarder } = require('../helpers/core-loopback');
 
-// Service workers need a secure context. The CI suite reaches nginx through
-// http://<TEST_HOST>:<PORT> (not localhost), so let Chromium treat that
-// origin as secure for this file.
-test.use({
-  serviceWorkers: 'allow',
-  launchOptions: { args: [`--unsafely-treat-insecure-origin-as-secure=${origin}`] }
+// Service workers need a secure context: browse the stack through a loopback
+// forwarder (see helpers/core-loopback.js) instead of http://<TEST_HOST>:<PORT>.
+const test = base.extend({
+  loopback: [async ({}, use) => {
+    const forwarder = await startLoopbackForwarder(process.env.TEST_HOST || 'localhost', Number(process.env.PORT || '8083'));
+    await use(forwarder);
+    await forwarder.close();
+  }, { scope: 'worker' }],
+  baseURL: async ({ loopback }, use) => use(loopback.origin)
 });
+
+// Cut the network for the page: Chromium offline emulation plus the
+// forwarder (offline emulation does not cover loopback addresses).
+const goOffline = async (context, loopback) => {
+  await context.setOffline(true);
+  loopback.offline();
+};
+const goOnline = async (context, loopback) => {
+  loopback.online();
+  await context.setOffline(false);
+};
+
+test.use({ serviceWorkers: 'allow' });
 
 const precachedPaths = (page) => page.evaluate(async () => {
   const urls = [];
@@ -30,13 +47,14 @@ const controlledPage = async (page) => {
 };
 
 test.describe('core: service worker and offline mode', () => {
-  test('CO-083 the service worker /sw.js is registered with the root scope', async ({ page }) => {
+  test('CO-083 the service worker /sw.js is registered with the root scope', async ({ page, baseURL }) => {
     const registered = page.waitForEvent('console', m => m.text() === 'Service worker has been registered.');
     await page.goto('/search');
+    expect(await page.evaluate(() => 'serviceWorker' in navigator)).toBe(true);
     await registered;
     const sw = await waitForServiceWorker(page);
-    expect(sw.scriptURL).toBe(`${origin}/sw.js`);
-    expect(sw.scope).toBe(`${origin}/`);
+    expect(sw.scriptURL).toBe(`${baseURL}/sw.js`);
+    expect(sw.scope).toBe(`${baseURL}/`);
   });
 
   test('CO-090 the app shell is precached', async ({ page }) => {
@@ -60,31 +78,30 @@ test.describe('core: service worker and offline mode', () => {
     expect(await precachedPaths(page)).toEqual(expect.arrayContaining(['/css/matchid.min.css', '/js/matchid.min.js']));
   });
 
-  test('CO-092 offline, the app shell reloads from the service worker cache', async ({ page, context }) => {
+  test('CO-092 offline, the app shell reloads from the service worker cache', async ({ page, context, loopback }) => {
     await controlledPage(page);
-    await context.setOffline(true);
+    await goOffline(context, loopback);
     try {
       const response = await page.reload();
       expect(response && response.fromServiceWorker()).toBe(true);
       await expect(page.locator('#q')).toBeVisible();
       await expect(page.locator('header')).toBeVisible();
     } finally {
-      await context.setOffline(false);
+      await goOnline(context, loopback);
     }
   });
 
-  test('CO-091 offline navigations fall back to index.html, except for the backend API', async ({ page, context }) => {
+  test('CO-091 offline navigations fall back to index.html, except for the backend API', async ({ page, context, loopback }) => {
     await controlledPage(page);
-    await context.setOffline(true);
+    await goOffline(context, loopback);
     try {
       const link = await page.goto('/link');
       expect(link && link.fromServiceWorker()).toBe(true);
       await expect(page.getByText('L\'appariement est une fonction de rapprochement')).toBeVisible();
-      // denylisted: not answered by the service worker (offline: network error)
-      const api = await page.goto(`${apiPath}/version`).catch(() => null);
-      expect(api === null || !api.fromServiceWorker()).toBe(true);
+      // denylisted: not answered by the service worker, so offline it fails
+      await expect(page.goto(`${apiPath}/version`)).rejects.toThrow();
     } finally {
-      await context.setOffline(false);
+      await goOnline(context, loopback);
     }
   });
 
