@@ -1,0 +1,7 @@
+# matchid-dev deces-backend and deces-ui are scaled to zero by the platform
+# KEDA HTTP add-on (poc-k8s tenants/matchid-dev/40-scale-to-zero.yaml,
+# HTTPScaledObject min 0 / max 1, woken by traffic on dev.deces.matchid.io).
+# KEDA owns their replica count: CI must not set `replicas`, or every deploy
+# scales them back to 1 and fights the scaler.
+- op: remove
+  path: /spec/replicas

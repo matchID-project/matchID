@@ -9,7 +9,10 @@ resources:
   - log-forwarder.daemonset.yaml
 
 # poc-k8s owns Namespace, ResourceQuota, LimitRange and NetworkPolicies for
-# matchid-dev. This overlay owns only the application workload resources.
+# matchid-dev, and since 2026-09-15 also the public route: the platform Ingress
+# keda/deces-s2z (poc-k8s platform/61-scale-to-zero.yaml) sends
+# dev.deces.matchid.io to the KEDA HTTP interceptor, which wakes deces-ui and
+# deces-backend. This overlay owns only the application workload resources.
 patches:
   - patch: |-
       $patch: delete
@@ -32,11 +35,23 @@ patches:
     target:
       kind: Deployment
       name: deces-ui
+  - path: scale-to-zero.replicas.yaml
+    target:
+      kind: Deployment
+      name: deces-(backend|ui)
   - path: redis.dev.yaml
     target:
       kind: StatefulSet
       name: redis
-  - path: ingress.dev.yaml
+  # A tenant Ingress on the same host would bypass the interceptor (its
+  # longer /deces/api/v1 rule wins in Traefik), so KEDA would not see that
+  # traffic and would scale a busy backend to zero.
+  - patch: |-
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: deces
     target:
       kind: Ingress
       name: deces

@@ -118,12 +118,12 @@ jobs:
           set -euo pipefail
           for image in "matchid/deces-backend:$BACKEND_IMAGE_TAG" "matchid/deces-ui:$UI_IMAGE_TAG"; do
             echo "Waiting for $image"
-            for attempt in $(seq 1 18); do
+            for attempt in $(seq 1 30); do
               if docker manifest inspect "$image" >/dev/null 2>&1; then
                 echo "$image is available"
                 break
               fi
-              if [ "$attempt" -eq 18 ]; then
+              if [ "$attempt" -eq 30 ]; then
                 echo "$image not available after retries" >&2
                 exit 1
               fi
@@ -147,6 +147,11 @@ jobs:
           kubectl kustomize "$overlay_dir" >/tmp/matchid-k8s-rendered.yaml
           kubectl -n "$NAMESPACE" delete deploy/redis --ignore-not-found=true
           kubectl apply -f /tmp/matchid-k8s-rendered.yaml
+          # dev.deces.matchid.io is routed by the platform Ingress keda/deces-s2z
+          # (KEDA scale-to-zero). Remove the legacy tenant Ingress, which bypasses
+          # the KEDA interceptor, if it is still live.
+          kubectl -n "$NAMESPACE" delete ingress/deces --ignore-not-found=true ||
+            echo "::warning::Could not delete legacy Ingress $NAMESPACE/deces; ask the poc-k8s operator to remove it"
           bash deploy/k8s/scripts/recover-stuck-statefulset.sh "$NAMESPACE" elasticsearch
 
       - name: Wait for runtime
@@ -154,27 +159,16 @@ jobs:
           set -euo pipefail
           kubectl -n "$NAMESPACE" rollout status statefulset/redis --timeout=10m
           kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=10m
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
-            deploy/deces-backend deploy/deces-ui
 
+      # deces-backend and deces-ui are scaled to zero by the platform KEDA HTTP
+      # add-on (poc-k8s tenants/matchid-dev/40-scale-to-zero.yaml): an idle pod
+      # is stopped seconds after CI starts it. Check the applied templates, then
+      # wake and smoke them through the public host rather than a port-forward.
       - name: Smoke readiness
         run: |
           set -euo pipefail
-          traefik_lb="$(
-            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            true
-          )"
-          if [ -n "$traefik_lb" ]; then
-            curl -fsSk -m 10 -H "Host: $HOSTNAME" \
-              "https://$traefik_lb/deces/api/v1/readiness"
-          else
-            kubectl -n "$NAMESPACE" port-forward svc/deces-backend 8080:8080 &
-            pf=$!
-            trap 'kill "$pf" 2>/dev/null || true' EXIT
-            sleep 5
-            curl -fsS -m 10 http://localhost:8080/deces/api/v1/readiness
-          fi
+          bash deploy/k8s/scripts/smoke-scale-to-zero.sh \
+            "$NAMESPACE" "$HOSTNAME" "$BACKEND_IMAGE_TAG" "$UI_IMAGE_TAG"
 
       - name: Diagnostics on failure
         if: failure() || cancelled()
