@@ -211,6 +211,17 @@ jobs:
           elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${ARTIFACT_CHANGED}" = "true" ]; then
             SHOULD_PUBLISH=true
             REASON=artifact_changed
+          elif [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            # A cancelled run (concurrency cancel-in-progress) can skip the
+            # build of a changed artifact; the next push then diffs against
+            # that commit and sees no change. Rebuild whenever the tag
+            # resolved from the repo is missing from the registry.
+            IMAGE="matchid/deces-backend:$(make -s artifact-version-deces-backend)"
+            if ! docker manifest inspect "${IMAGE}" >/dev/null 2>&1; then
+              SHOULD_PUBLISH=true
+              REASON=image_missing
+              echo "${IMAGE} is missing from the registry"
+            fi
           fi
           {
             echo "should_publish=${SHOULD_PUBLISH}"
@@ -258,6 +269,17 @@ jobs:
           elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${ARTIFACT_CHANGED}" = "true" ]; then
             SHOULD_PUBLISH=true
             REASON=artifact_changed
+          elif [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            # A cancelled run (concurrency cancel-in-progress) can skip the
+            # build of a changed artifact; the next push then diffs against
+            # that commit and sees no change. Rebuild whenever the tag
+            # resolved from the repo is missing from the registry.
+            IMAGE="matchid/deces-ui:$(make -s artifact-version-deces-ui)"
+            if ! docker manifest inspect "${IMAGE}" >/dev/null 2>&1; then
+              SHOULD_PUBLISH=true
+              REASON=image_missing
+              echo "${IMAGE} is missing from the registry"
+            fi
           fi
           {
             echo "should_publish=${SHOULD_PUBLISH}"
@@ -570,7 +592,9 @@ jobs:
             github.ref == 'refs/heads/main' &&
             (
               needs.changes.outputs.artifact_deces_backend == 'true' ||
-              needs.changes.outputs.artifact_deces_ui == 'true'
+              needs.changes.outputs.artifact_deces_ui == 'true' ||
+              needs.ensure-deces-backend-image.outputs.should_publish == 'true' ||
+              needs.ensure-deces-ui-image.outputs.should_publish == 'true'
             )
           ) ||
           (

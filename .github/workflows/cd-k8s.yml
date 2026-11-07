@@ -118,12 +118,12 @@ jobs:
           set -euo pipefail
           for image in "matchid/deces-backend:$BACKEND_IMAGE_TAG" "matchid/deces-ui:$UI_IMAGE_TAG"; do
             echo "Waiting for $image"
-            for attempt in $(seq 1 18); do
+            for attempt in $(seq 1 30); do
               if docker manifest inspect "$image" >/dev/null 2>&1; then
                 echo "$image is available"
                 break
               fi
-              if [ "$attempt" -eq 18 ]; then
+              if [ "$attempt" -eq 30 ]; then
                 echo "$image not available after retries" >&2
                 exit 1
               fi

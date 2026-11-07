@@ -114,7 +114,10 @@ The legacy `overlays/poc` remains for old manual smokes against namespace
 after the `deces-backend` and `deces-ui` image jobs finish, `deploy-dev-k8s`
 applies `overlays/dev/` to `matchid-dev` and smokes
 `dev.deces.matchid.io`. The legacy VM deploy for `dev-deces.matchid.io` is no
-longer part of CI.
+longer part of CI. The image jobs also rebuild a `deces-backend`/`deces-ui`
+image whose repo-resolved tag is missing from Docker Hub (for instance after a
+run cancelled by the `cd-${ref}` concurrency group, whose change the next
+push no longer sees in its diff), and that rebuild triggers the dev deploy.
 
 Since 2026-09-15 the platform scales `deces-backend` and `deces-ui` in
 `matchid-dev` to zero when idle (KEDA HTTP add-on, poc-k8s
