@@ -37,6 +37,17 @@ morgan.token('fwd-addr', (req: any) => {
   return req.headers['x-forwarded-for']
 })
 
+const parseJobHeader = (res: any) => {
+  // Read the raw header: morgan >= 1.11 escapes token values, which breaks JSON.parse.
+  const header = res.headersSent ? res.getHeader('Job') : undefined;
+  if (typeof header !== 'string') return undefined;
+  try {
+    return JSON.parse(header);
+  } catch {
+    return undefined;
+  }
+}
+
 const formatAsJson = (tokens: any, req: any, res: any) => {
   return JSON.stringify({
     backend: {
@@ -54,7 +65,7 @@ const formatAsJson = (tokens: any, req: any, res: any) => {
       'content-length': +tokens.res(req, res, 'content-length'),
       referrer: tokens.referrer(req, res),
       'user-agent': tokens['user-agent'](req, res),
-      'job': tokens.res(req,res,'Job') && JSON.parse(tokens.res(req,res,'Job'))
+      'job': parseJobHeader(res)
     },
   })
 }
