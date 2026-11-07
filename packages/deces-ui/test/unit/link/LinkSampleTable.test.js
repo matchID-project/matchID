@@ -1,16 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, waitFor, fireEvent } from '@testing-library/svelte';
 import { get } from 'svelte/store';
-import LinkSampleTable from '../../../src/components/views/LinkSampleTable.svelte';
+import LinkSampleTableHost from './stubs/LinkSampleTableHost.svelte';
 import { linkFile, linkOptions, linkSourceHeader, linkSourceHeaderTypes } from '../../../src/components/tools/stores.js';
 import { resetLinkStores, makeDataTransfer, flush } from './helpers.js';
 
 const latin1Bytes = (text) => Uint8Array.from([...text].map(c => c.charCodeAt(0)));
 
 // Render the sample table for `content` and wait for the file to be parsed.
+// (through a host passing only `fields`, so that rerender({ fields }) updates
+// it like LinkConfigure does, see stubs/LinkSampleTableHost.svelte)
 const parse = async (content, { name = 'people.csv', fields = [] } = {}) => {
   linkFile.set(new File([content], name));
-  const result = render(LinkSampleTable, { fields });
+  const result = render(LinkSampleTableHost, { fields });
   await waitFor(() => expect(get(linkSourceHeader)).toBeTruthy());
   await flush();
   return result;
@@ -111,10 +113,10 @@ describe('LinkSampleTable: file sniffing and preview', () => {
     const lines = ['"nom";"prenom"'];
     for (let i = 0; i < 10; i++) lines.push(`"N${i}";"P${i}"`);
     lines.push('"Dupont; Jr";"Jean"');
-    const { component } = await parse(lines.join('\n') + '\n');
+    const { unmount } = await parse(lines.join('\n') + '\n');
     expect(csvOptions().skipLines).toBe(0);
     expect(get(linkSourceHeader)).toEqual(['nom', 'prenom']);
-    component.$destroy();
+    unmount();
   });
 
   // BUG: skipLines counts every line of the first 10 whose raw column count
@@ -242,8 +244,8 @@ describe('LinkSampleTable: file sniffing and preview', () => {
   });
 
   it('LK-044 lists mapped columns first (in field order) and greys unmapped ones', async () => {
-    const { container, component } = await parse(sevenRows, { fields: fields() });
-    component.$set({ fields: fields({ lastName: 'c', firstName: 'b' }) });
+    const { container, rerender } = await parse(sevenRows, { fields: fields() });
+    await rerender({ fields: fields({ lastName: 'c', firstName: 'b' }) });
     await flush();
     expect(tileHeaders(container)).toEqual(['c', 'b', 'a', 'd']);
     const inactive = tiles(container).map(t => t.querySelector('table').classList.contains('rf-inactive'));
@@ -256,8 +258,8 @@ describe('LinkSampleTable: file sniffing and preview', () => {
   // fails, and the column is also excluded from the unmapped list: a column
   // mapped to a death date disappears from the preview.
   it.fails('LK-044 keeps a column mapped to the death date in the preview', async () => {
-    const { container, component } = await parse(sevenRows, { fields: fields() });
-    component.$set({ fields: fields({ lastName: 'a', deathDate: 'd' }) });
+    const { container, rerender } = await parse(sevenRows, { fields: fields() });
+    await rerender({ fields: fields({ lastName: 'a', deathDate: 'd' }) });
     await flush();
     expect(tileHeaders(container)).toContain('d');
   });

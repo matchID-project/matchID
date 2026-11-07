@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
-import { flush } from 'svelte/internal';
+import { flushSync as flush } from 'svelte';
 
 // AlgoDetails (embedded in a FAQ section) calls the backend compare API.
 vi.mock('../../../src/components/tools/runRequest.js', async (importOriginal) => ({
@@ -458,8 +458,9 @@ describe('Info (FAQ / about)', () => {
       const iframe = content.querySelector('iframe');
       expect(iframe.getAttribute('src')).toBe('https://matchid.io/link-api');
       expect(iframe.getAttribute('title')).toBe('documentation de l\'api');
-      expect(iframe.getAttribute('style')).toContain('margin-top:-450px');
-      expect(iframe.getAttribute('style')).toContain('margin-bottom:-1000px');
+      // parsed declarations (Svelte 5 serialises the style attribute differently)
+      expect(iframe.style.marginTop).toBe('-450px');
+      expect(iframe.style.marginBottom).toBe('-1000px');
     });
 
     it('IN-097 "Algorithme de rapprochement d\'identités" embeds AlgoDetails, which fires a compare request', async () => {

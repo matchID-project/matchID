@@ -39,7 +39,7 @@ describe('ResultsHeader', () => {
 
   it('SR-067 is hidden without trigger, before the first search (except agg/geo) and for a single error result', async () => {
     const { container } = render(ResultsHeader);
-    expect(container.innerHTML).toBe('');
+    expect(container.innerHTML.replace(/<!---->/g, '')).toBe(''); // Svelte 5 keeps empty <!----> block anchors
     setInput(stores, { fullText: 'dupont' });
     await Promise.resolve();
     expect(container.querySelector('table')).toBeNull();

@@ -36,7 +36,7 @@ describe('SortInput', () => {
   it('SR-189 the sort panel is hidden unless sortInputDisplay is set', async () => {
     stores.sortInputDisplay.set(false);
     const { container } = render(SortInput);
-    expect(container.innerHTML).toBe('');
+    expect(container.innerHTML.replace(/<!---->/g, '')).toBe(''); // Svelte 5 keeps empty <!----> block anchors
     stores.sortInputDisplay.set(true);
     await waitFor(() => expect(screen.getByText('clés de tri')).toBeTruthy());
   });

@@ -73,9 +73,9 @@ describe('Icon', () => {
 
   it('IN-193 renders nothing when icon is falsy', () => {
     const { container } = render(Icon, { icon: '' });
-    expect(container.innerHTML).toBe('');
+    expect(container.innerHTML.replace(/<!---->/g, '')).toBe(''); // Svelte 5 keeps empty <!----> block anchors
     const { container: none } = render(Icon);
-    expect(none.innerHTML).toBe('');
+    expect(none.innerHTML.replace(/<!---->/g, '')).toBe(''); // Svelte 5 keeps empty <!----> block anchors
   });
 
   it('IN-031 / IN-194 circleText adds an IconDecorator around the icon', () => {

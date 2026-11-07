@@ -106,7 +106,9 @@ describe('CO-088 module / nomodule loader', () => {
 
   it('CO-088 index.html links the extracted component CSS of the module build', () => {
     expect(indexHtml).toContain("href='/build/module/bundle.css'");
-    expect(rollupConfig).toMatch(/css\.write\('bundle\.css'\)/);
+    // rollup-plugin-svelte 7 emits the component CSS, gathered into bundle.css
+    expect(rollupConfig).toMatch(/emitCss: true/);
+    expect(rollupConfig).toMatch(/bundleCss\('bundle\.css'\)/);
   });
 });
 
