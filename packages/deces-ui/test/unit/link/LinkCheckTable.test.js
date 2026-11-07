@@ -169,6 +169,18 @@ describe('LinkCheckTable (validation tables)', () => {
     await waitFor(() => expect(scoreRows(table).map(tr => tr.classList.contains('rf-inactive'))).toEqual([true, true, false, false]));
   });
 
+  it('LK-134 a row of the "validées" table can be selected (shared selection) while rows remain to validate', async () => {
+    setResults();
+    render(LinkCheck);
+    await waitFor(() => expect(document.querySelectorAll('table[style*="border-right"]')).toHaveLength(2));
+    const checkedTable = document.querySelectorAll('table[style*="border-right"]')[1];
+    const row = () => [...checkedTable.querySelectorAll('tr')][1];
+    await fireEvent.click(row().querySelector('td'));
+    await waitFor(() => expect(row().classList.contains('rf-inactive')).toBe(false));
+    const masterRows = [...document.querySelectorAll('table[style*="border-right"]')[0].querySelectorAll('tr')].slice(1);
+    expect(masterRows.every(tr => tr.classList.contains('rf-inactive'))).toBe(true);
+  });
+
   it('LK-135 selecting a row POSTs /compare with explain and shows the explanation as cell title', async () => {
     setResults();
     const table = renderTable();
