@@ -10,9 +10,36 @@ import { generateSW } from 'rollup-plugin-workbox';
 
 const production = !process.env.ROLLUP_WATCH;
 
+// Concatenate the component CSS emitted by rollup-plugin-svelte 7 (one
+// virtual `<Component>.css` import per component) into a single
+// `bundle.css` asset, sorted by file path like rollup-plugin-svelte 6 did
+// with its former `css` option. Kept in-house to avoid a new dependency.
+function bundleCss(fileName) {
+	const styles = new Map();
+	return {
+		name: 'deces-ui:bundle-css',
+		transform(code, id) {
+			if (!id.endsWith('.css')) return null;
+			styles.set(id, code);
+			return { code: '', map: { mappings: '' } };
+		},
+		generateBundle() {
+			const source = [...styles.keys()].sort().map(id => styles.get(id)).join('\n');
+			this.emitFile({ type: 'asset', fileName, source });
+		}
+	};
+}
+
 const options = {
 	onwarn: function (warning) {
         if (warning.code === 'THIS_IS_UNDEFINED') {
+			return;
+		}
+		// The Svelte 5 runtime has internal import cycles (harmless). Their
+		// paths contain "error-handling.js", which the Dockerfile build step
+		// would take for a build error (it greps the log for "error").
+		if (warning.code === 'CIRCULAR_DEPENDENCY'
+			&& warning.cycle.every(id => /(^|\/)node_modules\/svelte\//.test(id))) {
 			return;
 		}
 		console.error(warning.message);
@@ -22,14 +49,15 @@ const options = {
 			targets: [{ src: 'src/components/views', dest: 'src/components/tools/icons.js' }]
 		}),
 		svelte({
-			// enable run-time checks when not in production
-			dev: !production,
+			compilerOptions: {
+				// enable run-time checks when not in production
+				dev: !production
+			},
 			// we'll extract any component CSS out into
 			// a separate file — better for performance
-			css: css => {
-				css.write('bundle.css');
-			}
+			emitCss: true
 		}),
+		bundleCss('bundle.css'),
 		replace({
 			// you're right, you shouldn't be injecting this
 			// into a client script :)
@@ -54,6 +82,7 @@ const options = {
 		// https://github.com/rollup/plugins/tree/master/packages/commonjs
 		resolve({
 			browser: true,
+			exportConditions: ['svelte'],
 			dedupe: importee => importee === 'svelte' || importee.startsWith('svelte/')
 		}),
 		commonjs(),
