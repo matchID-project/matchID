@@ -10,8 +10,3 @@
 # already in storage is then kept as is (same name, same records).
 #
 # <file in storage, without .gz> <INSEE archive>
-
-# 2026-10-05: the data.gouv resource titled deces-2026-m09.txt serves
-# deces-2025-m09.txt (same sha1 8eb03b35, deaths of September 2025).
-# Reported in https://www.data.gouv.fr/fr/datasets/fichier-des-personnes-decedees/discussions/?discussion_id=6ac496085fc76144658f417d
-deces-2026-m09.txt Deces_2026_M09.zip
