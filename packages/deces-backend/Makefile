@@ -304,28 +304,33 @@ ${WIKIDATA_LINKS}:
 	@set -euo pipefail; \
 	echo "downloading wikidata and wikipedia links";\
 	mkdir -p ${DATA_DIR};\
-	attempts=5; ret=1; \
-	while [ "$$attempts" -gt 0 ]; do \
-		TMP_WIKIDATA_JSON=$$(mktemp "${DATA_DIR}/wikidata.XXXXXX.json"); \
-		if curl --retry 5 --retry-all-errors -sS -f -G 'https://query.wikidata.org/sparql' --header "Accept: application/json" --data-urlencode query="\
-			select ?sitelink ?person ?personDescription ?img ?id where {\
-				?person wdt:P9058 ?id.\
-				OPTIONAL { ?person wdt:P18 ?img. }\
-				OPTIONAL { ?sitelink schema:isPartOf <https://fr.wikipedia.org/>;\
-				  schema:about ?person;}\
-				OPTIONAL { ?person schema:description ?personDescription. FILTER(LANG(?personDescription) = 'fr') }\
-			}" |\
-			jq -ce '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
-			> "$$TMP_WIKIDATA_JSON"; then \
-			mv "$$TMP_WIKIDATA_JSON" ${WIKIDATA_LINKS}; \
-			ret=0; \
-			break; \
-		fi; \
-		rm -f "$$TMP_WIKIDATA_JSON"; \
-		attempts=$$((attempts - 1)); \
-		if [ "$$attempts" -gt 0 ]; then echo "retrying wikidata links download ($$attempts left)"; sleep 5; fi; \
+	TMP_WIKIDATA_DIR=$$(mktemp -d); \
+	i=0; \
+	for re in '^[A-H]' '^[I-P]' '^[Q-X]' '^[YZa-f]' '^[g-n]' '^[o-v]' '^[w-z0-3]' '^[4-9_-]'; do \
+		i=$$((i + 1)); attempts=5; ok=0; \
+		while [ "$$attempts" -gt 0 ]; do \
+			if curl --retry 5 --retry-all-errors -sS -f -G 'https://query.wikidata.org/sparql' --user-agent 'matchID/1.0 (https://github.com/matchID-project/matchID)' --header "Accept: application/json" --data-urlencode query="\
+				select ?sitelink ?person ?personDescription ?img ?id where {\
+					?person wdt:P9058 ?id.\
+					FILTER(REGEX(?id, '$$re'))\
+					OPTIONAL { ?person wdt:P18 ?img. }\
+					OPTIONAL { ?sitelink schema:isPartOf <https://fr.wikipedia.org/>;\
+					  schema:about ?person;}\
+					OPTIONAL { ?person schema:description ?personDescription. FILTER(LANG(?personDescription) = 'fr') }\
+				}" |\
+				jq -ce '[ .results.bindings[] | {wikidata: .person.value, label: .personDescription.value, wikimedia: .img.value, wikipedia: .sitelink.value, id: .id.value} | with_entries( select( .value != null )) ]' \
+				> "$$TMP_WIKIDATA_DIR/part-$$i.json"; then \
+				ok=1; \
+				break; \
+			fi; \
+			attempts=$$((attempts - 1)); \
+			if [ "$$attempts" -gt 0 ]; then echo "retrying wikidata links partition $$re ($$attempts left)"; sleep 5; fi; \
+		done; \
+		if [ "$$ok" -ne 1 ]; then echo "wikidata links partition $$re failed" >&2; exit 1; fi; \
 	done; \
-	exit $$ret
+	jq -cs 'add' "$$TMP_WIKIDATA_DIR"/part-*.json > ${WIKIDATA_LINKS}; \
+	find "$$TMP_WIKIDATA_DIR" -name "part-*.json" -delete; rmdir "$$TMP_WIKIDATA_DIR"; \
+	echo "done: $$(jq length ${WIKIDATA_LINKS}) wikidata links"
 
 wikidata-src: ${WIKIDATA_SRC}
 
