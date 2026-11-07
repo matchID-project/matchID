@@ -11,7 +11,7 @@
                         <li
                             class="rf-href rf-pagination__item--prev rf-pagination__item"
                             title="page {$current-1}"
-                            on:click|preventDefault={goTo($current-1)}
+                            on:click|preventDefault={() => goTo($current-1)}
                         >
                             <a
                                 class="rf-pagination__link"
@@ -28,7 +28,7 @@
                             <li
                                 class="rf-href rf-pagination__item {$current === page ? "rf-pagination__item--active" : ""} rf-pagination__item--from-md"
                                 title="page {page}"
-                                on:click|preventDefault={goTo(page)}
+                                on:click|preventDefault={() => goTo(page)}
                             >
                                 <a
                                     class="rf-pagination__link"
@@ -46,7 +46,7 @@
                         <li
                             class="rf-href rf-pagination__item--next rf-pagination__item"
                             title="page {$current+1}"
-                            on:click|preventDefault={goTo($current+1)}
+                            on:click|preventDefault={() => goTo($current+1)}
                         >
                             <a
                                 class="rf-pagination__link"

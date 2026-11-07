@@ -29,7 +29,7 @@
 							on:dragleave={() => hovering = false}
 							class:rf-hide={!isActive(item)}
 							on:dragstart={event => dragstart(event, status[0], item, index)}
-							on:click={nextStatus(item, index)}
+							on:click={() => nextStatus(item, index)}
 							animate:flip={{ duration: 300 }}
 							id={item}
 						>
