@@ -21,10 +21,9 @@
         <span class="rf-padding-2N">
             <strong>Distribution des scores</strong>
         </span>
-        {#if (Bar && scoresData)}
-            <svelte:component
+        {#if scoresData}
+            <Bar
                 style="max-height: 250px;"
-                this={Bar}
                 data={scoresData}
                 options={chartOptions}
             />
@@ -66,10 +65,7 @@
 </div>
 
 <script>
-    let Bar;
-    import('svelte-chartjs/src/Bar.svelte').then(module => {
-        Bar = module.default;
-    });
+    import Bar from './Bar.svelte';
     import StatsTile from './StatsTile.svelte';
     import { linkResults, linkCompleteResults, linkValidations, linkOptions } from '../tools/stores.js';
     import { smartNumber } from '../tools/stats.js';
@@ -140,10 +136,9 @@
         }
         return values.map(x => `${Math.floor(range*parseFloat(x))/range}`)
             .reduce((a,b) => {
-                if (typeof(a)!=='object') {a = {}};
-                if (!a[b]) {a[b] = 1} else {a[b] = a[b] + 1};
+                a[b] = (a[b] || 0) + 1;
                 return a;
-            });
+            }, {});
     }
 
     $: if ($linkResults && $linkResults.rows) {
