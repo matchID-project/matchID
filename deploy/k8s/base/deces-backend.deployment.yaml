@@ -79,13 +79,13 @@ spec:
             - name: BACKEND_CHUNK_CONCURRENCY
               value: "2"
             - name: BACKEND_TMPFILE_PERSISTENCE
-              value: "3000"
+              value: "3600000"
             - name: BACKEND_TMP_DURATION
-              value: "3600"
+              value: "14400"
             - name: BACKEND_TMP_MAX
-              value: "5"
+              value: "150"
             - name: BACKEND_TMP_WINDOW
-              value: "60"
+              value: "86400"
             # Reference data baked into the image by the deces-backend build
             # (Dockerfile `COPY ${DATA_DIR} ./data` step). Pointing at
             # /dev/null instead silently returns empty arrays at import time

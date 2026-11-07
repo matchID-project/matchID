@@ -1,7 +1,7 @@
 #######################
 # Step 1: Base target #
 #######################
-FROM node:20-alpine3.22 AS base
+FROM node:24.22.2-alpine3.24 AS base
 ARG http_proxy
 ARG https_proxy
 ARG no_proxy
@@ -43,12 +43,12 @@ ARG NPM_VERBOSE
 ENV APP_VERSION ${app_ver}
 ENV NPM_CONFIG_LOGLEVEL debug
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 RUN if [ -z "${NPM_VERBOSE}" ]; then\
-      npm install;  \
+      npm ci;  \
     else \
-      npm install --verbose; \
+      npm ci --verbose; \
     fi
 
 #RUN if [ -z "${NPM_FIX}" ]; then \
@@ -85,7 +85,7 @@ RUN npm run build --verbose && tar czvf dist.tar.gz dist
 ###############################
 # Step 4: "production" target #
 ###############################
-FROM node:20-alpine3.22 AS production
+FROM node:24.22.2-alpine3.24 AS production
 ARG app_path
 ARG port
 ARG app_ver
@@ -95,12 +95,12 @@ ENV NODE_ENV=production
 
 WORKDIR /$app_path
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY tests ./tests
 COPY ${DATA_DIR} ./data
 
 # Install production dependencies and clean cache
-RUN npm install --production && \
+RUN npm ci --omit=dev && \
     npm config set audit-level high && \
     npm audit --json --registry=https://registry.npmjs.org || ${NPM_AUDIT_DRY_RUN:-false} && \
     npm cache clean --force

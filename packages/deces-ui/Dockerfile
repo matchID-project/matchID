@@ -1,7 +1,7 @@
 #######################
 # Step 1: Base target #
 #######################
-FROM node:22.22.2-alpine3.23 as base
+FROM node:24.22.2-alpine3.24 as base
 ARG http_proxy
 ARG https_proxy
 ARG no_proxy
@@ -45,15 +45,15 @@ RUN if [ ! -z "$http_proxy" ] ; then \
 
 RUN [ -z "${NPM_LATEST}" ] || npm i npm@latest -g
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 RUN package_version="${APP_VERSION}" ; \
     printf '%s\n' "${package_version}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$$' || package_version="0.0.0-${package_version}" ; \
     npm --no-git-tag-version version "${package_version}"
 RUN if [ -z "${NPM_VERBOSE}" ]; then\
-      npm install;  \
+      npm ci;  \
     else \
-      npm install --verbose; \
+      npm ci --verbose; \
     fi
 
 # set warn level to high, to avoid unreachable warning

@@ -98,6 +98,7 @@ jobs:
     if: >-
       ${{
         needs.changes.outputs.artifact_matchid_backend == 'true' ||
+        needs.changes.outputs.artifact_matchid_frontend == 'true' ||
         needs.changes.outputs.integration_stack == 'true'
       }}
     runs-on: ubuntu-latest
@@ -173,7 +174,7 @@ jobs:
         run: |
           make -C packages/dataprep-frontend version-files
           make -C packages/dataprep-frontend version
-          make -C packages/dataprep-frontend frontend-docker-check GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev || make -C packages/dataprep-frontend build backend-docker-check up GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev
+          make -C packages/dataprep-frontend frontend-docker-check GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev || make -C packages/dataprep-frontend build backend-docker-check up GIT_BRANCH=dev GIT_BACKEND_BRANCH=dev BACKEND="${BACKEND}"
 
   deces-backend-build:
     name: deces-backend build docker image
