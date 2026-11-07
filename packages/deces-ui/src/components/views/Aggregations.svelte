@@ -475,6 +475,13 @@
       if (reader) {
         const {done, value} = await reader.read();
         if (done) {
+          // Keep the rows buffered so far: the shared bucket total can be
+          // overwritten by an overlapping refresh (SR-197), so the early exit
+          // below may never fire before the stream ends.
+          if (tempChunk.length) {
+            rawData[s] = [...rawData[s], ...tempChunk];
+            tempChunk = [];
+          }
           break;
         }
         parsedChunk = decoder.decode(value).split("\n").filter(x => x);

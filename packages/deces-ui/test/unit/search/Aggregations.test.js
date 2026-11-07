@@ -177,6 +177,21 @@ describe('Aggregations', () => {
     expect(chartOf('pie')[0].data.datasets[0].data).toEqual([60, 40]);
   });
 
+  // The bucket total is shared by concurrent refreshes and overwritten by each
+  // response (SR-197), so a stream can end before the parsed row count reaches
+  // it: the rows buffered so far must still be kept (the sex tile disappeared
+  // in e2e when two refreshes overlapped on load).
+  it('SR-283 keeps the parsed rows when the stream ends before the bucket total', async () => {
+    serveAggs(async (agg) => agg === 'sex'
+      ? new Response(csv.sex, { headers: { 'total-results-sex': '1000' } })
+      : undefined);
+    render(Aggregations);
+    stores.triggerAggregations.set(true);
+    await waitAllTiles();
+    await waitFor(() => expect(chartOf('pie')).toHaveLength(1));
+    expect(chartOf('pie')[0].data.datasets[0].data).toEqual([60, 40]);
+  });
+
   describe('tiles', () => {
     beforeEach(async () => {
       stores.totalResults.set(100);
