@@ -114,7 +114,7 @@ export const goTo =  (r) => {
             routes[r.path].cb(query);
         }
     } else {
-        goTo({path: 'notFound'})
+        goTo({path: '/notFound'})
     }
 };
 
