@@ -83,6 +83,17 @@ test.describe('result card, /id page and download (SR)', () => {
   // an HTML 400 from nginx; runRequest() turns it into an error "person",
   // ShowId mounts a ResultCard with it and both crash on `result.name.last`
   // (see unit SR-087): the page stays on "Recherche en cours" forever.
+  // Current behaviour, frozen (same root cause as IN-068 and unit SR-087).
+  test('SR-214 (current behaviour) a malformed id gets a 400 and the page stays on "Recherche en cours"', async ({ page }) => {
+    const idResponse = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/api/v1/id/thisIdDoesNotExist0000'));
+    const crash = page.waitForEvent('pageerror', error => /reading 'last'/.test(error.message));
+    await page.goto('/id/thisIdDoesNotExist0000');
+    expect((await idResponse).status()).toBe(400);
+    await crash;
+    await expect(page.locator('.rf-wait-container')).toContainText('Recherche en cours');
+    await expect(page.getByText('Oups... pas de résultats pour cet identifiant')).toHaveCount(0);
+  });
+
   test.fixme('SR-214 a malformed id shows "Oups... pas de résultats pour cet identifiant"', async ({ page }) => {
     await page.goto('/id/thisIdDoesNotExist0000');
     await expect(page.getByText('Oups... pas de résultats pour cet identifiant')).toBeVisible();
