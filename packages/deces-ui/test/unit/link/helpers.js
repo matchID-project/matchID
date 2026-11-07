@@ -88,3 +88,20 @@ export const iconNames = (root, icons) => {
   const byPath = Object.fromEntries(Object.entries(icons).map(([name, svg]) => [pathOf(svg), name]));
   return [...root.querySelectorAll('svg path')].map(p => byPath[p.getAttribute('d')]);
 };
+
+// LinkCheckTable.svelte measures `#table-content` in a 500 ms timer started on
+// mount, without checking that it is still mounted (see the LK-143 BUG test).
+// Tests usually unmount it sooner: capture that timer and run it while the
+// table is still in the DOM (call the returned flush before cleanup).
+export const captureTableHeightTimer = () => {
+  const pending = [];
+  const realSetTimeout = globalThis.setTimeout;
+  vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn, ms, ...args) => {
+    if (ms === 500 && typeof fn === 'function' && String(fn).includes('table-content')) {
+      pending.push(fn);
+      return 0;
+    }
+    return realSetTimeout(fn, ms, ...args);
+  });
+  return () => pending.splice(0).forEach(fn => fn());
+};

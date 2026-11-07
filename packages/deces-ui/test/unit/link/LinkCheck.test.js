@@ -22,7 +22,7 @@ const {
   linkResults, linkCompleteResults, linkValidations, linkOptions, linkMapping, linkSourceHeader,
   linkFileName, linkCompleted, linkWaiter
 } = await import('../../../src/components/tools/stores.js');
-const { resetLinkStores, stubFetch, flush } = await import('./helpers.js');
+const { resetLinkStores, stubFetch, flush, captureTableHeightTimer } = await import('./helpers.js');
 const { buildResults, mapping, sourceHeader, col } = await import('./fixtures.js');
 
 const csvOptions = { sep: ';', quote: undefined, skipLines: 0, encoding: 'utf8', type: 'csv', dateFormat: 'dd/MM/yyyy' };
@@ -53,8 +53,10 @@ const captureDownloads = () => {
 };
 
 describe('LinkCheck (step 4: results, validation, downloads)', () => {
+  let flushTableHeight;
   beforeEach(() => {
     resetLinkStores();
+    flushTableHeight = captureTableHeightTimer();
     stubProps.length = 0;
     stubFetch({ 'POST /deces/api/v1/compare': { explain: {} } });
     HTMLCanvasElement.prototype.getContext = () => ({});
@@ -64,6 +66,7 @@ describe('LinkCheck (step 4: results, validation, downloads)', () => {
     window.history.replaceState({}, '', '/link');
   });
   afterEach(() => {
+    flushTableHeight();
     delete URL.createObjectURL;
     delete URL.revokeObjectURL;
   });

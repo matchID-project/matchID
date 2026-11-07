@@ -12,7 +12,7 @@ const {
   linkResults, linkCompleteResults, linkValidations, linkOptions, linkMapping, linkSourceHeader, linkFileName
 } = await import('../../../src/components/tools/stores.js');
 const { useLocalSync } = await import('../../../src/components/tools/useLocalStorage.js');
-const { resetLinkStores, stubFetch, jsonResponse, flush } = await import('./helpers.js');
+const { resetLinkStores, stubFetch, jsonResponse, flush, captureTableHeightTimer } = await import('./helpers.js');
 const { buildResults, mapping, sourceHeader, resultsHeader, col } = await import('./fixtures.js');
 
 const validationsFor = (results, threshold = 0.85) => results.rows.map(group => group.map(r =>
@@ -40,12 +40,17 @@ const text = () => document.body.textContent.replace(/\s+/g, ' ');
 
 describe('LinkCheckTable (validation tables)', () => {
   let fetchMock;
+  let flushTableHeight;
   beforeEach(() => {
     resetLinkStores();
     idbData.clear();
+    flushTableHeight = captureTableHeightTimer();
     fetchMock = stubFetch({ 'POST /deces/api/v1/compare': { explain: { lastName: 'exact match' } } });
   });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    flushTableHeight();
+  });
 
   it('LK-128 renders nothing when no row passes the filter; the title shows the count and the action', async () => {
     setResults();
@@ -332,6 +337,7 @@ describe('LinkCheckTable (validation tables)', () => {
   });
 
   it('LK-143 syncs the score column header height with the data header after 500 ms', async () => {
+    vi.mocked(globalThis.setTimeout).mockRestore();
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     setResults();
     const table = renderTable();
@@ -341,6 +347,21 @@ describe('LinkCheckTable (validation tables)', () => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(42);
     await vi.advanceTimersByTimeAsync(500);
     expect(head.getAttribute('style')).toBe('height: 42px;');
+  });
+
+  // BUG: the 500 ms header measurement started on mount reads
+  // `document.getElementById('table-content')` without checking that the
+  // table is still mounted (nor which table owns that duplicated id): when the
+  // table is destroyed within 500 ms it throws "Cannot read properties of
+  // null (reading 'offsetHeight')".
+  it.fails('LK-143 unmounting the table within 500 ms does not throw', async () => {
+    vi.mocked(globalThis.setTimeout).mockRestore();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    setResults();
+    const { unmount } = render(LinkCheckTable, { sort: 'scoreDesc', master: true, actionTitle: 'à valider' });
+    await vi.advanceTimersByTimeAsync(0);
+    unmount();
+    expect(() => vi.advanceTimersByTime(500)).not.toThrow();
   });
 
   it('LK-144 persists validations to localStorage, or to IndexedDB (lazily) above 1 MB, and restores them', async () => {
