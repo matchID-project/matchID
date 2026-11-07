@@ -1,7 +1,7 @@
 {#if !$linkWaiter}
     {#if $linkResults}
         <div class="rf-container-fluid rf-text--center rf-padding-bottom-4N">
-            {#if (unCheckedLinks === 0) && (checkedLinks === 0)}
+            {#if noLinks}
                 <p>
                     <strong>
                         Aucune correspondance de personne décédée n'a été trouvée dans votre fichier.
@@ -96,6 +96,12 @@
     };
     let unCheckedLinks;
     let checkedLinks;
+    // Both counts come from the LinkCheckTable children through bind:size,
+    // set while the {#if} block below creates them. Svelte 5 (legacy mode)
+    // ignores writes to the dependencies of the block being rendered, so
+    // the block reads this reactive copy instead (re-run once the children
+    // are created), as Svelte 3 re-rendered on the binding.
+    $: noLinks = (unCheckedLinks === 0) && (checkedLinks === 0);
     let resultsGedcom;
 
     $: if ($linkOptions.csv && $linkOptions.csv.gedcom && $linkValidations) {
