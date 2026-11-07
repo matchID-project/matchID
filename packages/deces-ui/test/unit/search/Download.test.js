@@ -148,6 +148,8 @@ describe('Download', () => {
     expect(container.querySelector('[title^="téléchargement en cours"]').title).not.toContain('NaN');
   });
 
+  // Drives the 2 s throttle through Date.now() only: the progress tween keeps
+  // running on real animation frames (fake timers would mix two clocks).
   it('SR-225 above 5000 rows the progress is refreshed at most every 2 s', async () => {
     captureDownloads();
     let onProgress;
@@ -158,18 +160,19 @@ describe('Download', () => {
     const { container } = render(Download);
     await fireEvent.click(screen.getByTitle(idleTitle));
     await waitFor(() => expect(onProgress).toBeDefined(), afterTween);
-    vi.useFakeTimers({ now: new Date('2024-01-01T00:00:10Z') });
+    let clock = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => clock);
     const title = () => container.querySelector('[title^="téléchargement en cours"]').title;
     onProgress(xhrProgress(10000, '\n'.repeat(1000)));
-    await vi.advanceTimersByTimeAsync(600);
-    expect(title()).toBe('téléchargement en cours 10%');
+    await waitFor(() => expect(title()).toBe('téléchargement en cours 10%'), afterTween);
+    clock += 1000;
     onProgress(xhrProgress(10000, '\n'.repeat(5000)));
-    await vi.advanceTimersByTimeAsync(600);
+    // throttled: the progress target is not updated (a tween would start on the next frame)
+    await new Promise(resolve => setTimeout(resolve, 200));
     expect(title()).toBe('téléchargement en cours 10%');
-    await vi.advanceTimersByTimeAsync(1000);
+    clock += 1500;
     onProgress(xhrProgress(10000, '\n'.repeat(5000)));
-    await vi.advanceTimersByTimeAsync(600);
-    expect(title()).toBe('téléchargement en cours 50%');
+    await waitFor(() => expect(title()).toBe('téléchargement en cours 50%'), afterTween);
   });
 
   it('SR-226 a successful download saves the file deces-<VALUES>.csv', async () => {

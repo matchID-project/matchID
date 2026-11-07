@@ -115,8 +115,11 @@ test.describe('search results (SR)', () => {
   test.describe('mobile', () => {
     test.use({ viewport: { width: 375, height: 800 } });
 
-    test('SR-063 SR-086 SR-106 SR-184 mobile layout: scrollable table, hidden tools, cities and page numbers', async ({ page }) => {
+    test('SR-013 SR-063 SR-086 SR-106 SR-184 mobile layout: paddings, scrollable table, hidden tools, cities and page numbers', async ({ page }) => {
       await page.goto(manyResults);
+      const box = page.locator('div.rf-padding-left-1N--mobile', { has: page.locator('form') });
+      await expect(box).toHaveCSS('padding-left', '8px');
+      await expect(box).toHaveCSS('padding-right', '8px');
       await expect(summary(page)).toBeVisible();
       await expect(page.locator('#per-page')).toBeHidden();
       await expect(page.getByTitle('cliquez pour paramétrer le tri')).toBeHidden();

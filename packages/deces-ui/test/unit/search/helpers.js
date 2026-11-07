@@ -4,6 +4,21 @@
 import { vi } from 'vitest';
 import { get } from 'svelte/store';
 
+// Svelte 3 transitions and tweens compare the requestAnimationFrame timestamp
+// with window.performance.now(). In a reused Vitest worker, jsdom's frame
+// timestamps and the new window's performance clock have different origins,
+// so outros and tweens stall (or finish late) in every file but the first.
+// Hand the frames the window clock, as browsers do. Applied on import.
+const syncAnimationFrames = () => {
+  const original = window.requestAnimationFrame;
+  if (!original || original.srSynced) return;
+  const synced = (callback) => original.call(window, () => callback(window.performance.now()));
+  synced.srSynced = true;
+  window.requestAnimationFrame = synced;
+  globalThis.requestAnimationFrame = synced;
+};
+syncAnimationFrames();
+
 // A person as returned by the backend (see deces-backend/src/models/result.ts).
 export const person = (overrides = {}) => {
   const base = {

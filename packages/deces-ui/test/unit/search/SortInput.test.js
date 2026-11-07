@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent, createEvent, waitFor } from '@testing-library/svelte';
+// synchronises requestAnimationFrame timestamps (transitions)
+import './helpers.js';
 import { get } from 'svelte/store';
 
 const { default: SortInput } = await import('../../../src/components/views/SortInput.svelte');

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+// synchronises requestAnimationFrame timestamps (transitions)
+import './helpers.js';
 
 // GEDCOM views of the /link flow (LinkConfigure, LinkCheck).
 const { default: GedcomPersonCard } = await import('../../../src/components/views/GedcomPersonCard.svelte');

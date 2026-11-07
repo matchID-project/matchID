@@ -39,6 +39,15 @@ test.describe('geo and statistics views (SR)', () => {
       await expect(page.locator('.leaflet-birth-pane path.leaflet-interactive').first()).toBeAttached();
     });
 
+    test('SR-237 the marker size grows with the zoom', async ({ page }) => {
+      await page.goto(geoSearch);
+      const marker = page.locator('.leaflet-birth-pane path.leaflet-interactive').first();
+      await expect(marker).toBeAttached();
+      const before = Number(await marker.getAttribute('stroke-width'));
+      await page.locator('.leaflet-control-zoom-in').click();
+      await expect.poll(async () => Number(await page.locator('.leaflet-birth-pane path.leaflet-interactive').first().getAttribute('stroke-width'))).toBeGreaterThan(before);
+    });
+
     test('SR-238 SR-239 SR-240 hovering a marker previews the card, a click expands it', async ({ page }) => {
       await page.goto(geoSearch);
       const marker = page.locator('.leaflet-death-pane path.leaflet-interactive').first();

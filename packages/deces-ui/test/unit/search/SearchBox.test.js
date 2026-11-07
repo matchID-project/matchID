@@ -468,6 +468,20 @@ describe('SearchBox', () => {
     });
   });
 
+  describe('deep link', () => {
+    it('SR-280 a /search deep link restores the advanced canvas, the fields, the fuzzy flag and the view', async () => {
+      await search.URLSearchSubmit(new URLSearchParams('advanced=true&fuzzy=false&view=table&ln=dupont&dd=2020&ddep=33'));
+      const { container } = await renderBox();
+      expect(document.getElementById('q')).toBeNull();
+      expect(document.getElementById('ln').value).toBe('dupont');
+      expect(document.getElementById('dd').value).toBe('2020');
+      expect(document.getElementById('ddep').value).toBe('33');
+      expect(container.querySelector('strike').textContent.trim()).toBe('Recherche floue');
+      expect(get(stores.displayMode)).toBe('table');
+      expect(Object.values(get(stores.searchInput)).every(i => i.fuzzy === false)).toBe(true);
+    });
+  });
+
   describe('reactive re-submissions', () => {
     it('SR-048 changing the results per page re-runs the search after mount', async () => {
       await renderBox();

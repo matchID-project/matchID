@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+// synchronises requestAnimationFrame timestamps (transitions)
+import './helpers.js';
 
 const { default: Modal } = await import('../../../src/components/views/Modal.svelte');
 // APIKey.svelte is a real parent: `<Modal title="API Key" bind:show={showAPIKey}>`
