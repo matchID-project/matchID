@@ -10,7 +10,7 @@ Kapsule tenants owned by `rhanka/poc-k8s`.
 | Tier        | Cluster                                     | Overlay                  | Lifecycle                                     |
 | ----------- | ------------------------------------------- | ------------------------ | --------------------------------------------- |
 | **CI**      | k3s in GH Actions (or k3d if a local runner is free) | `overlays/local`         | Ephemeral per job — bring up, smoke, tear down |
-| **Dev**     | Scaleway Kapsule `poc` (shared, fr-par-2)   | `overlays/dev`           | Long-running tenant, namespace `matchid-dev`  |
+| **Dev**     | Shared poc-k8s cluster on OVH (BHS); `dev.deces.matchid.io` resolves there | `overlays/dev`           | Long-running tenant, namespace `matchid-dev`; deces-backend/ui scaled to zero by KEDA |
 | **Prod**    | Scaleway Kapsule prod tenant                | `overlays/prod`          | Stable release runtime, namespace `matchid-prod` |
 
 `test.deces.matchid.io` is retired as a CD target. Prod validation now happens
@@ -115,6 +115,21 @@ after the `deces-backend` and `deces-ui` image jobs finish, `deploy-dev-k8s`
 applies `overlays/dev/` to `matchid-dev` and smokes
 `dev.deces.matchid.io`. The legacy VM deploy for `dev-deces.matchid.io` is no
 longer part of CI.
+
+Since 2026-09-15 the platform scales `deces-backend` and `deces-ui` in
+`matchid-dev` to zero when idle (KEDA HTTP add-on, poc-k8s
+`tenants/matchid-dev/40-scale-to-zero.yaml`: `HTTPScaledObject` min 0 / max 1,
+300 s idle). The platform Ingress `keda/deces-s2z` routes the host to the KEDA
+interceptor, which wakes the Deployment on the first request (cold start
+~10-30 s). Elasticsearch and Redis stay always on. Consequences for the dev
+overlay and both dev deploy jobs:
+
+- the overlay removes `spec.replicas` from both Deployments: KEDA owns the
+  replica count, and a CI that sets it is reverted to 0 seconds later;
+- `deploy/k8s/scripts/smoke-scale-to-zero.sh` checks the applied image tags,
+  waits for the rollout, then smokes `/deces/api/v1/readiness` and `/` through
+  the public host with retries, which wakes the pods. A pod port-forward or a
+  `wait --for=condition=Available` cannot prove a scaled-to-zero deploy.
 
 `.github/workflows/cd-k8s.yml` remains available for dev K8s manifest changes
 and manual dev deploys with tenant-scoped kubeconfigs:

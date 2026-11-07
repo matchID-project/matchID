@@ -32,6 +32,10 @@ patches:
     target:
       kind: Deployment
       name: deces-ui
+  - path: scale-to-zero.replicas.yaml
+    target:
+      kind: Deployment
+      name: deces-(backend|ui)
   - path: redis.dev.yaml
     target:
       kind: StatefulSet

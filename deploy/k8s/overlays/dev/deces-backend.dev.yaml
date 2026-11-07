@@ -3,7 +3,6 @@ kind: Deployment
 metadata:
   name: deces-backend
 spec:
-  replicas: 1
   template:
     spec:
       containers:

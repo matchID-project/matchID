@@ -154,27 +154,16 @@ jobs:
           set -euo pipefail
           kubectl -n "$NAMESPACE" rollout status statefulset/redis --timeout=10m
           kubectl -n "$NAMESPACE" rollout status statefulset/elasticsearch --timeout=10m
-          kubectl -n "$NAMESPACE" wait --for=condition=Available --timeout=10m \
-            deploy/deces-backend deploy/deces-ui
 
+      # deces-backend and deces-ui are scaled to zero by the platform KEDA HTTP
+      # add-on (poc-k8s tenants/matchid-dev/40-scale-to-zero.yaml): an idle pod
+      # is stopped seconds after CI starts it. Check the applied templates, then
+      # wake and smoke them through the public host rather than a port-forward.
       - name: Smoke readiness
         run: |
           set -euo pipefail
-          traefik_lb="$(
-            kubectl -n traefik get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            kubectl -n kube-system get svc traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null ||
-            true
-          )"
-          if [ -n "$traefik_lb" ]; then
-            curl -fsSk -m 10 -H "Host: $HOSTNAME" \
-              "https://$traefik_lb/deces/api/v1/readiness"
-          else
-            kubectl -n "$NAMESPACE" port-forward svc/deces-backend 8080:8080 &
-            pf=$!
-            trap 'kill "$pf" 2>/dev/null || true' EXIT
-            sleep 5
-            curl -fsS -m 10 http://localhost:8080/deces/api/v1/readiness
-          fi
+          bash deploy/k8s/scripts/smoke-scale-to-zero.sh \
+            "$NAMESPACE" "$HOSTNAME" "$BACKEND_IMAGE_TAG" "$UI_IMAGE_TAG"
 
       - name: Diagnostics on failure
         if: failure() || cancelled()
