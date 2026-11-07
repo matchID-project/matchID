@@ -1,7 +1,7 @@
 #######################
 # Step 1: Base target #
 #######################
-FROM node:20-alpine3.22 AS base
+FROM node:24.22.2-alpine3.24 AS base
 ARG http_proxy
 ARG https_proxy
 ARG no_proxy
@@ -85,7 +85,7 @@ RUN npm run build --verbose && tar czvf dist.tar.gz dist
 ###############################
 # Step 4: "production" target #
 ###############################
-FROM node:20-alpine3.22 AS production
+FROM node:24.22.2-alpine3.24 AS production
 ARG app_path
 ARG port
 ARG app_ver
