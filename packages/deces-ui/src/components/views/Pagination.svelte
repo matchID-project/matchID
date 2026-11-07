@@ -21,7 +21,7 @@
                             </a>
                         </li>
                     {/if}
-                    {#each pages as page}
+                    {#each pages as page, i}
                         {#if page === '.'}
                             <li class="rf-pagination__item rf-pagination__item--from-md">&hellip;</li>
                         {:else}
@@ -32,7 +32,7 @@
                             >
                                 <a
                                     class="rf-pagination__link"
-                                    href={pageLink(page)}
+                                    href={pageLinks[i]}
                                     aria-label="page {page}"
                                 >
                                     {page}
@@ -73,6 +73,9 @@
 
     $: query = searchString($searchInput);
     $: pages = computePages($current, $totalPages);
+    // pageLink() reads location: Svelte 3 re-ran it for every item whenever
+    // `pages` was reassigned, Svelte 5 only for the items whose value changed.
+    $: pageLinks = (pages || []).map(pageLink);
     $: from = 1 + ($current - 1) * $resultsPerPage;
     $: to = Math.min($totalResults, $current * $resultsPerPage);
 
