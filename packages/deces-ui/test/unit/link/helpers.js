@@ -80,3 +80,11 @@ export const makeDataTransfer = ({ items, files, data = {} } = {}) => {
 };
 
 export const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+// Names of the iconify icons rendered by Icon.svelte inside `root`, matched on
+// their SVG path (`icons` comes from src/components/tools/icons.js).
+export const iconNames = (root, icons) => {
+  const pathOf = (svg) => (svg.match(/ d="([^"]+)"/) || [])[1];
+  const byPath = Object.fromEntries(Object.entries(icons).map(([name, svg]) => [pathOf(svg), name]));
+  return [...root.querySelectorAll('svg path')].map(p => byPath[p.getAttribute('d')]);
+};

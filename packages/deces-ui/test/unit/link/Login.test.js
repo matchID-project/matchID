@@ -48,7 +48,7 @@ describe('Login modal (Login.svelte)', () => {
     await fireEvent.click(entry());
     expect(modal().querySelector('h4').textContent).toBe('Connexion');
     await fireEvent.click(entry());
-    await waitFor(() => expect(modal()).toBeNull());
+    await waitFor(() => expect(modal()).toBeNull(), { timeout: 3000 }); // fade + slide outros
     user.set('bob@example.org');
     await flush();
     expect(entry().textContent.trim()).toBe('Se déconnecter');
@@ -307,11 +307,11 @@ describe('Login modal (Login.svelte)', () => {
     const { component } = render(Login, { showLogin: true });
     expect(modal()).not.toBeNull();
     await fireEvent.click(modal().querySelector('div[style*="top: 26px"]'));
-    await waitFor(() => expect(modal()).toBeNull());
+    await waitFor(() => expect(modal()).toBeNull(), { timeout: 3000 }); // fade + slide outros
     component.$set({ showLogin: true });
     await flush();
     expect(modal()).not.toBeNull();
     await fireEvent.keyDown(modal().querySelector('div[style*="top: 26px"]'), { key: 'Escape' });
-    await waitFor(() => expect(modal()).toBeNull());
+    await waitFor(() => expect(modal()).toBeNull(), { timeout: 3000 }); // fade + slide outros
   });
 });
