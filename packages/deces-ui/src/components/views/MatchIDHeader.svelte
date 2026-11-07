@@ -469,7 +469,7 @@
                                             class:rf-menu__item--active={!modal && ($route.path === '/stats')}
                                         >
                                             <a
-                                                href="/edits"
+                                                href="/stats"
                                                 title="Statistiques"
                                                 class="rf-link rf-href rf-fi-question-line rf-link--icon-left"
                                                 on:click|preventDefault={() => goToPage('stats')}
