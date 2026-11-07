@@ -3,17 +3,21 @@
 const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
-const { dropFile } = require('../helpers/link-session');
 
-const csv = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'wikidata-deces-2020-m01.csv'), 'utf8');
+const csvFile = path.join(__dirname, '..', 'fixtures', 'wikidata-deces-2020-m01.csv');
+const csv = fs.readFileSync(csvFile, 'utf8');
 const header = csv.split(/\r?\n/)[0];
 const tileHeaders = (page) => page.locator('div[draggable="true"] th');
 
 test.describe('bulk matching configuration (/link)', () => {
-  test('LK-063 / LK-041 / LK-086 the options panel re-parses the file and persists the options', async ({ page }) => {
+  test('LK-026 / LK-063 / LK-041 / LK-086 the options panel re-parses the file and persists the options', async ({ page }) => {
     let tiles = 0;
     await page.goto('/link');
-    await dropFile(page, 'wikidata.csv', csv);
+    await test.step('LK-026 a click on the dropzone opens the file chooser', async () => {
+      const chooser = page.waitForEvent('filechooser');
+      await page.locator('div.rf-callout').first().click();
+      await (await chooser).setFiles(csvFile);
+    });
     await expect(tileHeaders(page).filter({ hasText: /^firstnameLabel$/ })).toBeVisible();
     // a column auto-mapped to the death date is not displayed (LK-044 BUG)
     tiles = await tileHeaders(page).count();
