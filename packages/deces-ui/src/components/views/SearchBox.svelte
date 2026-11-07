@@ -116,8 +116,11 @@
 
   $: inputsKeys = Object.keys($searchInput);
 
-  $: if (isMounted) { handleSubmit($resultsPerPage) };
-  $: if (isMounted || $accessToken) { handleSubmit($sortInput) };
+  // Resubmit when the page size or the sort changes. handleSubmit() takes no
+  // argument: the store referenced in each block is its trigger, while the
+  // stores read inside handleSubmit() are deliberately not dependencies.
+  $: if (isMounted) { $resultsPerPage; handleSubmit() };
+  $: if (isMounted || $accessToken) { $sortInput; handleSubmit() };
 
   let isActive;
 
