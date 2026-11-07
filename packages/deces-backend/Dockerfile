@@ -43,12 +43,12 @@ ARG NPM_VERBOSE
 ENV APP_VERSION ${app_ver}
 ENV NPM_CONFIG_LOGLEVEL debug
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 
 RUN if [ -z "${NPM_VERBOSE}" ]; then\
-      npm install;  \
+      npm ci;  \
     else \
-      npm install --verbose; \
+      npm ci --verbose; \
     fi
 
 #RUN if [ -z "${NPM_FIX}" ]; then \
@@ -95,12 +95,12 @@ ENV NODE_ENV=production
 
 WORKDIR /$app_path
 
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY tests ./tests
 COPY ${DATA_DIR} ./data
 
 # Install production dependencies and clean cache
-RUN npm install --production && \
+RUN npm ci --omit=dev && \
     npm config set audit-level high && \
     npm audit --json --registry=https://registry.npmjs.org || ${NPM_AUDIT_DRY_RUN:-false} && \
     npm cache clean --force

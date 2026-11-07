@@ -6,6 +6,7 @@ Dockerfile
 Makefile
 nginx
 package.json
+package-lock.json
 public
 rollup.config.js
 src
