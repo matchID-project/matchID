@@ -556,6 +556,9 @@ jobs:
           EOF
             kubectl kustomize "$overlay_dir" >/tmp/matchid-prod-k8s-rendered.yaml
             kubectl apply -f /tmp/matchid-prod-k8s-rendered.yaml
+            # An OrderedReady StatefulSet stays blocked on a non-ready pod of the
+            # previous revision: recreate it at the applied revision.
+            bash deploy/k8s/scripts/recover-stuck-statefulset.sh "$NAMESPACE" elasticsearch
           else
             kubectl -n "$NAMESPACE" apply -f deploy/k8s/overlays/prod/elasticsearch-restore.job.yaml
           fi
