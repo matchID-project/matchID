@@ -53,7 +53,11 @@ spec:
               memory: 6Gi
             limits:
               cpu: 3500m
-              memory: 13Gi
+              # Heap 4g + direct memory (heap/2) + JVM overhead stays well below
+              # 9Gi; the rest of the cgroup is page cache, which the kernel
+              # reclaims at the limit. With 13Gi the page cache grew until the
+              # 15Gi node hit its eviction threshold and the kubelet evicted ES.
+              memory: 9Gi
           volumeMounts:
             - name: es-config
               mountPath: /usr/share/elasticsearch/config
