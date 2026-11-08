@@ -217,7 +217,7 @@ describe('TileLayer and Geo', () => {
     const tileLayer = vi.spyOn(L, 'tileLayer');
     render(Geo);
     const call = tileLayer.mock.calls.find(([url]) => url === tileServers['ign.plan.grey'].url);
-    expect(call[1]).toEqual({ attribution: tileServers['ign.plan.grey'].attribution, maxZoom: 18, id: 'ign.plan.grey', className: 'tiles-greyscale' });
+    expect(call[1]).toEqual({ attribution: tileServers['ign.plan.grey'].attribution, maxZoom: 18, id: 'ign.plan.grey', className: 'tiles-greyscale', opacity: 0.5 });
     const layer = tileLayer.mock.results[tileLayer.mock.calls.indexOf(call)].value;
     expect(maps.at(-1).hasLayer(layer)).toBe(true);
   });

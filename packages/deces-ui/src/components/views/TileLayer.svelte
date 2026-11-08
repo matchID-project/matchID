@@ -13,12 +13,13 @@
     onMount(() => {
 		L.Map.addInitHook(function() {
 			const map = this;
-			const {url, attribution, className} = tileServers[tileServer];
+			const {url, attribution, className, opacity} = tileServers[tileServer];
 			L.tileLayer(url, {
 				attribution,
 				maxZoom: 18,
 				id: tileServer,
-				...(className ? { className } : {})
+				...(className ? { className } : {}),
+				...(opacity !== undefined ? { opacity } : {})
 			}).addTo(map);
 		});
     });
