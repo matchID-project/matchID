@@ -4,6 +4,10 @@ name: Reconcile prod DNS
 # hostPort 80/443 on the Kapsule node and Cloudflare (DNS only) points at the
 # node public IP. Kapsule autohealing can replace the node and its IP, so this
 # workflow keeps the A record on the IP of the node that runs the ingress pod.
+# It runs in the dedicated `prod-dns` environment (no required reviewers, so
+# scheduled runs are never blocked on approval) with the read-only
+# `KUBE_CONFIG_DATA_DNS_RO` kubeconfig (get/list pods in namespace `traefik`,
+# get/list nodes only).
 
 on:
   schedule:
@@ -25,24 +29,29 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production
+    environment: prod-dns
     permissions:
       contents: read
     env:
       HOSTNAME: deces.matchid.io
       INGRESS_NAMESPACE: traefik
       INGRESS_SELECTOR: app.kubernetes.io/name=traefik-direct
-      KUBE_CONFIG_DATA_PLATFORM: ${{ secrets.KUBE_CONFIG_DATA_PLATFORM }}
+      KUBE_CONFIG_DATA_DNS_RO: ${{ secrets.KUBE_CONFIG_DATA_DNS_RO }}
       CDN_DNS_TOKEN: ${{ secrets.CDN_DNS_TOKEN }}
       CDN_ZONE_ID: ${{ secrets.CDN_ZONE_ID }}
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
-      - name: Install platform kubeconfig
+      - name: Install DNS read-only kubeconfig
         run: |
           set -euo pipefail
-          test -n "${KUBE_CONFIG_DATA_PLATFORM:-}" || { echo "Missing KUBE_CONFIG_DATA_PLATFORM" >&2; exit 1; }
+          test -n "${KUBE_CONFIG_DATA_DNS_RO:-}" || { echo "Missing KUBE_CONFIG_DATA_DNS_RO" >&2; exit 1; }
           mkdir -p "$HOME/.kube"
-          printf '%s' "$KUBE_CONFIG_DATA_PLATFORM" > "$HOME/.kube/config"
+          if decoded="$(printf '%s' "$KUBE_CONFIG_DATA_DNS_RO" | base64 --decode 2>/dev/null)" \
+            && printf '%s' "$decoded" | grep -q '^apiVersion:'; then
+            printf '%s' "$decoded" > "$HOME/.kube/config"
+          else
+            printf '%s' "$KUBE_CONFIG_DATA_DNS_RO" > "$HOME/.kube/config"
+          fi
           chmod 600 "$HOME/.kube/config"
 
       - name: Resolve ingress node public IP
