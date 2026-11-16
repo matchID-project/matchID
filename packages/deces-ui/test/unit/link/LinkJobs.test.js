@@ -142,15 +142,15 @@ describe('/jobs (LinkJobs.svelte, jobs.js)', () => {
     expect(rows().map(r => r[4])).toEqual(['succès', 'échec', 'annulé', 'en cours', 'en attente', 'en attente', 'stuck']);
   });
 
-  it('LK-157 an active job shows its progress and a stop icon sending DELETE /search/csv/{id}', async () => {
+  it('LK-157 an active job shows its progress and a stop icon sending DELETE /search/csv/{randomKey}', async () => {
     stubFetch({ 'GET /deces/api/v1/queue/jobs': { jobs } });
-    const del = vi.spyOn(axios, 'delete').mockResolvedValue({ data: { msg: 'Job job-active-0000 cancelled' } });
+    const del = vi.spyOn(axios, 'delete').mockResolvedValue({ data: { msg: 'Job key-r cancelled' } });
     accessToken.set('token-1');
     render(LinkJobs);
     await screen.findByText('Liste des traitements');
     expect(rows()[1][4]).toBe('42%');
     await fireEvent.click(screen.getByTitle('arrêter'));
-    expect(del).toHaveBeenCalledWith('/deces/api/v1/search/csv/job-active-0000', { headers: { Authorization: 'Bearer token-1' } });
+    expect(del).toHaveBeenCalledWith('/deces/api/v1/search/csv/key-r', { headers: { Authorization: 'Bearer token-1' } });
     await waitFor(() => expect(rows()[1][4]).toBe('arrêté'));
   });
 

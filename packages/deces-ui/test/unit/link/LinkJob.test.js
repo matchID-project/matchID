@@ -72,15 +72,28 @@ describe('LinkJob (upload, polling, results)', () => {
       expect(form.get('csv').name).toBe('clients.csv');
     });
 
-    it('LK-087 pins the defaults: dateFormat "dd/MM/yyyy" and the literal "undefined" persistence; the quote is not sent', async () => {
+    it('LK-087 pins the defaults: dateFormat "dd/MM/yyyy" and the 1 h persistence; the quote is not sent', async () => {
       prepareSession({ options: { dateFormat: undefined, tmpfilePersistence: undefined, quote: '"' } });
       const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
       render(LinkJob);
       await vi.waitFor(() => expect(post).toHaveBeenCalled());
       const form = post.mock.calls[0][1];
       expect(form.get('dateFormat')).toBe('dd/MM/yyyy');
-      expect(form.get('tmpfilePersistence')).toBe('undefined');
+      expect(form.get('tmpfilePersistence')).toBe('3600000');
       expect(form.has('quote')).toBe(false);
+    });
+
+    it('LK-087 falls back to the 1 h persistence for a stored "undefined" or non-numeric value', async () => {
+      for (const tmpfilePersistence of ['undefined', 'garbage', '']) {
+        resetLinkStores();
+        prepareSession({ options: { tmpfilePersistence } });
+        const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
+        render(LinkJob);
+        await vi.waitFor(() => expect(post).toHaveBeenCalled());
+        expect(post.mock.calls[0][1].get('tmpfilePersistence')).toBe('3600000');
+        vi.restoreAllMocks();
+        document.body.innerHTML = '';
+      }
     });
 
     it('LK-088 a Gedcom upload sends the generated TSV instead of the file', async () => {

@@ -104,6 +104,27 @@ describe('LinkConfigureOptions', () => {
     ]);
   });
 
+  // The file options panel may open on csv options created before the
+  // persistence existed (or restored without it): the select must show and
+  // keep the intended 1 h default, not the first option, under Svelte 5.
+  it('LK-078a an unset tmpfilePersistence defaults to 1 h and the select shows it', async () => {
+    const withoutPersistence = { ...csv };
+    delete withoutPersistence.tmpfilePersistence;
+    linkOptions.update(o => ({ ...o, csv: withoutPersistence }));
+    expect(get(linkOptions).csv.tmpfilePersistence).toBeUndefined();
+    render(LinkConfigureOptions, { csv: true });
+    await flush();
+    expect(get(linkOptions).csv.tmpfilePersistence).toBe('3600000');
+    expect(control('tmpfilePersistence').value).toBe('3600000');
+  });
+
+  it('LK-078b the select keeps an already-set 1 h persistence instead of the first option', async () => {
+    renderOptions({ csv: true });
+    await flush();
+    expect(get(linkOptions).csv.tmpfilePersistence).toBe('3600000');
+    expect(control('tmpfilePersistence').value).toBe('3600000');
+  });
+
   it('LK-079 range "Maximum de correspondances" 1..10 with its value label', async () => {
     renderOptions({ api: true });
     const range = control('candidateNumber');
