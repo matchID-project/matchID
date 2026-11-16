@@ -46,18 +46,19 @@ spec:
         - name: elasticsearch
           env:
             - name: ES_JAVA_OPTS
-              value: "-Xms4g -Xmx4g"
+              value: "-Xms3g -Xmx3g"
           resources:
             requests:
               cpu: 1500m
               memory: 6Gi
             limits:
               cpu: 3500m
-              # Heap 4g + direct memory (heap/2) + JVM overhead stays well below
-              # 9Gi; the rest of the cgroup is page cache, which the kernel
-              # reclaims at the limit. With 13Gi the page cache grew until the
-              # 15Gi node hit its eviction threshold and the kubelet evicted ES.
-              memory: 9Gi
+              # Heap 3GiB + direct memory and JVM overhead stays under 10GiB,
+              # leaving ~6.4GiB page cache for the 15.41GiB index (42%).
+              # The 9Gi cap starved page cache (~4.4GiB, 29%) and forced
+              # constant disk re-reads. Do not restore 13Gi: it caused the
+              # 2026-11-08 node eviction on this pool.
+              memory: 10Gi
           volumeMounts:
             - name: es-config
               mountPath: /usr/share/elasticsearch/config

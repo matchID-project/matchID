@@ -28,7 +28,8 @@ grep -Fq 'value: .matchid-restore-state' "$rendered"
 grep -Fq 'rename_pattern' "$rendered"
 grep -Fq '_aliases' "$rendered"
 grep -Fq 'wait_for_status=green' "$rendered"
-grep -Fq 'value: -Xms4g -Xmx4g' "$rendered"
+grep -Fq 'value: -Xms3g -Xmx3g' "$rendered"
+grep -Fq 'memory: 10Gi' "$rendered"
 grep -Fq 'prune_stale_indices' "$rendered"
 if grep -Fq 'XDELETE "$ES_URL/$ES_INDEX"' "$rendered"; then
   echo "restore must not delete the live ES_INDEX before restoring a replacement" >&2
