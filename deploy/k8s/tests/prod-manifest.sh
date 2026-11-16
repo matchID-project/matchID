@@ -29,7 +29,20 @@ grep -Fq 'rename_pattern' "$rendered"
 grep -Fq '_aliases' "$rendered"
 grep -Fq 'wait_for_status=green' "$rendered"
 grep -Fq 'value: -Xms3g -Xmx3g' "$rendered"
-grep -Fq 'memory: 10Gi' "$rendered"
+if awk '
+  /^---$/ { in_es=0; kind=""; in_limits=0; next }
+  $1 == "kind:" { kind=$2; next }
+  $1 == "name:" && kind == "StatefulSet" && $2 == "elasticsearch" { in_es=1 }
+  in_es && $1 == "limits:" { in_limits=1; next }
+  in_es && $1 == "requests:" { in_limits=0 }
+  in_es && in_limits && $1 == "memory:" && $2 == "10Gi" { found=1 }
+  END { exit(found ? 0 : 1) }
+' "$rendered"; then
+  :
+else
+  echo "prod Elasticsearch memory limit must be 10Gi in the elasticsearch StatefulSet" >&2
+  exit 1
+fi
 grep -Fq 'prune_stale_indices' "$rendered"
 if grep -Fq 'XDELETE "$ES_URL/$ES_INDEX"' "$rendered"; then
   echo "restore must not delete the live ES_INDEX before restoring a replacement" >&2
