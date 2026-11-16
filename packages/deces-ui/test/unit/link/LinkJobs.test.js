@@ -165,6 +165,21 @@ describe('/jobs (LinkJobs.svelte, jobs.js)', () => {
     expect(rows()[1][4]).toBe('42%');
   });
 
+  it('LK-157b the stop icon is only rendered when the job key is available (never for redacted jobs)', async () => {
+    // the backend only returns randomKey to the job owner: an active job
+    // without it (e.g. another owner's job in the admin view) offers no stop
+    // icon, so DELETE can never be sent with an undefined key.
+    const redacted = jobs.map(j => (j.status === 'active'
+      ? { ...j, data: { ...j.data, randomKey: undefined } }
+      : j));
+    stubFetch({ 'GET /deces/api/v1/queue/jobs': { jobs: redacted } });
+    accessToken.set('token-1');
+    admin.set('admin@example.org');
+    render(LinkJobs);
+    await screen.findByText('Liste des traitements');
+    expect(document.querySelector('[title="arrêter"]')).toBeNull();
+  });
+
   it('LK-158 the stop icon also reacts to a keypress', async () => {
     stubFetch({ 'GET /deces/api/v1/queue/jobs': { jobs } });
     const del = vi.spyOn(axios, 'delete').mockResolvedValue({ data: { msg: 'cancelled' } });

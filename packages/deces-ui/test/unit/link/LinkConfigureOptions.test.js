@@ -96,11 +96,11 @@ describe('LinkConfigureOptions', () => {
     expect(get(linkOptions).csv.dateFormat).toBe('yyyy/MM/dd');
   });
 
-  it('LK-078 file persistence select: 1 min, 1 h, 4 h, 8 h', () => {
+  it('LK-078 file persistence select: 1 min, 1 h (the published maximum)', () => {
     renderOptions({ csv: true });
     expect(labelOf('tmpfilePersistence')).toBe('Temps de persistence du fichier');
     expect(optionsOf('tmpfilePersistence')).toEqual([
-      ['1 minute', '60000'], ['1 heure', '3600000'], ['4 heures', '14400000'], ['8 heures', '28800000']
+      ['1 minute', '60000'], ['1 heure', '3600000']
     ]);
   });
 
@@ -123,6 +123,27 @@ describe('LinkConfigureOptions', () => {
     await flush();
     expect(get(linkOptions).csv.tmpfilePersistence).toBe('3600000');
     expect(control('tmpfilePersistence').value).toBe('3600000');
+  });
+
+  it('LK-078c an invalid stored persistence (above 1 h, null, "undefined", number) converges to 1 h', async () => {
+    for (const tmpfilePersistence of ['14400000', '28800000', 'undefined', 'garbage', '', null, 3600000]) {
+      resetLinkStores();
+      linkOptions.update(o => ({ ...o, csv: { ...csv, tmpfilePersistence } }));
+      render(LinkConfigureOptions, { csv: true });
+      await flush();
+      expect(get(linkOptions).csv.tmpfilePersistence).toBe('3600000');
+      expect(control('tmpfilePersistence').value).toBe('3600000');
+      document.body.innerHTML = '';
+    }
+  });
+
+  it('LK-078d the select keeps an already-set 1 min persistence', async () => {
+    resetLinkStores();
+    linkOptions.update(o => ({ ...o, csv: { ...csv, tmpfilePersistence: '60000' } }));
+    render(LinkConfigureOptions, { csv: true });
+    await flush();
+    expect(get(linkOptions).csv.tmpfilePersistence).toBe('60000');
+    expect(control('tmpfilePersistence').value).toBe('60000');
   });
 
   it('LK-079 range "Maximum de correspondances" 1..10 with its value label', async () => {

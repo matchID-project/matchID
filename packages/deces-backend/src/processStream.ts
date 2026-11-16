@@ -49,11 +49,25 @@ const log = (json:any) => {
 // `Number(... || "28800000")` fallback turned into 8 hours.
 export const MIN_TMPFILE_PERSISTENCE = 60000;
 export const MAX_TMPFILE_PERSISTENCE = 3600000;
+// Only strictly positive finite numbers count: null, booleans, empty or
+// whitespace-only strings, 0, negatives, NaN and infinities are all rejected
+// (Number(null), Number('') and Number(false) are all 0, so a plain
+// Number.isFinite check would wrongly accept them). Rejected input falls back
+// to the configured default instead of collapsing to the 1 min minimum.
+const toPositiveNumber = (v: unknown): number => {
+  if (typeof v === 'number') return v > 0 && Number.isFinite(v) ? v : NaN;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    return n > 0 && Number.isFinite(n) ? n : NaN;
+  }
+  return NaN;
+};
 export const parseTmpfilePersistence = (raw: unknown): number => {
-  const fallback = Number(process.env.BACKEND_TMPFILE_PERSISTENCE);
-  const value = Number(raw);
-  const base = Number.isFinite(value) ? value : (Number.isFinite(fallback) ? fallback : MAX_TMPFILE_PERSISTENCE);
-  return Math.min(MAX_TMPFILE_PERSISTENCE, Math.max(MIN_TMPFILE_PERSISTENCE, base));
+  const envValue = toPositiveNumber(process.env.BACKEND_TMPFILE_PERSISTENCE);
+  const fallback = Number.isFinite(envValue) ? envValue : MAX_TMPFILE_PERSISTENCE;
+  const value = toPositiveNumber(raw);
+  const base = Number.isFinite(value) ? value : fallback;
+  return Math.trunc(Math.min(MAX_TMPFILE_PERSISTENCE, Math.max(MIN_TMPFILE_PERSISTENCE, base)));
 }
 
 const formatJob = (job:any) => {

@@ -57,9 +57,14 @@ const parseJobHeader = (res: any) => {
 export const BULK_KEY_REDACTION = '[REDACTED]';
 export const redactBulkKey = (url: string | undefined): string | undefined => {
   if (url === undefined) return undefined;
+  // Express matches routes case-insensitively and tolerates repeated or
+  // %-encoded slashes, so the redaction does the same: any case variant of
+  // /search/(csv|json)/<key>, any mixture of / and %2F separators, an
+  // optional trailing slash kept outside the redacted key, and the ?job= /
+  // &job= query parameter in any case.
   return String(url)
-    .replace(/(\/search\/(?:csv|json)\/)[^/?#\s]+/g, `$1${BULK_KEY_REDACTION}`)
-    .replace(/([?&]job=)[^&#\s]+/g, `$1${BULK_KEY_REDACTION}`);
+    .replace(/(\/search(?:\/+|%2F)+(?:csv|json)(?:\/+|%2F)+)[^/?#\s]+/gi, `$1${BULK_KEY_REDACTION}`)
+    .replace(/([?&]job=)[^&#\s]+/gi, `$1${BULK_KEY_REDACTION}`);
 }
 
 const formatAsJson = (tokens: any, req: any, res: any) => {

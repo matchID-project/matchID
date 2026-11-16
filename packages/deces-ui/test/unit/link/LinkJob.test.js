@@ -96,6 +96,19 @@ describe('LinkJob (upload, polling, results)', () => {
       }
     });
 
+    it('LK-087 falls back to the 1 h persistence for a stored value above the 1 h maximum', async () => {
+      for (const tmpfilePersistence of ['14400000', '28800000']) {
+        resetLinkStores();
+        prepareSession({ options: { tmpfilePersistence } });
+        const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
+        render(LinkJob);
+        await vi.waitFor(() => expect(post).toHaveBeenCalled());
+        expect(post.mock.calls[0][1].get('tmpfilePersistence')).toBe('3600000');
+        vi.restoreAllMocks();
+        document.body.innerHTML = '';
+      }
+    });
+
     it('LK-088 a Gedcom upload sends the generated TSV instead of the file', async () => {
       prepareSession({ options: { type: 'gedcom', sep: '\t', csv: 'gedcom_id\tnom\n@i1@\tDupont' } });
       const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
@@ -279,11 +292,41 @@ describe('LinkJob (upload, polling, results)', () => {
       expect(fetchMock).toHaveBeenCalledWith('/deces/api/v1/queue/jobs', { headers: { Authorization: 'Bearer token-1' } });
       expect(get(linkFileName)).toBe('job-9.csv');
       expect(get(linkOptions).csv).toMatchObject({ sep: ',', encoding: 'utf8', skipLines: 1, dateFormat: 'yyyy-MM-dd', tmpfilePersistence: '60000' });
+      expect(typeof get(linkOptions).csv.tmpfilePersistence).toBe('string');
       expect(get(linkSourceHeader)).toEqual(['nom', 'naissance']);
       expect(get(linkMapping)).toEqual({
         direct: { nom: 'lastName', naissance: 'birthDate' },
         reverse: { lastName: 'nom', birthDate: 'naissance' }
       });
+    });
+
+    it('LK-098 coerces a numeric server-side persistence to a string and defaults a missing one to 1 h', async () => {
+      for (const [serverValue, expected] of [[3600000, '3600000'], [60000, '60000'], [undefined, '3600000'], [null, '3600000']]) {
+        resetLinkStores();
+        accessToken.set('token-1');
+        linkJob.set('key-9');
+        const data = { randomKey: 'key-9', sep: ',', lastName: 'nom', birthDate: 'naissance' };
+        if (serverValue !== undefined) {
+          data.tmpfilePersistence = serverValue;
+        }
+        stubFetch({ 'GET /deces/api/v1/queue/jobs': { jobs: [{ id: 'job-9', data }] } });
+        vi.spyOn(axios, 'get').mockResolvedValueOnce({ data: resultCsv });
+        render(LinkJob);
+        await vi.waitFor(() => expect(get(linkStep)).toBe(4));
+        expect(get(linkOptions).csv.tmpfilePersistence).toBe(expected);
+        vi.restoreAllMocks();
+        document.body.innerHTML = '';
+      }
+    });
+
+    it('LK-098 an unrestorable job (not owned by this account) reports instead of throwing', async () => {
+      accessToken.set('token-1');
+      linkJob.set('key-9');
+      stubFetch({ 'GET /deces/api/v1/queue/jobs': { jobs: [{ id: 'other', data: { randomKey: 'zzz' } }] } });
+      vi.spyOn(axios, 'get').mockResolvedValueOnce({ data: resultCsv });
+      render(LinkJob);
+      await vi.waitFor(() => expect(get(linkJob)).toBe('failed'));
+      expect(text()).toContain("n'est pas accessible");
     });
 
     // BUG: `validColumns` (jobs.js) has no `firstName`: a job restored from

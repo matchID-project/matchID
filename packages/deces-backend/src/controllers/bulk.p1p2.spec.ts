@@ -1,6 +1,14 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import crypto from 'crypto';
+import fs from 'fs';
+import request from 'supertest';
+import jwt from 'jsonwebtoken';
+import loggerStream from '../logger';
+import { app } from '../server';
+import { JobsController } from './job.controller';
+import * as mailModule from '../mail';
+import * as webhookModule from '../webhook';
 
 const queueMocks = vi.hoisted(() => ({
   getJob: vi.fn(),
@@ -8,17 +16,18 @@ const queueMocks = vi.hoisted(() => ({
   add: vi.fn(),
 }));
 
+const workerHandlers = vi.hoisted(() => ({} as Record<string, (...args: any[]) => unknown>));
+
 vi.mock('bullmq', () => ({
   Queue: vi.fn(function (this: unknown) { return queueMocks; }),
   QueueEvents: vi.fn(function (this: unknown) { return {}; }),
-  Worker: vi.fn(function (this: unknown) { return { on: vi.fn() }; }),
+  Worker: vi.fn(function (this: unknown) { return { on: vi.fn((event: string, cb: (...args: any[]) => unknown) => { workerHandlers[event] = cb; }) }; }),
   Job: { fromId: vi.fn() },
 }));
 
 import {
   parseTmpfilePersistence,
   MAX_TMPFILE_PERSISTENCE,
-  MIN_TMPFILE_PERSISTENCE,
   returnBulkResults,
   deleteThreadJob,
 } from '../processStream';
@@ -72,14 +81,41 @@ describe('bulk retention parsing (P2)', () => {
     process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
     expect(parseTmpfilePersistence(NaN)).toBe(3600000);
     expect(parseTmpfilePersistence('abc')).toBe(3600000);
-    expect(parseTmpfilePersistence('')).toBe(MIN_TMPFILE_PERSISTENCE);
+    expect(parseTmpfilePersistence('')).toBe(3600000);
+    expect(parseTmpfilePersistence('   ')).toBe(3600000);
+    expect(parseTmpfilePersistence(null)).toBe(3600000);
+    expect(parseTmpfilePersistence(undefined)).toBe(3600000);
+    expect(parseTmpfilePersistence(false)).toBe(3600000);
+    expect(parseTmpfilePersistence(true)).toBe(3600000);
   });
 
-  it('clamps too-small values to 60 000', () => {
+  it('falls back to BACKEND_TMPFILE_PERSISTENCE for 0, negatives and non-finite values', () => {
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+    expect(parseTmpfilePersistence(0)).toBe(3600000);
+    expect(parseTmpfilePersistence('0')).toBe(3600000);
+    expect(parseTmpfilePersistence(-5)).toBe(3600000);
+    expect(parseTmpfilePersistence('-100')).toBe(3600000);
+    expect(parseTmpfilePersistence(Infinity)).toBe(3600000);
+    expect(parseTmpfilePersistence(-Infinity)).toBe(3600000);
+    expect(parseTmpfilePersistence('Infinity')).toBe(3600000);
+  });
+
+  it('falls back to the 1 h maximum when BACKEND_TMPFILE_PERSISTENCE itself is empty or invalid', () => {
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '';
+    expect(parseTmpfilePersistence(undefined)).toBe(MAX_TMPFILE_PERSISTENCE);
+    expect(parseTmpfilePersistence(null)).toBe(MAX_TMPFILE_PERSISTENCE);
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '0';
+    expect(parseTmpfilePersistence(undefined)).toBe(MAX_TMPFILE_PERSISTENCE);
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '-5';
+    expect(parseTmpfilePersistence(undefined)).toBe(MAX_TMPFILE_PERSISTENCE);
+  });
+
+  it('truncates floats and clamps small-but-valid values to 60 000', () => {
     process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
     expect(parseTmpfilePersistence('1000')).toBe(60000);
-    expect(parseTmpfilePersistence(0)).toBe(60000);
-    expect(parseTmpfilePersistence(-5)).toBe(60000);
+    expect(parseTmpfilePersistence(1000)).toBe(60000);
+    expect(parseTmpfilePersistence('90000.7')).toBe(90000);
+    expect(parseTmpfilePersistence(90000.7)).toBe(90000);
   });
 
   it('clamps too-large values to the published 1 h maximum', () => {
@@ -152,6 +188,42 @@ describe('bulk job key redaction in logs (P1)', () => {
     expect(redactBulkKey('/search')).toBe('/search');
     expect(redactBulkKey('/queue/jobs?jobsType=completed')).toBe('/queue/jobs?jobsType=completed');
     expect(redactBulkKey(undefined)).toBeUndefined();
+  });
+
+  it('redacts case variants of the search path (Express matches case-insensitively)', () => {
+    for (const url of [
+      '/deces/api/v1/Search/csv/abc123def',
+      '/deces/api/v1/search/CSV/abc123def',
+      '/deces/api/v1/SEARCH/JSON/abc123def',
+    ]) {
+      const out = redactBulkKey(url);
+      expect(out).not.toContain('abc123def');
+      expect(out).toContain(BULK_KEY_REDACTION);
+    }
+  });
+
+  it('redacts repeated and %-encoded slashes and keeps a trailing slash outside the key', () => {
+    expect(redactBulkKey('/deces/api/v1/search//csv//abc123def'))
+      .toBe(`/deces/api/v1/search//csv//${BULK_KEY_REDACTION}`);
+    expect(redactBulkKey('/deces/api/v1/search%2Fcsv%2Fabc123def'))
+      .toBe(`/deces/api/v1/search%2Fcsv%2F${BULK_KEY_REDACTION}`);
+    expect(redactBulkKey('/deces/api/v1/search%2fjson%2fabc123def'))
+      .toBe(`/deces/api/v1/search%2fjson%2f${BULK_KEY_REDACTION}`);
+    const trailing = redactBulkKey('/deces/api/v1/search/csv/abc123def/');
+    expect(trailing).toBe(`/deces/api/v1/search/csv/${BULK_KEY_REDACTION}/`);
+    expect(trailing).not.toContain('abc123def');
+  });
+
+  it('redacts the job query parameter in any case and after other parameters', () => {
+    for (const url of [
+      'https://app/link?JOB=abc123def',
+      'https://app/link?Job=abc123def',
+      'https://app/foo?a=1&job=abc123def',
+    ]) {
+      const out = redactBulkKey(url);
+      expect(out).not.toContain('abc123def');
+      expect(out).toMatch(/[?&]job=\[REDACTED\]/i);
+    }
   });
 });
 
@@ -236,5 +308,226 @@ describe('bulk job ownership (P1)', () => {
     } finally {
       vi.restoreAllMocks();
     }
+  });
+});
+
+describe('bulk key redaction over HTTP (P1, F5)', () => {
+  const key = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+  const savedTokenKey = process.env.BACKEND_TOKEN_KEY;
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+
+  const loggedText = () => writeSpy.mock.calls.map((c: [string]) => String(c[0])).join('\n');
+
+  beforeEach(() => {
+    writeSpy = vi.spyOn(loggerStream, 'write').mockImplementation(() => undefined as unknown as void);
+  });
+
+  afterEach(() => {
+    if (savedTokenKey === undefined) {
+      delete process.env.BACKEND_TOKEN_KEY;
+    } else {
+      process.env.BACKEND_TOKEN_KEY = savedTokenKey;
+    }
+    vi.restoreAllMocks();
+  });
+
+  it('never logs the key of GET /search/csv/:id (morgan url + auth error path)', async () => {
+    const res = await request(app).get(`/deces/api/v1/search/csv/${key}`);
+    expect(res.status).toBe(422);
+    const logs = loggedText();
+    expect(logs).not.toContain(key);
+    expect(logs).toContain(BULK_KEY_REDACTION);
+  });
+
+  it('redacts case-variant paths and the referrer carrying ?job=<key>', async () => {
+    const res = await request(app)
+      .get(`/deces/api/v1/Search/csv/${key}`)
+      .set('Referer', `https://app/link?job=${key}`);
+    expect(res.status).toBe(422);
+    const logs = loggedText();
+    expect(logs).not.toContain(key);
+    expect(logs).toContain(BULK_KEY_REDACTION);
+  });
+
+  it('redacts the key in the ValidateError branch (case-variant output format)', async () => {
+    process.env.BACKEND_TOKEN_KEY = 'p1p2-spec-secret';
+    const token = jwt.sign({ user: 'alice@example.org', scopes: ['user'] }, 'p1p2-spec-secret');
+    const res = await request(app)
+      .get(`/deces/api/v1/search/CSV/${key}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(422);
+    const logs = loggedText();
+    expect(logs).not.toContain(key);
+    expect(logs).toContain(BULK_KEY_REDACTION);
+  });
+
+  it('redacts the key on the authenticated download path when the job is unknown', async () => {
+    process.env.BACKEND_TOKEN_KEY = 'p1p2-spec-secret';
+    const token = jwt.sign({ user: 'alice@example.org', scopes: ['user'] }, 'p1p2-spec-secret');
+    queueMocks.getJob.mockResolvedValue(null);
+    const res = await request(app)
+      .get(`/deces/api/v1/search/csv/${key}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ msg: "job doesn't exists" });
+    const logs = loggedText();
+    expect(logs).not.toContain(key);
+    expect(logs).toContain(BULK_KEY_REDACTION);
+  });
+});
+
+describe('completed-job deletion timer (P2, F5)', () => {
+  const savedEnv = process.env.BACKEND_TMPFILE_PERSISTENCE;
+  const savedJobs = process.env.JOBS;
+
+  const silenceNotifications = () => {
+    vi.spyOn(mailModule, 'sendJobUpdate').mockResolvedValue(true);
+    vi.spyOn(webhookModule, 'sendWebhook').mockResolvedValue(true);
+  };
+
+  const unlinkSoon = () => vi.spyOn(fs, 'unlink').mockImplementation(((target: unknown, cb: (err: Error | null) => void) => {
+    cb(null);
+  }) as never);
+
+  afterEach(() => {
+    if (savedEnv === undefined) {
+      delete process.env.BACKEND_TMPFILE_PERSISTENCE;
+    } else {
+      process.env.BACKEND_TMPFILE_PERSISTENCE = savedEnv;
+    }
+    if (savedJobs === undefined) {
+      delete process.env.JOBS;
+    } else {
+      process.env.JOBS = savedJobs;
+    }
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the result file parseTmpfilePersistence(job.data.tmpfilePersistence) ms after completion', async () => {
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+    process.env.JOBS = '/tmp/bulk-jobs-test';
+    vi.useFakeTimers();
+    const unlinkSpy = unlinkSoon();
+    silenceNotifications();
+    await workerHandlers.completed({ id: 'hash123', data: { user: 'alice@example.org', randomKey: 'secret-key', tmpfilePersistence: 120000 } });
+    expect(unlinkSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(119999);
+    expect(unlinkSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(unlinkSpy).toHaveBeenCalledTimes(1);
+    expect(unlinkSpy.mock.calls[0][0]).toBe('/tmp/bulk-jobs-test/hash123.out.enc');
+  });
+
+  it('a null retention (legacy BullMQ NaN) waits for the 1 h default, not 1 min', async () => {
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+    process.env.JOBS = '/tmp/bulk-jobs-test';
+    vi.useFakeTimers();
+    const unlinkSpy = unlinkSoon();
+    silenceNotifications();
+    await workerHandlers.completed({ id: 'hash456', data: { user: 'alice@example.org', randomKey: 'secret-key', tmpfilePersistence: null } });
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(unlinkSpy).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3600000 - 60000);
+    expect(unlinkSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('JobsController.getJobs ownership and redaction (F1, F5)', () => {
+  const userReq = (user?: string, scopes: string[] = ['user']) =>
+    ({ user: user === undefined ? undefined : { user, scopes } }) as unknown as express.Request;
+  const ownedJob = (overrides: any = {}) => ({
+    id: 'jobhash',
+    status: 'active',
+    data: { user: 'alice@example.org', randomKey: 'key-alice', webhook: 'https://example.com/hook' },
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    queueMocks.getJobs.mockResolvedValue([]);
+  });
+
+  it('jobId branch: serves the key to the owner', async () => {
+    const job = ownedJob();
+    queueMocks.getJob.mockResolvedValue(job);
+    const res = await new JobsController().getJobs(userReq('alice@example.org'), 'jobs', 'jobhash');
+    expect(queueMocks.getJob).toHaveBeenCalledWith('jobhash');
+    expect(res).toEqual({ job });
+    expect(res.job.data.randomKey).toBe('key-alice');
+  });
+
+  it('jobId branch: answers exactly "job not found" to another user, leaking neither key nor owner', async () => {
+    queueMocks.getJob.mockResolvedValue(ownedJob());
+    const res = await new JobsController().getJobs(userReq('mallory@example.org'), 'jobs', 'jobhash');
+    expect(res).toEqual({ msg: 'job not found' });
+    expect(JSON.stringify(res)).not.toContain('key-alice');
+    expect(JSON.stringify(res)).not.toContain('alice@example.org');
+  });
+
+  it('jobId branch: a legacy job without an owner is not found for non-admins', async () => {
+    queueMocks.getJob.mockResolvedValue(ownedJob({ data: { totalRows: 10 } }));
+    const res = await new JobsController().getJobs(userReq('alice@example.org'), 'jobs', 'jobhash');
+    expect(res).toEqual({ msg: 'job not found' });
+  });
+
+  it('jobId branch: an unknown id is not found', async () => {
+    queueMocks.getJob.mockResolvedValue(null);
+    const res = await new JobsController().getJobs(userReq('alice@example.org'), 'jobs', 'nope');
+    expect(res).toEqual({ msg: 'job not found' });
+  });
+
+  it("jobId branch: admin sees the metadata but never another owner's key", async () => {
+    queueMocks.getJob.mockResolvedValue(ownedJob());
+    const res = await new JobsController().getJobs(userReq('root@example.org', ['admin', 'user']), 'jobs', 'jobhash');
+    expect(res.job.data.randomKey).toBeUndefined();
+    expect(res.job.data.user).toBe('alice@example.org');
+  });
+
+  it('jobId branch: admin keeps their own key (admin self-service)', async () => {
+    queueMocks.getJob.mockResolvedValue(ownedJob({ data: { user: 'root@example.org', randomKey: 'key-root' } }));
+    const res = await new JobsController().getJobs(userReq('root@example.org', ['admin', 'user']), 'jobs', 'jobhash');
+    expect(res.job.data.randomKey).toBe('key-root');
+  });
+
+  it('jobsType branch: a non-admin only sees their own jobs, with keys', async () => {
+    queueMocks.getJobs.mockResolvedValue([
+      ownedJob(),
+      ownedJob({ id: 'other', data: { user: 'mallory@example.org', randomKey: 'key-mallory' } }),
+      ownedJob({ id: 'legacy', data: { totalRows: 1 } }),
+    ]);
+    const res = await new JobsController().getJobs(userReq('alice@example.org'), 'jobs', undefined, 'active');
+    expect(res.jobs).toHaveLength(1);
+    expect(res.jobs[0].data.randomKey).toBe('key-alice');
+  });
+
+  it('jobsType branch: admin sees every job but only their own key', async () => {
+    queueMocks.getJobs.mockResolvedValue([
+      ownedJob(),
+      ownedJob({ id: 'own', data: { user: 'root@example.org', randomKey: 'key-root' } }),
+    ]);
+    const res = await new JobsController().getJobs(userReq('root@example.org', ['admin', 'user']), 'jobs', undefined, 'active');
+    expect(res.jobs).toHaveLength(2);
+    expect(res.jobs.find((j: any) => j.id === 'jobhash').data.randomKey).toBeUndefined();
+    expect(res.jobs.find((j: any) => j.id === 'own').data.randomKey).toBe('key-root');
+  });
+
+  it('default branch: a non-admin only sees their own jobs with statuses and keys', async () => {
+    queueMocks.getJobs
+      .mockResolvedValueOnce([ownedJob()])
+      .mockResolvedValue([]);
+    const controller = new JobsController();
+    const res = await controller.getJobs(userReq('alice@example.org'), 'jobs');
+    const mine = res.jobs.filter((j: any) => j.data && j.data.user === 'alice@example.org');
+    expect(mine).toHaveLength(1);
+    expect(mine[0].data.randomKey).toBe('key-alice');
+    expect(mine[0].status).toBe('completed');
+    expect(JSON.stringify(res.jobs)).not.toContain('key-mallory');
+  });
+
+  it('default branch: a request without identity sees no jobs', async () => {
+    queueMocks.getJobs.mockResolvedValue([ownedJob()]);
+    const res = await new JobsController().getJobs(userReq(undefined), 'jobs');
+    expect(res).toEqual({ jobs: [] });
   });
 });

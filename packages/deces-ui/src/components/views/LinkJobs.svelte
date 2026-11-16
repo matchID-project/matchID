@@ -82,6 +82,7 @@
                                             <div style="display: flex;align-items:center">
                                                 {#if job.status == 'active'}
                                                     {job.progress}%
+                                                    {#if job.randomKey}
                                                     <span
                                                         title="arrêter"
                                                         on:click|preventDefault={() => deleteJob(job, idx)}
@@ -89,6 +90,7 @@
                                                     >
                                                         <Icon icon="ri:delete-bin-line" class="rf-color--rm"/>
                                                     </span>
+                                                    {/if}
                                                 {:else}
                                                     {statusLabel[job.status] || job.status}
                                                 {/if}

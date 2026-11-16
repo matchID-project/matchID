@@ -90,17 +90,20 @@
     }
 
     // The file options may predate the persistence setting (panel never
-    // opened, or session restored from a storage snapshot without it). Like
-    // the checkbox above, the Svelte 5 select binding cannot initialize from
-    // an undefined value, so default to the published 1 h retention here,
-    // before the first render, and keep converging afterwards.
+    // opened, or session restored from a storage snapshot without it, or a
+    // value the backend no longer offers above the published 1 h maximum).
+    // Like the checkbox above, the Svelte 5 select binding cannot initialize
+    // from an undefined value, so converge any missing or invalid value to
+    // the published 1 h retention here, before the first render, and keep
+    // converging afterwards.
+    const validPersistences = ['60000', '3600000'];
     const ensurePersistenceDefault = () => {
-        if ($linkOptions.csv && $linkOptions.csv.tmpfilePersistence === undefined) {
+        if ($linkOptions.csv && !validPersistences.includes($linkOptions.csv.tmpfilePersistence)) {
             linkOptions.update(o => ({ ...o, csv: { ...o.csv, tmpfilePersistence: '3600000' } }));
         }
     };
     ensurePersistenceDefault();
-    $: if ($linkOptions.csv && $linkOptions.csv.tmpfilePersistence === undefined) {
+    $: if ($linkOptions.csv && !validPersistences.includes($linkOptions.csv.tmpfilePersistence)) {
         ensurePersistenceDefault();
     }
 
@@ -114,7 +117,7 @@
                 quote: {size:3,label: "Délimiteur", options:[['aucun', undefined],['guillemets doubles (")','"'],["guillemets simples (')","'"]]},
                 skipLines: {label: "Lignes sautées:", options: [['aucune',0],[1,1],[2,2],[3,3],[4,4],[5,5]]},
                 dateFormat: {size: 3,label: "Format des dates", options:[['dd/MM/yyyy','dd/MM/yyyy'],['yyyy-MM-dd','yyyy-MM-dd'],['yyyyMMdd','yyyyMMdd'],['ddMMyyyy','ddMMyyyy'],['dd-MM-yyyy','dd-MM-yyyy'],['yyyy/MM/dd']]},
-                tmpfilePersistence: {size: 2,label: "Temps de persistence du fichier", options:[['1 minute','60000'],['1 heure','3600000'],['4 heures','14400000'],['8 heures','28800000']]},
+                tmpfilePersistence: {size: 2,label: "Temps de persistence du fichier", options:[['1 minute','60000'],['1 heure','3600000']]},
             }
         },
         api: {
