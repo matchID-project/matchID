@@ -151,7 +151,10 @@
     }
 
     const deleteJob = async (job, idx) => {
-      const res = await axios.delete(`__BACKEND_PROXY_PATH__/search/csv/${job.id}`, {
+      // Cancellation requires the job key (DELETE no longer accepts the job
+      // hash). Without a key (e.g. the admin view, which redacts it) the
+      // backend answers "not found" and the row is left untouched.
+      const res = await axios.delete(`__BACKEND_PROXY_PATH__/search/csv/${job.randomKey}`, {
         headers: { Authorization: `Bearer ${$accessToken}` }
       })
       if (res.data && res.data.msg.includes('cancelled')) {

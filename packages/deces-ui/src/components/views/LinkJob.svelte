@@ -165,7 +165,10 @@
         formData.append('candidateNumber', $linkOptions.api.candidateNumber);
         formData.append('pruneScore', $linkOptions.api.pruneScore);
         formData.append('dateFormat', $linkOptions.csv.dateFormat || 'dd/MM/yyyy');
-        formData.append('tmpfilePersistence', $linkOptions.csv.tmpfilePersistence);
+        // Never send the literal "undefined": the backend clamps unknown
+        // values, but the published default is 1 h (3 600 000 ms).
+        const rawPersistence = $linkOptions.csv && $linkOptions.csv.tmpfilePersistence;
+        formData.append('tmpfilePersistence', /^\d+$/.test(String(rawPersistence)) ? String(rawPersistence) : '3600000');
         Object.keys($linkMapping && $linkMapping.reverse).map(k => formData.append(k,$linkMapping.reverse[k]));
         if ($linkOptions.csv.type === 'gedcom') {
             formData.append('csv', new Blob([$linkOptions.csv.csv], {type: 'text/csv;charset=utf-8;'}));

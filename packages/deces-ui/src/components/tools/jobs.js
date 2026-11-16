@@ -39,6 +39,10 @@ export const getJobsFilteredData = async (accessToken) => {
             rows: j.data.totalRows,
             id: j.id,
             user: j.data && j.data.user,
+            // The job key is the only credential DELETE accepts: the list
+            // carries it because the queue endpoint only returns it to the
+            // job's owner.
+            randomKey: j.data && j.data.randomKey,
             date: j.timestamp,
             status: j.status,
             waiting_time: j.processedOn && (j.processedOn - j.timestamp) / 1000,

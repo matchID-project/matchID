@@ -89,6 +89,21 @@
         if (section === 'check') {return check};
     }
 
+    // The file options may predate the persistence setting (panel never
+    // opened, or session restored from a storage snapshot without it). Like
+    // the checkbox above, the Svelte 5 select binding cannot initialize from
+    // an undefined value, so default to the published 1 h retention here,
+    // before the first render, and keep converging afterwards.
+    const ensurePersistenceDefault = () => {
+        if ($linkOptions.csv && $linkOptions.csv.tmpfilePersistence === undefined) {
+            linkOptions.update(o => ({ ...o, csv: { ...o.csv, tmpfilePersistence: '3600000' } }));
+        }
+    };
+    ensurePersistenceDefault();
+    $: if ($linkOptions.csv && $linkOptions.csv.tmpfilePersistence === undefined) {
+        ensurePersistenceDefault();
+    }
+
     $: options = {
         csv: {
             label: "Formattage du fichier",
