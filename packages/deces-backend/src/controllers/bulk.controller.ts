@@ -2,7 +2,7 @@ import multer from 'multer';
 import express from 'express';
 import forge from 'node-forge';
 import { Controller, Hidden, Get, Post, Delete, Route, Query, Tags, Request, Path, Security } from 'tsoa';
-import { csvHandle, returnBulkResults, deleteThreadJob, validFields } from '../processStream';
+import { csvHandle, returnBulkResults, deleteThreadJob, validFields, parseTmpfilePersistence } from '../processStream';
 import { validateWebhookUrl, isWebhookValidated } from '../webhook';
 
 /**
@@ -153,7 +153,7 @@ export class BulkController extends Controller {
       options.candidateNumber = options.candidateNumber || 1;
       options.pruneScore = options.pruneScore !== undefined ? parseFloat(options.pruneScore) : undefined;
       options.mapField = {};
-      options.tmpfilePersistence = Math.max(60000, options.tmpfilePersistence || process.env.BACKEND_TMPFILE_PERSISTENCE);
+      options.tmpfilePersistence = parseTmpfilePersistence(options.tmpfilePersistence);
       validFields.forEach(key => options.mapField[options[key] || key] = key );
 
       // Webhook validation rules
@@ -242,7 +242,11 @@ export class BulkController extends Controller {
   @Get('/:outputFormat(csv|json)/{id}')
   public async downloadResults(@Request() request: express.Request, @Path() outputFormat: 'csv'|'json', @Path() id: string, @Query() order?: string): Promise<any> {
     if (id) {
-      await returnBulkResults((request).res, id, outputFormat, order)
+      // Identity is the JWT `user` claim (the requester's email), the same
+      // value stored in the job data at creation: only its owner may poll or
+      // download the job.
+      const user = (request as any).user && (request as any).user.user;
+      await returnBulkResults((request).res, id, outputFormat, order, user)
     } else {
       return {msg: 'no job id'}
     }
@@ -279,7 +283,9 @@ export class BulkController extends Controller {
   @Delete('/csv/{id}')
   public async deleteJob(@Request() request: express.Request, @Path() id: string): Promise<any> {
     if (id) {
-      await deleteThreadJob((request).res, id)
+      // Same owner identity as downloadResults: only the owner may cancel.
+      const user = (request as any).user && (request as any).user.user;
+      await deleteThreadJob((request).res, id, user)
     } else {
       return {msg: 'no job id'}
     }

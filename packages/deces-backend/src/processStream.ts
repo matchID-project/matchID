@@ -39,6 +39,23 @@ const log = (json:any) => {
   }));
 }
 
+// Bulk result retention, in milliseconds. The Info page commits to deleting
+// bulk results one hour after the job finishes, and BACKEND_TMPFILE_PERSISTENCE
+// defaults to 3600000 in every deployment, so the stored value is always
+// clamped to [MIN_TMPFILE_PERSISTENCE, MAX_TMPFILE_PERSISTENCE]. A missing or
+// non-numeric value (including the "undefined" string the UI used to send when
+// its options panel was never opened) falls back to the configured default
+// instead of NaN, which BullMQ stores as null and the old
+// `Number(... || "28800000")` fallback turned into 8 hours.
+export const MIN_TMPFILE_PERSISTENCE = 60000;
+export const MAX_TMPFILE_PERSISTENCE = 3600000;
+export const parseTmpfilePersistence = (raw: unknown): number => {
+  const fallback = Number(process.env.BACKEND_TMPFILE_PERSISTENCE);
+  const value = Number(raw);
+  const base = Number.isFinite(value) ? value : (Number.isFinite(fallback) ? fallback : MAX_TMPFILE_PERSISTENCE);
+  return Math.min(MAX_TMPFILE_PERSISTENCE, Math.max(MIN_TMPFILE_PERSISTENCE, base));
+}
+
 const formatJob = (job:any) => {
   const duration: number = job && job.processedOn && job.finishedOn && (job.finishedOn - job.processedOn) / 1000;
   return job && {
@@ -470,7 +487,7 @@ workerJobs.on('completed', async (job: Job) => {
         if (job.data.webhook) {
           await sendWebhook(job.data.webhook, 'deleted', job.data.randomKey);
         }
-      }, Number(job.data.tmpfilePersistence || "28800000")) // Delete results after 8 hour
+      }, parseTmpfilePersistence(job.data.tmpfilePersistence)) // Delete results after the configured retention (at most 1 hour)
     }
 });
 
@@ -531,9 +548,18 @@ export const csvHandle = async (request: Request, options: Options): Promise<any
   }
 }
 
-export const returnBulkResults = async (response: Response, id: string, outputFormat: string, order: string): Promise<void> => {
+export const returnBulkResults = async (response: Response, id: string, outputFormat: string, order: string, user?: string): Promise<void> => {
   const jobId = crypto.createHash('sha256').update(id).digest('hex');
   const job: any = await jobQueue.getJob(jobId);
+  // Only the job owner may download or poll the job. Anything else answers
+  // exactly as a non-existent job, so a stranger cannot probe for job
+  // existence. Jobs created before ownership was recorded carry no owner and
+  // are therefore unreachable: they expire on their own within a few hours.
+  const owner = job && job.data && job.data.user;
+  if (!job || !owner || owner !== user) {
+    response.send({msg: 'job doesn\'t exists'});
+    return;
+  }
   const jobsActive = await jobQueue.getJobs(['active'], 0, 100, true);
   const jobStatus = await job.getState();
   if (job && jobStatus === 'completed') {
@@ -662,11 +688,18 @@ export const returnBulkResults = async (response: Response, id: string, outputFo
   }
 }
 
-export const deleteThreadJob = async (response: Response, id: string): Promise<void> => {
+export const deleteThreadJob = async (response: Response, id: string, user?: string): Promise<void> => {
   const jobId = crypto.createHash('sha256').update(id).digest('hex');
-  let job: any= await jobQueue.getJob(jobId)
-  if (!job) {
-    job = await jobQueue.getJob(id)
+  const job: any = await jobQueue.getJob(jobId)
+  // Only the job key resolves a job: the former getJob(id) hash fallback is
+  // gone, and the caller must own the job. Anything else answers exactly as
+  // "not found", so a stranger cannot probe for job existence. Jobs created
+  // before ownership was recorded carry no owner and are therefore
+  // unreachable: they expire on their own within a few hours.
+  const owner = job && job.data && job.data.user;
+  if (!job || !owner || owner !== user) {
+    response.send({msg: 'no job found'})
+    return;
   }
   const jobStatus = await job.getState();
   if (job && jobStatus === 'active') {
