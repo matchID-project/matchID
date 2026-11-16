@@ -48,6 +48,25 @@ const parseJobHeader = (res: any) => {
   }
 }
 
+// The bulk job key travels in the request path (GET/DELETE
+// /search/(csv|json)/:id) and derives both the AES key and the BullMQ job id,
+// so it must never reach the logs, which ship to S3 and New Relic. The
+// replacement is a fixed placeholder: never a hash of the key, since
+// sha256(key) IS the job id. The `job` query parameter (used by the UI job
+// links) carries the same key and is redacted the same way.
+export const BULK_KEY_REDACTION = '[REDACTED]';
+export const redactBulkKey = (url: string | undefined): string | undefined => {
+  if (url === undefined) return undefined;
+  // Express matches routes case-insensitively and tolerates repeated or
+  // %-encoded slashes, so the redaction does the same: any case variant of
+  // /search/(csv|json)/<key>, any mixture of / and %2F separators, an
+  // optional trailing slash kept outside the redacted key, and the ?job= /
+  // &job= query parameter in any case.
+  return String(url)
+    .replace(/(\/search(?:\/+|%2F)+(?:csv|json)(?:\/+|%2F)+)[^/?#\s]+/gi, `$1${BULK_KEY_REDACTION}`)
+    .replace(/([?&]job=)[^&#\s]+/gi, `$1${BULK_KEY_REDACTION}`);
+}
+
 const formatAsJson = (tokens: any, req: any, res: any) => {
   return JSON.stringify({
     backend: {
@@ -59,11 +78,11 @@ const formatAsJson = (tokens: any, req: any, res: any) => {
       'maildomain':req.user && req.user.user && req.user.user.replace(/.*@/,''),
       'response-time': +tokens['response-time'](req, res, 'iso'),
       method: tokens.method(req, res),
-      url: tokens.url(req, res),
+      url: redactBulkKey(tokens.url(req, res)),
       'http-version': tokens['http-version'](req, res),
       'status-code': +tokens.status(req, res),
       'content-length': +tokens.res(req, res, 'content-length'),
-      referrer: tokens.referrer(req, res),
+      referrer: redactBulkKey(tokens.referrer(req, res)),
       'user-agent': tokens['user-agent'](req, res),
       'job': parseJobHeader(res)
     },
@@ -109,7 +128,7 @@ app.use((
   if (err instanceof ValidateError) {
     log({
         error: "Validation Failed",
-        path: req.path,
+        path: redactBulkKey(req.path),
         details: err?.fields,
     });
     return res.status(422).json({
@@ -120,7 +139,7 @@ app.use((
   if (err instanceof JsonWebTokenError) {
     log({
         error: err.name,
-        path: req.path,
+        path: redactBulkKey(req.path),
     });
     return res.status(422).json({
       message: err.message

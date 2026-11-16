@@ -39,6 +39,10 @@ export const getJobsFilteredData = async (accessToken) => {
             rows: j.data.totalRows,
             id: j.id,
             user: j.data && j.data.user,
+            // The job key is the only credential DELETE accepts: the list
+            // carries it because the queue endpoint only returns it to the
+            // job's owner.
+            randomKey: j.data && j.data.randomKey,
             date: j.timestamp,
             status: j.status,
             waiting_time: j.processedOn && (j.processedOn - j.timestamp) / 1000,
@@ -46,8 +50,8 @@ export const getJobsFilteredData = async (accessToken) => {
             columns: validColumns.filter(c => j.data && j.data[c]),
             processing_rate: j.processedOn && Math.floor((progress / 100) * (j.data.totalRows / delay)),
             finishedOnTime: j.finishedOn ? dateTostr(new Date(j.finishedOn)) : 'en cours',
-            deletionTime: j.status === 'completed' ? dateTostr(new Date(j.finishedOn + (j.data.tmpfilePersistence || 3600000))) : (j.status === 'failed' ? dateTostr(new Date(j.finishedOn)) : 'en cours'),
-            link: (['active', 'created', 'waiting', 'wait'].includes(j.status) || j.status === 'completed' && j.finishedOn && (Date.now() < new Date(j.finishedOn + (j.data.tmpfilePersistence || 3600000)))) ? `/link?job=${j.data.randomKey}` : undefined,
+            deletionTime: j.status === 'completed' ? dateTostr(new Date(j.finishedOn + (j.data.tmpfilePersistence || 28800000))) : (j.status === 'failed' ? dateTostr(new Date(j.finishedOn)) : 'en cours'),
+            link: (['active', 'created', 'waiting', 'wait'].includes(j.status) || j.status === 'completed' && j.finishedOn && (Date.now() < new Date(j.finishedOn + (j.data.tmpfilePersistence || 28800000)))) ? `/link?job=${j.data.randomKey}` : undefined,
             progress: progress
         })});
     return tmpJobs.sort((a,b) => (b.date - a.date)).map(j => {

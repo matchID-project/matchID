@@ -165,7 +165,11 @@
         formData.append('candidateNumber', $linkOptions.api.candidateNumber);
         formData.append('pruneScore', $linkOptions.api.pruneScore);
         formData.append('dateFormat', $linkOptions.csv.dateFormat || 'dd/MM/yyyy');
-        formData.append('tmpfilePersistence', $linkOptions.csv.tmpfilePersistence);
+        // Never send the literal "undefined" nor a value above the 8 h
+        // retention: only the four offered options go out, anything else
+        // converges to the 8 h default (the backend clamps regardless).
+        const rawPersistence = $linkOptions.csv && $linkOptions.csv.tmpfilePersistence;
+        formData.append('tmpfilePersistence', ['60000', '3600000', '14400000', '28800000'].includes(String(rawPersistence)) ? String(rawPersistence) : '28800000');
         Object.keys($linkMapping && $linkMapping.reverse).map(k => formData.append(k,$linkMapping.reverse[k]));
         if ($linkOptions.csv.type === 'gedcom') {
             formData.append('csv', new Blob([$linkOptions.csv.csv], {type: 'text/csv;charset=utf-8;'}));
@@ -219,6 +223,13 @@
                 progressJob = 100;
                 if (!$linkMapping || !$linkFileName || !$linkOptions.csv || !$linkSourceHeader) {
                     const job = await getJobData($accessToken,$linkJob); //.filter(j => j.id === $linkJob)[0];
+                    if (!job || !job.data) {
+                        // The queue only returns a job to its owner: without the
+                        // key in the listing (e.g. another user's job) there is
+                        // nothing to restore from, so report instead of throwing.
+                        error = "Ce traitement n'est pas accessible avec ce compte, merci de le relancer";
+                        return;
+                    }
                     console.log('Restore job metadata from server');
                     $linkFileName = `${job.id}.csv`;
                     $linkOptions.csv = {};
@@ -228,7 +239,7 @@
                     $linkOptions.csv.candidateNumber = Number(job.data.candidateNumber || "10");
                     $linkOptions.csv.pruneScore = job.data.pruneScore;
                     $linkOptions.csv.dateFormat = job.data.dateFormat;
-                    $linkOptions.csv.tmpfilePersistence = job.data && job.data.tmpfilePersistence;
+                    $linkOptions.csv.tmpfilePersistence = job.data && job.data.tmpfilePersistence ? String(job.data.tmpfilePersistence) : '28800000';
                     $linkOptions.type = "csv";
                     $linkSourceHeader = validColumns.map(k => job.data && job.data[k]).filter(k => k);
                     $linkMapping = { direct: {}, reverse: {} };

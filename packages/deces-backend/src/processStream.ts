@@ -39,6 +39,36 @@ const log = (json:any) => {
   }));
 }
 
+// Bulk result retention, in milliseconds. The Info page commits to deleting
+// bulk results 8 hours after the job finishes, and BACKEND_TMPFILE_PERSISTENCE
+// defaults to 28800000 in every deployment, so the stored value is always
+// clamped to [MIN_TMPFILE_PERSISTENCE, MAX_TMPFILE_PERSISTENCE]. A missing or
+// non-numeric value (including the "undefined" string the UI used to send when
+// its options panel was never opened) falls back to the configured default
+// instead of NaN, which BullMQ stores as null.
+export const MIN_TMPFILE_PERSISTENCE = 60000;
+export const MAX_TMPFILE_PERSISTENCE = 28800000;
+// Only strictly positive finite numbers count: null, booleans, empty or
+// whitespace-only strings, 0, negatives, NaN and infinities are all rejected
+// (Number(null), Number('') and Number(false) are all 0, so a plain
+// Number.isFinite check would wrongly accept them). Rejected input falls back
+// to the configured default instead of collapsing to the 1 min minimum.
+const toPositiveNumber = (v: unknown): number => {
+  if (typeof v === 'number') return v > 0 && Number.isFinite(v) ? v : NaN;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    return n > 0 && Number.isFinite(n) ? n : NaN;
+  }
+  return NaN;
+};
+export const parseTmpfilePersistence = (raw: unknown): number => {
+  const envValue = toPositiveNumber(process.env.BACKEND_TMPFILE_PERSISTENCE);
+  const fallback = Number.isFinite(envValue) ? envValue : MAX_TMPFILE_PERSISTENCE;
+  const value = toPositiveNumber(raw);
+  const base = Number.isFinite(value) ? value : fallback;
+  return Math.trunc(Math.min(MAX_TMPFILE_PERSISTENCE, Math.max(MIN_TMPFILE_PERSISTENCE, base)));
+}
+
 const formatJob = (job:any) => {
   const duration: number = job && job.processedOn && job.finishedOn && (job.finishedOn - job.processedOn) / 1000;
   return job && {
@@ -470,7 +500,7 @@ workerJobs.on('completed', async (job: Job) => {
         if (job.data.webhook) {
           await sendWebhook(job.data.webhook, 'deleted', job.data.randomKey);
         }
-      }, Number(job.data.tmpfilePersistence || "28800000")) // Delete results after 8 hour
+      }, parseTmpfilePersistence(job.data.tmpfilePersistence)) // Delete results after the configured retention (8 hours by default)
     }
 });
 
@@ -531,9 +561,18 @@ export const csvHandle = async (request: Request, options: Options): Promise<any
   }
 }
 
-export const returnBulkResults = async (response: Response, id: string, outputFormat: string, order: string): Promise<void> => {
+export const returnBulkResults = async (response: Response, id: string, outputFormat: string, order: string, user?: string): Promise<void> => {
   const jobId = crypto.createHash('sha256').update(id).digest('hex');
   const job: any = await jobQueue.getJob(jobId);
+  // Only the job owner may download or poll the job. Anything else answers
+  // exactly as a non-existent job, so a stranger cannot probe for job
+  // existence. Jobs created before ownership was recorded carry no owner and
+  // are therefore unreachable: they expire on their own within a few hours.
+  const owner = job && job.data && job.data.user;
+  if (!job || !owner || owner !== user) {
+    response.send({msg: 'job doesn\'t exists'});
+    return;
+  }
   const jobsActive = await jobQueue.getJobs(['active'], 0, 100, true);
   const jobStatus = await job.getState();
   if (job && jobStatus === 'completed') {
@@ -662,11 +701,18 @@ export const returnBulkResults = async (response: Response, id: string, outputFo
   }
 }
 
-export const deleteThreadJob = async (response: Response, id: string): Promise<void> => {
+export const deleteThreadJob = async (response: Response, id: string, user?: string): Promise<void> => {
   const jobId = crypto.createHash('sha256').update(id).digest('hex');
-  let job: any= await jobQueue.getJob(jobId)
-  if (!job) {
-    job = await jobQueue.getJob(id)
+  const job: any = await jobQueue.getJob(jobId)
+  // Only the job key resolves a job: the former getJob(id) hash fallback is
+  // gone, and the caller must own the job. Anything else answers exactly as
+  // "not found", so a stranger cannot probe for job existence. Jobs created
+  // before ownership was recorded carry no owner and are therefore
+  // unreachable: they expire on their own within a few hours.
+  const owner = job && job.data && job.data.user;
+  if (!job || !owner || owner !== user) {
+    response.send({msg: 'no job found'})
+    return;
   }
   const jobStatus = await job.getState();
   if (job && jobStatus === 'active') {

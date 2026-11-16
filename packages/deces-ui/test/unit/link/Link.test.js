@@ -66,13 +66,13 @@ describe('Link page (Link.svelte, LinkStep.svelte)', () => {
     ]);
   });
 
-  it('LK-002 renders the step intro paragraphs as HTML (RGPD, 100Mo, AES-256, 1h deletion)', async () => {
+  it('LK-002 renders the step intro paragraphs as HTML (RGPD, 100Mo, AES-256, 8h deletion)', async () => {
     const { container } = await renderLink();
     const text = container.textContent;
     expect(text).toContain('mise en conformité RGPD');
     expect(text).toContain('100Mo');
     expect(text).toContain('chiffrées (AES-256)');
-    expect(text).toContain('supprimées 1h après');
+    expect(text).toContain('supprimées 8h après');
     // {@html}: markup is interpreted, not escaped
     expect([...container.querySelectorAll('p strong')].map(s => s.textContent)).toContain('format CSV');
     expect(text).not.toContain('<strong>');

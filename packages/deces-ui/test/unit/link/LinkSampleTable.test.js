@@ -154,7 +154,7 @@ describe('LinkSampleTable: file sniffing and preview', () => {
 
   it('LK-040 persists the detected options once into $linkOptions.csv {sep, quote, skipLines, encoding, type}', async () => {
     await parse('nom;prenom\nDupont;Jean\n');
-    expect(csvOptions()).toEqual({ sep: ';', quote: undefined, skipLines: 0, encoding: 'utf8', type: 'csv' });
+    expect(csvOptions()).toEqual({ sep: ';', quote: undefined, skipLines: 0, encoding: 'utf8', type: 'csv', tmpfilePersistence: '28800000' });
   });
 
   it('LK-040 does not overwrite csv options that are already set (they are used to read the file)', async () => {

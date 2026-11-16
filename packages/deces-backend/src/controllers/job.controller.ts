@@ -49,6 +49,20 @@ export class JobsController extends Controller {
   ): Promise<any> {
     const scopes = (request as any).user && (request as any).user.scopes
     const user = (request as any).user && (request as any).user.user
+    const isAdmin = !!(scopes && scopes.includes('admin'));
+    const isOwner = (j: any): boolean => Boolean(user) && !!(j && j.data && j.data.user) && j.data.user === user;
+    // The job key (randomKey) is the only download/cancel credential and is
+    // only ever returned to the job owner — including an admin viewing their
+    // own jobs (admin self-service). Admins keep seeing the other job
+    // metadata (owner, status) they need for support, but never another
+    // owner's key, so an admin cannot cancel other users' jobs: cancellation
+    // requires the key only its owner holds. Non-admin non-owners get exactly
+    // `{msg: 'job not found'}`, the same response as an unknown job id.
+    const stripKeyUnlessOwner = (j: any): void => {
+      if (j && j.data && !isOwner(j)) {
+        j.data.randomKey = undefined;
+      }
+    };
     const jobQueue = new Queue(queueName,  {
       connection: buildRedisConnectionOptions()
     });
@@ -56,21 +70,22 @@ export class JobsController extends Controller {
     if (jobsTypeList.includes(jobsType)) {
       const jobs = await jobQueue.getJobs(jobsType);
       let jobsUser;
-      if (scopes.includes('admin')) {
+      if (isAdmin) {
         jobsUser = jobs;
-        // admin should not see randomKey
-        jobsUser.forEach((j: any) => j.data.randomKey = undefined)
+        // admin sees every job metadata but never another owner's key
+        jobsUser.forEach(stripKeyUnlessOwner)
       } else {
         // user only see their jobs, and get their randomKey to be able to get their files
-        jobsUser = jobs.filter((job: any) => job.data.user === user);
+        jobsUser = jobs.filter((job: any) => isOwner(job));
       }
       return { jobs: jobsUser };
     } else if (jobId) {
       const job = await jobQueue.getJob(jobId)
       if (job) {
-        if (scopes.includes('admin')) {
-          job.data.randomKey = undefined;
+        if (!isAdmin && !isOwner(job)) {
+          return { msg: 'job not found' };
         }
+        stripKeyUnlessOwner(job);
         return { job };
       } else {
         return { msg: 'job not found' };
@@ -80,16 +95,14 @@ export class JobsController extends Controller {
       for (const jobType of jobsTypeList) {
         const jobsTmp = await jobQueue.getJobs(jobType);
         let jobsTmpUser;
-        if (scopes.includes('admin')) {
+        if (isAdmin) {
           jobsTmpUser = jobsTmp;
         } else {
-          jobsTmpUser = jobsTmp.filter((job: any) => job.data.user === user);
+          jobsTmpUser = jobsTmp.filter((job: any) => isOwner(job));
         }
         jobsTmpUser.forEach((j: any) => {
           j.status = jobType;
-          if (scopes.includes('admin')) {
-            j.data.randomKey = undefined;
-          }
+          stripKeyUnlessOwner(j);
         });
         jobs = [...jobs, ...jobsTmpUser]
       }

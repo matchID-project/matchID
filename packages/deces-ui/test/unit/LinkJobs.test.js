@@ -33,13 +33,13 @@ describe('LinkJobs', () => {
       new Response(JSON.stringify({ jobs: [activeJob] }))
     );
     const deleteMock = vi.spyOn(axios, 'delete').mockResolvedValue({
-      data: { msg: `Job ${activeJob.id} cancelled` }
+      data: { msg: `Job ${activeJob.data.randomKey} cancelled` }
     });
     accessToken.set('token-456');
     render(LinkJobs);
     await fireEvent.click(await screen.findByTitle('arrêter'));
     expect(deleteMock).toHaveBeenCalledWith(
-      `/deces/api/v1/search/csv/${activeJob.id}`,
+      `/deces/api/v1/search/csv/${activeJob.data.randomKey}`,
       { headers: { Authorization: 'Bearer token-456' } }
     );
     await waitFor(() => expect(screen.getByText('arrêté')).toBeTruthy());

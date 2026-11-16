@@ -82,6 +82,7 @@
                                             <div style="display: flex;align-items:center">
                                                 {#if job.status == 'active'}
                                                     {job.progress}%
+                                                    {#if job.randomKey}
                                                     <span
                                                         title="arrêter"
                                                         on:click|preventDefault={() => deleteJob(job, idx)}
@@ -89,6 +90,7 @@
                                                     >
                                                         <Icon icon="ri:delete-bin-line" class="rf-color--rm"/>
                                                     </span>
+                                                    {/if}
                                                 {:else}
                                                     {statusLabel[job.status] || job.status}
                                                 {/if}
@@ -151,7 +153,10 @@
     }
 
     const deleteJob = async (job, idx) => {
-      const res = await axios.delete(`__BACKEND_PROXY_PATH__/search/csv/${job.id}`, {
+      // Cancellation requires the job key (DELETE no longer accepts the job
+      // hash). Without a key (e.g. the admin view, which redacts it) the
+      // backend answers "not found" and the row is left untouched.
+      const res = await axios.delete(`__BACKEND_PROXY_PATH__/search/csv/${job.randomKey}`, {
         headers: { Authorization: `Bearer ${$accessToken}` }
       })
       if (res.data && res.data.msg.includes('cancelled')) {
