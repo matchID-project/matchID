@@ -89,7 +89,7 @@ describe('/jobs (LinkJobs.svelte, jobs.js)', () => {
     expect(table.map(r => r[0])).toEqual([
       '2026-11-07 11:58', '2026-11-07 11:55', '2026-11-07 11:50', '2026-11-07 11:30', '2026-11-07 07:00', '2026-11-07 05:20'
     ]);
-    expect(table[3]).toEqual(['2026-11-07 11:30', '2026-11-07 11:40', '2026-11-07 12:40', 'job-012345...', 'succès', '600', '2', '1']);
+    expect(table[3]).toEqual(['2026-11-07 11:30', '2026-11-07 11:40', '2026-11-07 19:40', 'job-012345...', 'succès', '600', '2', '1']);
   });
 
   it('LK-152 getJobsFilteredData computes progress, rates, waiting and processing times', async () => {
@@ -198,7 +198,7 @@ describe('/jobs (LinkJobs.svelte, jobs.js)', () => {
     const table = rows();
     expect(table[1].slice(1, 3)).toEqual(['en cours', 'en cours']); // active
     expect(table[2].slice(1, 3)).toEqual(['2026-11-07 11:51', '2026-11-07 11:51']); // failed
-    expect(table[3].slice(1, 3)).toEqual(['2026-11-07 11:40', '2026-11-07 12:40']); // default 1 h
+    expect(table[3].slice(1, 3)).toEqual(['2026-11-07 11:40', '2026-11-07 19:40']); // default 8 h
     expect(table[4].slice(1, 3)).toEqual(['2026-11-07 07:10', '2026-11-07 07:11']); // 1 min persistence
   });
 

@@ -435,7 +435,7 @@
                 dateFormat: 'yyyyMMdd',
                 encoding: 'utf-8',
                 type: type,
-                tmpfilePersistence: '3600000',
+                tmpfilePersistence: '28800000',
                 gedcom: tree,
                 csv: myHeader.join('\t')+'\n'+rows.map(r => r.join('\t')).join('\n')
             };
@@ -455,7 +455,7 @@
                 skipLines: skipLines,
                 encoding: encoding,
                 type: type,
-                tmpfilePersistence: '3600000'
+                tmpfilePersistence: '28800000'
             };
             console.log('Guessed CSV type:',$linkOptions.csv);
         }

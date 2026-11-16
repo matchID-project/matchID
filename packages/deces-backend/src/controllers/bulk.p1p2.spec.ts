@@ -73,34 +73,34 @@ describe('bulk retention parsing (P2)', () => {
   });
 
   it('falls back to BACKEND_TMPFILE_PERSISTENCE for the "undefined" string the UI used to send', () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
-    expect(parseTmpfilePersistence('undefined')).toBe(3600000);
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
+    expect(parseTmpfilePersistence('undefined')).toBe(28800000);
   });
 
   it('falls back to BACKEND_TMPFILE_PERSISTENCE for NaN and non-numeric values', () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
-    expect(parseTmpfilePersistence(NaN)).toBe(3600000);
-    expect(parseTmpfilePersistence('abc')).toBe(3600000);
-    expect(parseTmpfilePersistence('')).toBe(3600000);
-    expect(parseTmpfilePersistence('   ')).toBe(3600000);
-    expect(parseTmpfilePersistence(null)).toBe(3600000);
-    expect(parseTmpfilePersistence(undefined)).toBe(3600000);
-    expect(parseTmpfilePersistence(false)).toBe(3600000);
-    expect(parseTmpfilePersistence(true)).toBe(3600000);
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
+    expect(parseTmpfilePersistence(NaN)).toBe(28800000);
+    expect(parseTmpfilePersistence('abc')).toBe(28800000);
+    expect(parseTmpfilePersistence('')).toBe(28800000);
+    expect(parseTmpfilePersistence('   ')).toBe(28800000);
+    expect(parseTmpfilePersistence(null)).toBe(28800000);
+    expect(parseTmpfilePersistence(undefined)).toBe(28800000);
+    expect(parseTmpfilePersistence(false)).toBe(28800000);
+    expect(parseTmpfilePersistence(true)).toBe(28800000);
   });
 
   it('falls back to BACKEND_TMPFILE_PERSISTENCE for 0, negatives and non-finite values', () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
-    expect(parseTmpfilePersistence(0)).toBe(3600000);
-    expect(parseTmpfilePersistence('0')).toBe(3600000);
-    expect(parseTmpfilePersistence(-5)).toBe(3600000);
-    expect(parseTmpfilePersistence('-100')).toBe(3600000);
-    expect(parseTmpfilePersistence(Infinity)).toBe(3600000);
-    expect(parseTmpfilePersistence(-Infinity)).toBe(3600000);
-    expect(parseTmpfilePersistence('Infinity')).toBe(3600000);
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
+    expect(parseTmpfilePersistence(0)).toBe(28800000);
+    expect(parseTmpfilePersistence('0')).toBe(28800000);
+    expect(parseTmpfilePersistence(-5)).toBe(28800000);
+    expect(parseTmpfilePersistence('-100')).toBe(28800000);
+    expect(parseTmpfilePersistence(Infinity)).toBe(28800000);
+    expect(parseTmpfilePersistence(-Infinity)).toBe(28800000);
+    expect(parseTmpfilePersistence('Infinity')).toBe(28800000);
   });
 
-  it('falls back to the 1 h maximum when BACKEND_TMPFILE_PERSISTENCE itself is empty or invalid', () => {
+  it('falls back to the 8 h maximum when BACKEND_TMPFILE_PERSISTENCE itself is empty or invalid', () => {
     process.env.BACKEND_TMPFILE_PERSISTENCE = '';
     expect(parseTmpfilePersistence(undefined)).toBe(MAX_TMPFILE_PERSISTENCE);
     expect(parseTmpfilePersistence(null)).toBe(MAX_TMPFILE_PERSISTENCE);
@@ -111,28 +111,30 @@ describe('bulk retention parsing (P2)', () => {
   });
 
   it('truncates floats and clamps small-but-valid values to 60 000', () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
     expect(parseTmpfilePersistence('1000')).toBe(60000);
     expect(parseTmpfilePersistence(1000)).toBe(60000);
     expect(parseTmpfilePersistence('90000.7')).toBe(90000);
     expect(parseTmpfilePersistence(90000.7)).toBe(90000);
   });
 
-  it('clamps too-large values to the published 1 h maximum', () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
-    expect(parseTmpfilePersistence('28800000')).toBe(3600000);
-    expect(parseTmpfilePersistence('14400000')).toBe(3600000);
-    expect(parseTmpfilePersistence(99999999)).toBe(3600000);
+  it('clamps too-large values to the 8 h maximum', () => {
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
+    expect(parseTmpfilePersistence('36000000')).toBe(28800000);
+    expect(parseTmpfilePersistence('99999999')).toBe(28800000);
+    expect(parseTmpfilePersistence(99999999)).toBe(28800000);
   });
 
-  it('keeps valid values inside [60 000, 3 600 000]', () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+  it('keeps valid values inside [60 000, 28 800 000]', () => {
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
     expect(parseTmpfilePersistence('60000')).toBe(60000);
     expect(parseTmpfilePersistence('3600000')).toBe(3600000);
+    expect(parseTmpfilePersistence('14400000')).toBe(14400000);
+    expect(parseTmpfilePersistence('28800000')).toBe(28800000);
     expect(parseTmpfilePersistence(120000)).toBe(120000);
   });
 
-  it('falls back to the 1 h maximum when the env default itself is missing or invalid', () => {
+  it('falls back to the 8 h maximum when the env default itself is missing or invalid', () => {
     delete process.env.BACKEND_TMPFILE_PERSISTENCE;
     expect(parseTmpfilePersistence(undefined)).toBe(MAX_TMPFILE_PERSISTENCE);
     process.env.BACKEND_TMPFILE_PERSISTENCE = 'not-a-number';
@@ -141,7 +143,7 @@ describe('bulk retention parsing (P2)', () => {
   });
 
   it('uploadCsv stores the parsed retention, never NaN', async () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
     const controller = new BulkController();
     vi.spyOn(controller as any, 'handleFile').mockResolvedValue(true);
     const csvHandleSpy = vi.spyOn(processStream, 'csvHandle').mockResolvedValue({ msg: 'started' } as any);
@@ -156,9 +158,10 @@ describe('bulk retention parsing (P2)', () => {
       const calls = csvHandleSpy.mock.calls;
       return (calls[calls.length - 1] as any[])[1].tmpfilePersistence;
     };
-    expect(await post(undefined)).toBe(3600000);
-    expect(await post('undefined')).toBe(3600000);
-    expect(await post('28800000')).toBe(3600000);
+    expect(await post(undefined)).toBe(28800000);
+    expect(await post('undefined')).toBe(28800000);
+    expect(await post('28800000')).toBe(28800000);
+    expect(await post('14400000')).toBe(14400000);
     expect(await post('1000')).toBe(60000);
     expect(await post('60000')).toBe(60000);
     vi.restoreAllMocks();
@@ -405,7 +408,7 @@ describe('completed-job deletion timer (P2, F5)', () => {
   });
 
   it('deletes the result file parseTmpfilePersistence(job.data.tmpfilePersistence) ms after completion', async () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
     process.env.JOBS = '/tmp/bulk-jobs-test';
     vi.useFakeTimers();
     const unlinkSpy = unlinkSoon();
@@ -419,8 +422,8 @@ describe('completed-job deletion timer (P2, F5)', () => {
     expect(unlinkSpy.mock.calls[0][0]).toBe('/tmp/bulk-jobs-test/hash123.out.enc');
   });
 
-  it('a null retention (legacy BullMQ NaN) waits for the 1 h default, not 1 min', async () => {
-    process.env.BACKEND_TMPFILE_PERSISTENCE = '3600000';
+  it('a null retention (legacy BullMQ NaN) waits for the 8 h default, not 1 min', async () => {
+    process.env.BACKEND_TMPFILE_PERSISTENCE = '28800000';
     process.env.JOBS = '/tmp/bulk-jobs-test';
     vi.useFakeTimers();
     const unlinkSpy = unlinkSoon();
@@ -428,7 +431,7 @@ describe('completed-job deletion timer (P2, F5)', () => {
     await workerHandlers.completed({ id: 'hash456', data: { user: 'alice@example.org', randomKey: 'secret-key', tmpfilePersistence: null } });
     await vi.advanceTimersByTimeAsync(60000);
     expect(unlinkSpy).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(3600000 - 60000);
+    await vi.advanceTimersByTimeAsync(28800000 - 60000);
     expect(unlinkSpy).toHaveBeenCalledTimes(1);
   });
 });

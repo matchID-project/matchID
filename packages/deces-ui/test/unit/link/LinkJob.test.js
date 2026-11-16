@@ -16,7 +16,7 @@ const mapping = {
   direct: { nom: 'lastName', prenom: 'firstName', naissance: 'birthDate' },
   reverse: { lastName: 'nom', firstName: 'prenom', birthDate: 'naissance' }
 };
-const csvOptions = { sep: ',', quote: undefined, skipLines: 0, encoding: 'utf8', type: 'csv', dateFormat: 'dd/MM/yyyy', tmpfilePersistence: '3600000' };
+const csvOptions = { sep: ',', quote: undefined, skipLines: 0, encoding: 'utf8', type: 'csv', dateFormat: 'dd/MM/yyyy', tmpfilePersistence: '28800000' };
 
 const resultCsv = [
   'nom,prenom,naissance,sourceLineNumber,score,name.last',
@@ -66,44 +66,57 @@ describe('LinkJob (upload, polling, results)', () => {
       expect(config.headers).toEqual({ Authorization: 'Bearer token-1' });
       expect(Object.fromEntries([...form.entries()].filter(([k]) => k !== 'csv'))).toEqual({
         sep: ',', encoding: 'utf8', skipLines: '0', candidateNumber: '10', pruneScore: '0.3',
-        dateFormat: 'dd/MM/yyyy', tmpfilePersistence: '3600000',
+        dateFormat: 'dd/MM/yyyy', tmpfilePersistence: '28800000',
         lastName: 'nom', firstName: 'prenom', birthDate: 'naissance'
       });
       expect(form.get('csv').name).toBe('clients.csv');
     });
 
-    it('LK-087 pins the defaults: dateFormat "dd/MM/yyyy" and the 1 h persistence; the quote is not sent', async () => {
+    it('LK-087 pins the defaults: dateFormat "dd/MM/yyyy" and the 8 h persistence; the quote is not sent', async () => {
       prepareSession({ options: { dateFormat: undefined, tmpfilePersistence: undefined, quote: '"' } });
       const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
       render(LinkJob);
       await vi.waitFor(() => expect(post).toHaveBeenCalled());
       const form = post.mock.calls[0][1];
       expect(form.get('dateFormat')).toBe('dd/MM/yyyy');
-      expect(form.get('tmpfilePersistence')).toBe('3600000');
+      expect(form.get('tmpfilePersistence')).toBe('28800000');
       expect(form.has('quote')).toBe(false);
     });
 
-    it('LK-087 falls back to the 1 h persistence for a stored "undefined" or non-numeric value', async () => {
-      for (const tmpfilePersistence of ['undefined', 'garbage', '']) {
-        resetLinkStores();
-        prepareSession({ options: { tmpfilePersistence } });
-        const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
-        render(LinkJob);
-        await vi.waitFor(() => expect(post).toHaveBeenCalled());
-        expect(post.mock.calls[0][1].get('tmpfilePersistence')).toBe('3600000');
-        vi.restoreAllMocks();
-        document.body.innerHTML = '';
-      }
-    });
-
-    it('LK-087 falls back to the 1 h persistence for a stored value above the 1 h maximum', async () => {
+    it('LK-087 sends the chosen 4 h or 8 h persistence unchanged', async () => {
       for (const tmpfilePersistence of ['14400000', '28800000']) {
         resetLinkStores();
         prepareSession({ options: { tmpfilePersistence } });
         const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
         render(LinkJob);
         await vi.waitFor(() => expect(post).toHaveBeenCalled());
-        expect(post.mock.calls[0][1].get('tmpfilePersistence')).toBe('3600000');
+        expect(post.mock.calls[0][1].get('tmpfilePersistence')).toBe(tmpfilePersistence);
+        vi.restoreAllMocks();
+        document.body.innerHTML = '';
+      }
+    });
+
+    it('LK-087 falls back to the 8 h persistence for a stored "undefined" or non-numeric value', async () => {
+      for (const tmpfilePersistence of ['undefined', 'garbage', '']) {
+        resetLinkStores();
+        prepareSession({ options: { tmpfilePersistence } });
+        const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
+        render(LinkJob);
+        await vi.waitFor(() => expect(post).toHaveBeenCalled());
+        expect(post.mock.calls[0][1].get('tmpfilePersistence')).toBe('28800000');
+        vi.restoreAllMocks();
+        document.body.innerHTML = '';
+      }
+    });
+
+    it('LK-087 falls back to the 8 h persistence for a stored value above the 8 h maximum', async () => {
+      for (const tmpfilePersistence of ['36000000', '99999999']) {
+        resetLinkStores();
+        prepareSession({ options: { tmpfilePersistence } });
+        const post = vi.spyOn(axios, 'post').mockReturnValue(new Promise(() => {}));
+        render(LinkJob);
+        await vi.waitFor(() => expect(post).toHaveBeenCalled());
+        expect(post.mock.calls[0][1].get('tmpfilePersistence')).toBe('28800000');
         vi.restoreAllMocks();
         document.body.innerHTML = '';
       }
@@ -300,8 +313,8 @@ describe('LinkJob (upload, polling, results)', () => {
       });
     });
 
-    it('LK-098 coerces a numeric server-side persistence to a string and defaults a missing one to 1 h', async () => {
-      for (const [serverValue, expected] of [[3600000, '3600000'], [60000, '60000'], [undefined, '3600000'], [null, '3600000']]) {
+    it('LK-098 coerces a numeric server-side persistence to a string and defaults a missing one to 8 h', async () => {
+      for (const [serverValue, expected] of [[28800000, '28800000'], [3600000, '3600000'], [14400000, '14400000'], [60000, '60000'], [undefined, '28800000'], [null, '28800000']]) {
         resetLinkStores();
         accessToken.set('token-1');
         linkJob.set('key-9');

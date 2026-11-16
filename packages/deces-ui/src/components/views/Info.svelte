@@ -250,7 +250,7 @@
         </p>
         <p>
           Les données que vous transmettez pour appariement sont stockées chiffrées temporairement pendant le traitement
-          et effacées automatiquement un heure après. Leur consultation par l'équipe matchID n'est pas directement possible et
+          et effacées automatiquement 8 heures après (une durée plus courte — 1 minute, 1 heure ou 4 heures — peut être choisie au moment du dépôt du fichier). Leur consultation par l'équipe matchID n'est pas directement possible et
           nécessite un effort particulier relevant d'une volonté d'accès, contraire à notre engagement.
         </p>
         <p>

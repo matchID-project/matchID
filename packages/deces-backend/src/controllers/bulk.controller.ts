@@ -112,6 +112,10 @@ export class BulkController extends Controller {
    *                  type: string
    *                  description: Fichier CSV contenant le noms des identités à comparer
    *                  format: binary
+   *                tmpfilePersistence:
+   *                  type: number
+   *                  description: Durée de conservation du fichier de résultats en millisecondes (8 h par défaut, durées plus courtes possibles : 1 minute, 1 heure, 4 heures)
+   *                  example: 28800000
    *      responses:
    *        200:
    *          description: Success de request

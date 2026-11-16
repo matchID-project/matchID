@@ -40,15 +40,14 @@ const log = (json:any) => {
 }
 
 // Bulk result retention, in milliseconds. The Info page commits to deleting
-// bulk results one hour after the job finishes, and BACKEND_TMPFILE_PERSISTENCE
-// defaults to 3600000 in every deployment, so the stored value is always
+// bulk results 8 hours after the job finishes, and BACKEND_TMPFILE_PERSISTENCE
+// defaults to 28800000 in every deployment, so the stored value is always
 // clamped to [MIN_TMPFILE_PERSISTENCE, MAX_TMPFILE_PERSISTENCE]. A missing or
 // non-numeric value (including the "undefined" string the UI used to send when
 // its options panel was never opened) falls back to the configured default
-// instead of NaN, which BullMQ stores as null and the old
-// `Number(... || "28800000")` fallback turned into 8 hours.
+// instead of NaN, which BullMQ stores as null.
 export const MIN_TMPFILE_PERSISTENCE = 60000;
-export const MAX_TMPFILE_PERSISTENCE = 3600000;
+export const MAX_TMPFILE_PERSISTENCE = 28800000;
 // Only strictly positive finite numbers count: null, booleans, empty or
 // whitespace-only strings, 0, negatives, NaN and infinities are all rejected
 // (Number(null), Number('') and Number(false) are all 0, so a plain
@@ -501,7 +500,7 @@ workerJobs.on('completed', async (job: Job) => {
         if (job.data.webhook) {
           await sendWebhook(job.data.webhook, 'deleted', job.data.randomKey);
         }
-      }, parseTmpfilePersistence(job.data.tmpfilePersistence)) // Delete results after the configured retention (at most 1 hour)
+      }, parseTmpfilePersistence(job.data.tmpfilePersistence)) // Delete results after the configured retention (8 hours by default)
     }
 });
 

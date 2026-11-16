@@ -79,7 +79,7 @@ spec:
             - name: BACKEND_CHUNK_CONCURRENCY
               value: "2"
             - name: BACKEND_TMPFILE_PERSISTENCE
-              value: "3600000"
+              value: "28800000"
             - name: BACKEND_TMP_DURATION
               value: "14400"
             - name: BACKEND_TMP_MAX

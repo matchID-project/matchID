@@ -205,8 +205,8 @@
             </p>
             <p>
                 L'utilisation du service représente un traitement de données à cartère personnel, soumis au RGPD - vous devrez
-                vous enregistrer pour garantir une tracabilité de l'autorisation de traitement. Les données transmises sont chiffrées (AES-256) et supprimées 1h après
-                la fin du traitement.
+                vous enregistrer pour garantir une tracabilité de l'autorisation de traitement. Les données transmises sont chiffrées (AES-256) et supprimées 8h après
+                la fin du traitement (par défaut ; une durée plus courte — 1 minute, 1 heure ou 4 heures — peut être choisie dans les options).
             </p>
             <p>
                 Le fichier doit être au <strong>format CSV</strong> ('enregistrer sous...' dans votre tableur préféré) et déposé ci-dessous.
@@ -242,7 +242,7 @@
             <p>
                 Vous pouvez quitter la page et <strong>revenir ultérieurement</strong>,
                 les données de références sont enregistrées dans le navigateur, et vous permettront de retrouver vos résultats. Attention
-                néanmoins, ceux-ci sont effacés au bout d'une heure si vous n'avez pas consulté la page.
+                néanmoins, ceux-ci sont effacés au bout de 8 heures (ou plus tôt si vous avez choisi une durée de conservation plus courte) si vous n'avez pas consulté la page.
             </p>
           `
         },
@@ -262,7 +262,7 @@
                 Vous pouvez néanmoins d'ores et déjà télécharger les données et les traiter dans votre tableur.
             </p>
             <p>
-                Si les résultats sont effacés du serveur au bout d'une heure, ils restent enregistrés sur
+                Si les résultats sont effacés du serveur au bout de 8 heures par défaut, ils restent enregistrés sur
                 votre navigateur, tant que vous n'avez pas cliqué sur l'icône <span class="rf-fi-delete-line"></span>
             </p>
           `

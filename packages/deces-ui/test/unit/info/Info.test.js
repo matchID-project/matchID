@@ -388,7 +388,7 @@ describe('Info (FAQ / about)', () => {
         'Données personnelles des utilisateurs de matchID',
         'Google Analytics & Google Ads'
       ]);
-      expect(body).toContain('effacées automatiquement un heure après');
+      expect(body).toContain('effacées automatiquement 8 heures après');
       // Content vs behaviour mismatch (see IN-185/IN-186): GA and Ads are
       // hard-disabled in App.svelte but the legal text still states they are used.
       expect(body).toContain('fait l\'usage de cookies Google Analytics et Google Ads');

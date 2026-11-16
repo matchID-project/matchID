@@ -66,7 +66,7 @@ Le site deces.matchid.io devient dès lors implicitement sous-traitant au sens R
 
 Les conditions générales de traitement sont les suivantes :
 - le fichier soumis est stocké chiffré pendant la durée du traitement et supprimé à l'issue
-- le fichier complété est stocké chiffré et conservé 1h à l'issue du traitement
+- le fichier complété est stocké chiffré et conservé 8h par défaut à l'issue du traitement (durées plus courtes sélectionnables au dépôt du fichier : 1 minute, 1 heure, 4 heures)
 - la clé de chiffrement est uniquement accessible de l'application (et n'est pas accessible des opérateurs)
 - le protocole est AES256, et la clé est renouvelée chaque mois
 - l'opérateur d'hébergement est Scaleway (région Parisienne - fr-par-1, suceptible de bouger à tout moment sur fr-par-2)
