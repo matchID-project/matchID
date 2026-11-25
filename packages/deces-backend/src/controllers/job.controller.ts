@@ -23,8 +23,9 @@ export class JobsController extends Controller {
     @Query() name?: 'jobs'|'chunks',
   ): Promise<any> {
     if (name !== undefined) {
-      const jobQueue = new Queue(name,  {
-        connection: buildRedisConnectionOptions()
+      const jobQueue = new Queue(name, {
+        connection: buildRedisConnectionOptions(),
+        skipMetasUpdate: true,
       });
       return await jobQueue.getJobCounts();
     } else {
@@ -49,8 +50,9 @@ export class JobsController extends Controller {
   ): Promise<any> {
     const scopes = (request as any).user && (request as any).user.scopes
     const user = (request as any).user && (request as any).user.user
-    const jobQueue = new Queue(queueName,  {
-      connection: buildRedisConnectionOptions()
+    const jobQueue = new Queue(queueName, {
+      connection: buildRedisConnectionOptions(),
+      skipMetasUpdate: true,
     });
     const jobsTypeList: JobType[] = ['completed', 'failed', 'active', 'delayed', 'waiting', 'waiting-children', 'paused', 'repeat', 'wait', 'prioritized']
     if (jobsTypeList.includes(jobsType)) {

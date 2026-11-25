@@ -59,19 +59,37 @@ const pipelineAsync:any = promisify(pipeline);
 const stopJob: string[] = [];
 const stopJobReason: StopJobReason[] = [];
 const stopJobError = 'job has been stopped';
-const jobQueue = new Queue('jobs',  {
-  connection: buildRedisConnectionOptions()
+export const JOB_EVENTS_MAX_LEN = 100;
+export const CHUNK_EVENTS_MAX_LEN = 200;
+export const CHUNK_REMOVE_ON_COMPLETE = {
+  age: 300,
+  count: 50,
+};
+
+const jobQueue = new Queue('jobs', {
+  connection: buildRedisConnectionOptions(),
+  streams: {
+    events: {
+      maxLen: JOB_EVENTS_MAX_LEN,
+    },
+  },
 });
 
 const chunkEvents = new QueueEvents('chunks', {
   connection: buildRedisConnectionOptions()
 });
 
-const chunkQueue = new Queue('chunks',  {
+const chunkQueue = new Queue('chunks', {
   connection: buildRedisConnectionOptions(),
+  streams: {
+    events: {
+      maxLen: CHUNK_EVENTS_MAX_LEN,
+    },
+  },
   defaultJobOptions: {
-    removeOnFail: true
-  }
+    removeOnComplete: CHUNK_REMOVE_ON_COMPLETE,
+    removeOnFail: true,
+  },
 });
 
 const ToLinesStream = () => {
@@ -421,10 +439,13 @@ export class ProcessStream extends Transform {
         jobId,
         priority: this.job.opts.priority
       })
-    await job.waitUntilFinished(chunkEvents)
-    const jobResult = await Job.fromId(chunkQueue, job.id)
-    this.jobs.push({id: jobId, result: jobResult.returnvalue})
-    await job.remove();
+    const result = await job.waitUntilFinished(chunkEvents);
+    this.jobs.push({id: jobId, result});
+    try {
+      await job.remove();
+    } catch (err: any) {
+      log({removeChunkJobError: err instanceof Error ? err.message : 'failed to remove chunk job', jobId});
+    }
     this.batch = [];
   }
 
